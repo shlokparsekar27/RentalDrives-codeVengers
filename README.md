@@ -37,7 +37,4 @@ GoiCarz is a community-driven marketplace that connects travelers with a network
 * **Payment & Messaging:**
   * **Razorpay API** : Secure online payments (pay-per-transaction, no monthly fee).
   * **WhatsApp Cloud API** : Automated booking & payment notifications (1,000 free business messages/month).
-
-* **Analytics & Monitoring:**
-  * **Supabase SQL + pgCron** : Scheduled analytics (e.g., monthly bookings report).
-  * **Google Analytics / Plausible** : Website traffic analytics.
+ 
