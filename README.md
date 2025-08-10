@@ -11,8 +11,8 @@ GoiCarz is a community-driven marketplace that connects travelers with a network
 - [Falgun Kole](https://github.com/FalgunKole)  
 
 ## Tech Stack
-- Frontend
---React + TypeScript – Main UI framework with type safety for fewer bugs.
---Tailwind CSS – Fast, responsive, utility-first styling.
---React Query (TanStack Query) – Data fetching & caching with real-time updates from Supabase.
---Vite – Fast development bundler for React + TS.
+* **Frontend:**
+* **React + TypeScript** : Main UI framework with type safety for fewer bugs.
+* **Tailwind CSS** : Fast, responsive, utility-first styling.
+* **React Query (TanStack Query)** : Data fetching & caching with real-time updates from Supabase.
+* **Vite** : Fast development bundler for React + TS.
