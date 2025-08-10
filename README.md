@@ -17,3 +17,27 @@ GoiCarz is a community-driven marketplace that connects travelers with a network
     * **Tailwind CSS** : Fast, responsive, utility-first styling.
     * **React Query (TanStack Query)** : Data fetching & caching with real-time updates from Supabase.
     * **Vite** : Fast development bundler for React + TS.
+
+* **Backend:**
+  * **Node.js + Express** : Handles:
+    * Razorpay payment integration.
+    * WhatsApp Cloud API for booking notifications.
+    * Any extra business logic not handled directly in Supabase.
+  * **Supabase Edge Functions** : Optional serverless functions for quick, secure logic without leaving Supabase.
+
+* **Database & Backend Services:**
+  * **Supabase (PostgreSQL)** :
+    * Tables for users, vehicles, bookings, payments, reviews.
+    * Role-based access control (Tourist, Host, Admin).
+    * Foreign keys for relational integrity.
+  * **Supabase Auth** : Secure login (email/password, OTP, Google login).
+  * **Supabase Storage** : Vehicle images, driver license docs (50MB free tier).
+  * **Supabase Realtime** : Live booking status updates.
+
+* **Payment & Messaging:**
+  * **Razorpay API** : Secure online payments (pay-per-transaction, no monthly fee).
+  * **WhatsApp Cloud API** : Automated booking & payment notifications (1,000 free business messages/month).
+
+* **Analytics & Monitoring:**
+  * **Supabase SQL + pgCron** : Scheduled analytics (e.g., monthly bookings report).
+  * **Google Analytics / Plausible** : Website traffic analytics.
