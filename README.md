@@ -6,8 +6,8 @@
 
 ## Team Members
 - [Shlok Parsekar](https://github.com/shlokparsekar27)
-- [Advit Mandrekar](https://github.com/)  
-- [Vollin Fernandes](https://github.com/)  
+- [Advit Mandrekar](https://github.com/MandrekarAdvit)  
+- [Vollin Fernandes](https://github.com/vollin-git)  
 - [Roydon Soares](https://github.com/)  
 - [Falgun Kole](https://github.com/)  
 
