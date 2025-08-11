@@ -16,6 +16,7 @@ GoiCarz is a community-driven marketplace that connects travelers with a network
     * **React + TypeScript** : Main UI framework with type safety for fewer bugs.
     * **Tailwind CSS** : Fast, responsive, utility-first styling.
     * **React Query (TanStack Query)** : Data fetching & caching with real-time updates from Supabase.
+    * **Leaflet.js / Mapbox** : Location-based search & map display (Mapbox free tier: 50K map loads/month).
     * **Vite** : Fast development bundler for React + TS.
 
 * **Backend:**
@@ -38,3 +39,45 @@ GoiCarz is a community-driven marketplace that connects travelers with a network
   * **Razorpay API** : Secure online payments (pay-per-transaction, no monthly fee).
   * **WhatsApp Cloud API** : Automated booking & payment notifications (1,000 free business messages/month).
  
+## API Documentation
+
+The complete blueprint for our backend is documented in the API Contract. It details every endpoint, its required parameters, and expected responses.
+
+**[View the API Contract](./API_CONTRACT.md)**
+
+Additionally, the running backend server provides interactive Swagger UI documentation.
+
+---
+## Getting Started
+
+Follow these instructions to set up and run the backend server on your local machine.
+
+### **Prerequisites**
+* [Node.js](https://nodejs.org/) (v18 or later)
+* [npm](https://www.npmjs.com/) (comes with Node.js)
+
+### **Backend Setup**
+
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/shlokparsekar27/GoiCarz-codeVengers.git](https://github.com/shlokparsekar27/GoiCarz-codeVengers.git)
+    cd GoiCarz-codeVengers
+    ```
+
+2.  **Navigate to the backend directory:**
+    ```bash
+    cd backend
+    ```
+    
+3.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+4.  **Start the server:**
+    ```bash
+    npm start
+    ```
+
+The server will now be running at `http://localhost:3001`.
+The interactive API documentation will be available at `http://localhost:3001/api-docs`.
