@@ -79,5 +79,5 @@ Follow these instructions to set up and run the backend server on your local mac
     npm start
     ```
 
-The server will now be running at `http://localhost:3001`.
-The interactive API documentation will be available at `http://localhost:3001/api-docs`.
+* The server will now be running at `http://localhost:3001`.
+* The interactive API documentation will be available at `http://localhost:3001/api-docs`.
