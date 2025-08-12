@@ -38,6 +38,8 @@ RentalDrives is a community-driven marketplace that connects travelers with a ne
 * **Payment & Messaging:**
   * **Razorpay API** : Secure online payments (pay-per-transaction, no monthly fee).
   * **WhatsApp Cloud API** : Automated booking & payment notifications (1,000 free business messages/month).
+
+ ---
  
 ## API Documentation
 
@@ -51,10 +53,11 @@ Additionally, the running backend server provides interactive Swagger UI documen
 
 The backend for this project is deployed and live on Render.
 
-* **Base URL:** `https://rentaldrives.onrender.com`
+* **Base URL:** [`https://rentaldrives.onrender.com`](https://rentaldrives.onrender.com)
 * **Live API Documentation (Swagger UI):** [`https://rentaldrives.onrender.com/api-docs/`](https://rentaldrives.onrender.com/api-docs/)
 
 ---
+
 ## Getting Started
 
 Follow these instructions to set up and run the backend server on your local machine.
