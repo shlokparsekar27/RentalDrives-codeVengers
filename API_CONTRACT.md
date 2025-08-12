@@ -3,6 +3,7 @@
 This document outlines the API endpoints for the RentalDrives backend service assignment. It is an exact representation of the implemented code.
 
 ---
+
 ## Auth Endpoints
 
 ### **1. User Signup**
