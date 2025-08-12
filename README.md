@@ -13,11 +13,11 @@ RentalDrives is a community-driven marketplace that connects travelers with a ne
 ## Tech Stack
 
 * **Frontend:**
-    * **React + JavaScript** : Main UI framework with type safety for fewer bugs.
+    * **React + JavaScript** : Main UI framework for building the user interface.
     * **Tailwind CSS** : Fast, responsive, utility-first styling.
     * **React Query (TanStack Query)** : Data fetching & caching with real-time updates from Supabase.
     * **Leaflet.js / Mapbox** : Location-based search & map display (Mapbox free tier: 50K map loads/month).
-    * **Vite** : Fast development bundler for React + TS.
+    * **Vite** : Next-generation frontend tooling for fast development.
 
 * **Backend:**
   * **Node.js + Express** : Handles:
