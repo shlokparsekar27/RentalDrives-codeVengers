@@ -43,7 +43,7 @@ const authenticateToken = (req, res, next) => {
 const swaggerDocument = {
     openapi: '3.0.0',
     info: {
-        title: 'GoiCarz API',
+        title: 'RentalDrives API',
         version: '1.0.0',
         description: 'Complete API for Vehicle Rentals (Assignment)',
     },

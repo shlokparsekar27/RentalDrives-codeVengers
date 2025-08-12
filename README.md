@@ -60,8 +60,8 @@ Follow these instructions to set up and run the backend server on your local mac
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/shlokparsekar27/GoiCarz-codeVengers.git
-    cd GoiCarz-codeVengers
+    git clone https://github.com/shlokparsekar27/RentalDrives-codeVengers.git
+    cd RentalDrives-codeVengers
     ```
 
 2.  **Navigate to the backend directory:**

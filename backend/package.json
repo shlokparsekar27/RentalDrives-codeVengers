@@ -1,7 +1,7 @@
 {
   "name": "assignment-4-backend",
   "version": "1.0.0",
-  "description": "Backend API for GoiCarz assignment",
+  "description": "Backend API for RentalDrives assignment",
   "main": "index.js",
   "type": "module",
   "scripts": {
