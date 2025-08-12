@@ -39,7 +39,6 @@ const authenticateToken = (req, res, next) => {
 };
 
 // --- Swagger API Documentation (Object Method) ---
-// --- Swagger API Documentation (Corrected and Complete) ---
 const swaggerDocument = {
     openapi: '3.0.0',
     info: {
