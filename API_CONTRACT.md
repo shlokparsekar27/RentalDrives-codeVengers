@@ -1,6 +1,6 @@
-# API Contract for GoiCarz
+# API Contract for RentalDrives
 
-This document outlines the API endpoints for the GoiCarz backend service assignment. It is an exact representation of the implemented code.
+This document outlines the API endpoints for the RentalDrives backend service assignment. It is an exact representation of the implemented code.
 
 ---
 ## Auth Endpoints
