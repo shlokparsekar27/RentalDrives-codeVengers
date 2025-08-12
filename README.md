@@ -13,7 +13,7 @@ RentalDrives is a community-driven marketplace that connects travelers with a ne
 ## Tech Stack
 
 * **Frontend:**
-    * **React + TypeScript** : Main UI framework with type safety for fewer bugs.
+    * **React + JavaScript** : Main UI framework with type safety for fewer bugs.
     * **Tailwind CSS** : Fast, responsive, utility-first styling.
     * **React Query (TanStack Query)** : Data fetching & caching with real-time updates from Supabase.
     * **Leaflet.js / Mapbox** : Location-based search & map display (Mapbox free tier: 50K map loads/month).
