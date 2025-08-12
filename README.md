@@ -47,6 +47,13 @@ The complete blueprint for our backend is documented in the API Contract. It det
 
 Additionally, the running backend server provides interactive Swagger UI documentation.
 
+## Live Demo & API
+
+The backend for this project is deployed and live on Render.
+
+* **Base URL:** `https://rentaldrives.onrender.com`
+* **Live API Documentation (Swagger UI):** [`https://rentaldrives.onrender.com/api-docs/`](https://rentaldrives.onrender.com/api-docs/)
+
 ---
 ## Getting Started
 
