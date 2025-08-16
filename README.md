@@ -53,7 +53,7 @@ Additionally, the running backend server provides interactive Swagger UI documen
 
 The frontend for this project is deployed and live on Vercel.
 
-* **Base URL:** ['https://frontend-iota-steel-72.vercel.app'](https://frontend-iota-steel-72.vercel.app)
+* **Base URL:** [`https://frontend-iota-steel-72.vercel.app`](https://frontend-iota-steel-72.vercel.app)
 
 The backend for this project is deployed and live on Render.
 
