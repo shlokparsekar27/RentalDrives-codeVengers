@@ -1,0 +1,45 @@
+.detail-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2rem;
+}
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+}
+.detail-price {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #28a745;
+}
+.main-image {
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+.detail-specs ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+.detail-specs li {
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 8px;
+}
+.detail-reviews {
+  margin-top: 2rem;
+}
+.review-card {
+  background: #fff;
+  border: 1px solid #eee;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}

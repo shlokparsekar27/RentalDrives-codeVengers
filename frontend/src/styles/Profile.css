@@ -1,0 +1,43 @@
+.profile-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+}
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  margin-bottom: 2rem;
+}
+.bookings-section h2 {
+  margin-bottom: 1.5rem;
+}
+.booking-list {
+  list-style: none;
+  padding: 0;
+}
+.booking-card {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+.booking-card img {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.booking-info strong {
+  font-size: 1.2rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.status-confirmed {
+    color: green;
+    font-weight: bold;
+}
+.status-cancelled {
+    color: red;
+    font-weight: bold;
+}
