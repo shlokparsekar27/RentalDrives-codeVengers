@@ -6,21 +6,20 @@ import "../styles/Auth.css";
 
 // The function that calls the backend
 const signUpUser = async ({ email, password, fullName }) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-        role: 'tourist' // All new users are tourists, as we decided
-      }
-    }
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password, full_name: fullName }),
   });
 
-  if (error) {
-    throw error;
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to sign up');
   }
-  return data;
+
+  return response.json();
 };
 
 

@@ -40,11 +40,13 @@ function Navbar() {
         <NavLink to="/cars" className="nav-link">Cars</NavLink>
         <NavLink to="/bikes" className="nav-link">Bikes</NavLink>
         <NavLink to="/scooters" className="nav-link">Scooters</NavLink>
-        
-        {/* Conditionally render the Host Dashboard link */}
         {profile?.role === 'host' && (
             <NavLink to="/host/dashboard" className="nav-link">Host Dashboard</NavLink>
         )}
+        {profile?.role === 'admin' && (
+            <NavLink to="/admin/dashboard" className="nav-link">Admin Dashboard</NavLink>
+        )}
+
       </div>
       <div className="navbar-auth">
         {user ? (

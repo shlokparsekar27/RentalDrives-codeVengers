@@ -7,14 +7,32 @@ import "../styles/Auth.css";
 
 // The function that calls the backend for login
 const signInUser = async ({ email, password }) => {
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to login');
+  }
+
+  const data = await response.json();
+
+  // Manually set the session in the browser for Supabase client
+  const { error } = await supabase.auth.setSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
   });
 
   if (error) {
     throw error;
   }
+
+  return data;
 };
 
 function Login() {

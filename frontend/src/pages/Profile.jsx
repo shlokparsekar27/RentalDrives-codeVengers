@@ -6,22 +6,27 @@ import "../styles/Profile.css";
 
 // --- Data Fetching and Mutation Functions ---
 const fetchUserProfile = async (userId) => {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (error) throw new Error(error.message);
-    return data;
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to fetch profile');
+    return response.json();
 };
 
 const fetchUserBookings = async (userId) => {
-    // CORRECTED: Now fetches reviews linked to each booking
-    const { data, error } = await supabase.from('bookings').select('*, vehicles(*), reviews(*)').eq('user_id', userId).order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return data;
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/my-bookings`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to fetch bookings');
+    return response.json();
 };
 
 // --- Role Change Mutations ---
 const upgradeToHost = async () => {
   const { data: { session } } = await supabase.auth.getSession();
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me/upgrade-to-tourist`, {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me/upgrade-to-host`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${session.access_token}`,
@@ -35,7 +40,7 @@ const upgradeToHost = async () => {
 
 const downgradeToTourist = async () => {
   const { data: { session } } = await supabase.auth.getSession();
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me/downgrade-to-host`, {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me/downgrade-to-tourist`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${session.access_token}`,
@@ -47,28 +52,64 @@ const downgradeToTourist = async () => {
   return response.json();
 }
 
+// --- Review Mutations ---
 const createReview = async ({ booking, rating, comment }) => {
-    const { data, error } = await supabase.from('reviews').insert([{
-        booking_id: booking.id,
-        vehicle_id: booking.vehicles.id,
-        user_id: booking.user_id,
-        rating,
-        comment,
-    }]).select();
-    if (error) throw new Error(error.message);
-    return data;
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reviews`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+            booking_id: booking.id,
+            vehicle_id: booking.vehicles.id,
+            rating,
+            comment,
+        }),
+    });
+    if (!response.ok) throw new Error('Failed to create review');
+    return response.json();
 };
 
 const updateReview = async ({ reviewId, rating, comment }) => {
-    const { data, error } = await supabase.from('reviews').update({ rating, comment }).eq('id', reviewId).select();
-    if (error) throw new Error(error.message);
-    return data;
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/${reviewId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ rating, comment }),
+    });
+    if (!response.ok) throw new Error('Failed to update review');
+    return response.json();
 }
 
 const deleteReview = async (reviewId) => {
-    const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
-    if (error) throw new Error(error.message);
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/${reviewId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+    });
+    if (!response.ok) throw new Error('Failed to delete review');
 }
+
+// --- NEW: Booking Cancellation Mutation ---
+const cancelBooking = async (bookingId) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/${bookingId}/cancel`, {
+        method: 'PATCH', // Using PATCH as it's an update operation
+        headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+        },
+    });
+    if (!response.ok) {
+        throw new Error('Failed to cancel booking');
+    }
+    return response.json();
+}
+
 
 function Profile() {
     const { user } = useAuth();
@@ -86,11 +127,12 @@ function Profile() {
         queryFn: () => fetchUserBookings(user.id),
     });
 
+    // --- Role Change Mutations ---
     const upgradeMutation = useMutation({
         mutationFn: upgradeToHost,
         onSuccess: () => {
             alert('You have been upgraded to a Host!');
-            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] }); // Refetch profile
+            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
         },
         onError: (error) => alert(`Error: ${error.message}`),
     });
@@ -99,17 +141,17 @@ function Profile() {
         mutationFn: downgradeToTourist,
         onSuccess: () => {
             alert('You have been downgraded to a Tourist.');
-            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] }); // Refetch profile
+            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
         },
         onError: (error) => alert(`Error: ${error.message}`),
     });
 
+    // --- Review Mutations ---
     const reviewMutation = useMutation({
         mutationFn: createReview,
         onSuccess: () => {
             alert('Thank you for your review!');
-            refetchBookings(); // Refetch bookings to show the new review state
-            queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+            refetchBookings();
         },
         onError: (error) => alert(`Error: ${error.message}`),
     });
@@ -132,6 +174,18 @@ function Profile() {
         onError: (error) => alert(`Error: ${error.message}`),
     });
 
+    // --- NEW: Booking Cancellation Mutation Hook ---
+    const cancelBookingMutation = useMutation({
+        mutationFn: cancelBooking,
+        onSuccess: () => {
+            alert('Booking successfully cancelled.');
+            refetchBookings(); // Refetch bookings to update the status in the UI
+        },
+        onError: (error) => alert(`Error: ${error.message}`),
+    });
+
+
+    // --- Event Handlers ---
     const handleCreateReview = (booking) => {
         const rating = prompt("Please enter a rating (1-5):");
         if (!rating || isNaN(rating) || rating < 1 || rating > 5) return alert("Invalid rating.");
@@ -151,6 +205,14 @@ function Profile() {
             deleteReviewMutation.mutate(reviewId);
         }
     };
+    
+    // --- NEW: Cancel Booking Handler ---
+    const handleCancelBooking = (bookingId) => {
+        if (confirm("Are you sure you want to cancel this booking?")) {
+            cancelBookingMutation.mutate(bookingId);
+        }
+    }
+
 
     if (isLoadingProfile || isLoadingBookings) {
         return <div className="profile-container"><h2>Loading Profile...</h2></div>;
@@ -165,8 +227,6 @@ function Profile() {
                 <p><strong>Role:</strong> {profile?.role}</p>
             </div>
 
-
-            {/* --- Role Change Buttons --- */}
             <div className="role-actions">
                 {profile?.role === 'tourist' && (
                     <button className="upgrade-btn" onClick={() => upgradeMutation.mutate()}>
@@ -195,13 +255,22 @@ function Profile() {
                                         {existingReview && <div><p>Your Rating: {existingReview.rating}/5</p></div>}
                                     </div>
                                     <div className="booking-actions">
-                                        {existingReview ? (
-                                            <>
-                                                <button className="edit-btn" onClick={() => handleEditReview(existingReview)}>Edit Review</button>
-                                                <button className="delete-btn" onClick={() => handleDeleteReview(existingReview.id)}>Delete Review</button>
-                                            </>
-                                        ) : (
-                                            <button className="review-btn" onClick={() => handleCreateReview(booking)}>Leave a Review</button>
+                                        {/* --- NEW: Conditional Button Logic --- */}
+                                        {booking.status === 'confirmed' && (
+                                            <button className="cancel-btn" onClick={() => handleCancelBooking(booking.id)}>
+                                                Cancel Booking
+                                            </button>
+                                        )}
+
+                                        {booking.status !== 'cancelled' && (
+                                            existingReview ? (
+                                                <>
+                                                    <button className="edit-btn" onClick={() => handleEditReview(existingReview)}>Edit Review</button>
+                                                    <button className="delete-btn" onClick={() => handleDeleteReview(existingReview.id)}>Delete Review</button>
+                                                </>
+                                            ) : (
+                                                <button className="review-btn" onClick={() => handleCreateReview(booking)}>Leave a Review</button>
+                                            )
                                         )}
                                     </div>
                                 </li>

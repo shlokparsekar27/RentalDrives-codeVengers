@@ -1,38 +1,60 @@
 // src/pages/HostDashboard.jsx
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // MODIFIED
+import { Link, useNavigate } from 'react-router-dom'; // MODIFIED
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import "./Vehicles.css"; // We can reuse the same styles
+import "./Vehicles.css";
 
-// Function to fetch the host's own vehicles
-const fetchMyVehicles = async (userId) => {
-  const { data, error } = await supabase
-    .from('vehicles')
-    .select('*')
-    .eq('host_id', userId);
+// MODIFIED: This function is now handled by our backend
+const fetchMyVehicles = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/hosts/my-vehicles`, {
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+  });
+  if (!response.ok) throw new Error('Failed to fetch your vehicles');
+  return response.json();
+};
 
-  if (error) {
-    throw new Error(error.message);
-  }
-  return data;
+// NEW: Function to delete a vehicle via the backend
+const deleteVehicle = async (vehicleId) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+    });
+    if (!response.ok) throw new Error('Failed to delete vehicle');
 };
 
 function HostDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate(); // For the edit button
+  const queryClient = useQueryClient(); // For invalidating cache on delete
 
-  const { data: myVehicles, isLoading, isError } = useQuery({
+  const { data: myVehicles, isLoading, isError, refetch } = useQuery({ // Added refetch
     enabled: !!user,
     queryKey: ['myVehicles', user?.id],
-    queryFn: () => fetchMyVehicles(user.id),
+    queryFn: fetchMyVehicles,
   });
 
-  if (isLoading) {
-    return <div className="vehicles-container"><h2>Loading Your Vehicles...</h2></div>;
-  }
+  // NEW: Mutation for deleting a vehicle
+  const deleteMutation = useMutation({
+    mutationFn: deleteVehicle,
+    onSuccess: () => {
+        alert('Vehicle deleted successfully.');
+        queryClient.invalidateQueries({ queryKey: ['myVehicles'] }); // Refetch the list
+    },
+    onError: (error) => alert(`Error: ${error.message}`),
+  });
 
-  if (isError) {
-    return <div className="vehicles-container"><h2>Error fetching your vehicles.</h2></div>;
-  }
+  const handleDelete = (vehicleId) => {
+      if (window.confirm('Are you sure you want to permanently delete this vehicle?')) {
+          deleteMutation.mutate(vehicleId);
+      }
+  };
+
+
+  if (isLoading) { /* ... */ }
+  if (isError) { /* ... */ }
 
   return (
     <div className="vehicles-container">
@@ -57,7 +79,11 @@ function HostDashboard() {
                 <span>Status: <span className={`status-${vehicle.status}`}>{vehicle.status}</span></span>
                 <span>₹{vehicle.price_per_day}/day</span>
               </div>
-              {/* We will add Edit/Delete buttons here later */}
+              {/* --- NEW: Action Buttons --- */}
+              <div className="host-actions">
+                <button className="edit-btn" onClick={() => navigate(`/host/edit-vehicle/${vehicle.id}`)}>Edit</button>
+                <button className="delete-btn" onClick={() => handleDelete(vehicle.id)}>Delete</button>
+              </div>
             </li>
           ))}
         </ul>

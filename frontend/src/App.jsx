@@ -12,6 +12,8 @@ import Profile from "./pages/Profile"; // Import the new Profile page
 import VehicleDetail from './pages/VehicleDetail'; // Import the new page
 import HostDashboard from './pages/HostDashboard'; // Import the new page
 import AddVehicle from './pages/AddVehicle'; // Import the new page
+import EditVehicle from './pages/EditVehicle'; // NEW: Import EditVehicle
+import AdminDashboard from './pages/AdminDashboard'; // NEW: Import AdminDashboard
 
 function App() {
   return (
@@ -29,6 +31,8 @@ function App() {
           <Route path="/vehicle/:id" element={<VehicleDetail />} /> {/* Add this new route */}
           <Route path="/host/dashboard" element={<HostDashboard />} /> {/* Add this new route */}
           <Route path="/host/add-vehicle" element={<AddVehicle />} /> {/* Add this new route */}
+          <Route path="/host/edit-vehicle/:id" element={<EditVehicle />} /> {/* NEW: Add this route */}
+          <Route path="/admin/dashboard" element={<AdminDashboard />} /> {/* NEW: Add this route */}
         </Routes>
       </main>
       <Footer />

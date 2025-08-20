@@ -99,6 +99,25 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// GET the profile of the currently logged-in user
+app.get('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Profile not found.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Upgrade a user's role from 'tourist' to 'host'
 app.put('/api/users/me/upgrade-to-host', authenticateToken, async (req, res) => {
   try {

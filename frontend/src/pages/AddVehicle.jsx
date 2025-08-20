@@ -7,11 +7,15 @@ import "../styles/Auth.css"; // Reuse auth form styles
 
 // Function to call the backend to create a vehicle
 const createVehicle = async (vehicleData) => {
+    // 1. Get the current session which contains the access token
     const { data: { session } } = await supabase.auth.getSession();
+
+    // 2. Make the request to your backend
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            // 3. Include the token in the 'Authorization' header
             'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(vehicleData),
