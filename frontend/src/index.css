@@ -1,32 +1,29 @@
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
+@import "tailwindcss";
+
+/* Add to the end of frontend/src/index.css */
+
+/* Keyframes for the page load animation */
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-  background: #0077b6;
-  color: white;
+/* Class to apply the animation */
+.animate-fadeInSlideUp {
+  animation: fadeInSlideUp 0.8s ease-out forwards;
 }
 
-.navbar ul {
-  list-style: none;
-  display: flex;
-  gap: 20px;
+/* Custom styles for the 3D perspective on the card grid */
+.perspective-container {
+  perspective: 1000px;
 }
 
-.navbar a {
-  text-decoration: none;
-  color: white;
-}
-
-.footer {
-  text-align: center;
-  padding: 10px;
-  background: #0077b6;
-  color: white;
-  margin-top: 20px;
+.preserve-3d {
+  transform-style: preserve-3d;
 }

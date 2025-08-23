@@ -1,24 +1,48 @@
 // src/pages/VehicleDetail.jsx
-import { useState, useMemo } from 'react'; // NEW: Import useState and useMemo
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import './VehicleDetail.css';
-import { createBooking } from '../api/bookings'; // Ensure createBooking is imported
+import { createBooking } from '../api/bookings';
+import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar } from 'react-icons/fa';
+import { GiGearStickPattern } from 'react-icons/gi';
+import { BsCalendar, BsTagFill } from 'react-icons/bs';
+
 
 // --- Data Fetching ---
 const fetchVehicleById = async (vehicleId) => {
-  // This can also be moved to a central API file later
   const { data, error } = await supabase
     .from('vehicles')
     .select(`*, reviews ( * )`)
     .eq('id', vehicleId)
     .single();
-
   if (error) throw new Error(error.message);
   return data;
 };
+
+// --- Helper Components ---
+const FuelInfo = ({ fuelType, className = '' }) => {
+  switch (fuelType) {
+    case 'Electric':
+      return <span className={`flex items-center text-green-600 ${className}`}><FaBolt className="mr-2" /> Electric</span>;
+    case 'Diesel':
+      return <span className={`flex items-center text-gray-800 ${className}`}><FaGasPump className="mr-2" /> Diesel</span>;
+    case 'Petrol':
+    default:
+      return <span className={`flex items-center text-yellow-600 ${className}`}><FaGasPump className="mr-2" /> Petrol</span>;
+  }
+};
+
+const SpecItem = ({ icon, label, value }) => (
+    <div className="bg-gray-100 p-4 rounded-lg flex items-center">
+        <div className="text-blue-600 mr-4">{icon}</div>
+        <div>
+            <p className="text-sm text-gray-500">{label}</p>
+            <p className="font-bold text-gray-800">{value}</p>
+        </div>
+    </div>
+);
 
 
 function VehicleDetail() {
@@ -26,7 +50,6 @@ function VehicleDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // --- NEW: State for date selection ---
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -35,12 +58,11 @@ function VehicleDetail() {
     queryFn: () => fetchVehicleById(id),
   });
 
-  // --- NEW: Price calculation logic ---
   const totalPrice = useMemo(() => {
     if (startDate && endDate && vehicle) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      if (end <= start) return 0; // Invalid date range
+      if (end <= start) return 0;
       const diffTime = Math.abs(end - start);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays * vehicle.price_per_day;
@@ -65,10 +87,8 @@ function VehicleDetail() {
     } else if (!startDate || !endDate || totalPrice <= 0) {
       alert('Please select a valid date range.');
     } else {
-      // MODIFIED: Pass all details to the mutation
       bookingMutation.mutate({
-        vehicle,
-        user,
+        vehicle, user,
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString(),
         totalPrice
@@ -76,73 +96,104 @@ function VehicleDetail() {
     }
   };
 
-  if (isLoading) { /* ... loading ... */ }
-  if (isError) { /* ... error ... */ }
+  if (isLoading) {
+    return <div className="text-center p-10 font-bold text-xl">Loading Vehicle Details...</div>;
+  }
+
+  if (isError) {
+    return <div className="text-center p-10 text-red-600"><h2>Error: {error.message}</h2></div>;
+  }
 
   return (
-    <div className="detail-container">
-      <div className="detail-header">
-        <h1>{vehicle?.make} {vehicle?.model}</h1>
-        <span className="detail-price">₹{vehicle?.price_per_day}/day</span>
-      </div>
+    <div className="bg-gray-50 min-h-screen">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
+          
+          {/* Left Column: Image and Specs */}
+          <div className="lg:col-span-3">
+            {/* Main Image */}
+            <div className="mb-8 shadow-2xl rounded-2xl overflow-hidden">
+              <img
+                src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/800x500.png?text=No+Image'}
+                alt={`${vehicle.make} ${vehicle.model}`}
+                className="w-full h-auto object-cover"
+              />
+            </div>
 
-      <div className="detail-gallery">
-        <img
-          src={vehicle?.image_urls?.[0] || 'https://via.placeholder.com/800x500.png?text=No+Image'}
-          alt={`${vehicle?.make} ${vehicle?.model}`}
-          className="main-image"
-        />
-      </div>
-
-      <div className="detail-specs">
-        <h3>Key Details</h3>
-        {/* ... list items ... */}
-      </div>
-
-      {/* --- NEW: Date Picker and Booking Section --- */}
-      <div className="booking-widget">
-        <h3>Select Your Dates</h3>
-        <div className="date-picker">
-          <div className="date-input">
-            <label htmlFor="start-date">Start Date</label>
-            <input
-              type="date"
-              id="start-date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]} // Prevent selecting past dates
-            />
+            {/* Specs Grid */}
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Key Details</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <SpecItem icon={<BsCalendar size={24} />} label="Year" value={vehicle.year} />
+                <SpecItem icon={<FaUsers size={24} />} label="Seats" value={vehicle.seating_capacity} />
+                <SpecItem icon={<GiGearStickPattern size={24} />} label="Transmission" value={vehicle.transmission} />
+                <SpecItem icon={<BsTagFill size={24} />} label="Type" value={vehicle.vehicle_type} />
+                <SpecItem icon={<FuelInfo fuelType={vehicle.fuel_type} />} label="Fuel" value={vehicle.fuel_type} />
+            </div>
           </div>
-          <div className="date-input">
-            <label htmlFor="end-date">End Date</label>
-            <input
-              type="date"
-              id="end-date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              min={startDate || new Date().toISOString().split("T")[0]} // Prevent end date before start date
-            />
+
+          {/* Right Column: Booking Widget */}
+          <div className="lg:col-span-2">
+            <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
+              <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
+              <p className="text-2xl font-bold text-blue-600 mt-2">
+                ₹{vehicle.price_per_day} <span className="text-base font-medium text-gray-500">/day</span>
+              </p>
+              
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Select Your Dates</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="start-date" className="block text-sm font-medium text-gray-700">Start Date</label>
+                    <input type="date" id="start-date" value={startDate} onChange={(e) => setStartDate(e.target.value)} min={new Date().toISOString().split("T")[0]} className="mt-1 w-full p-2 border border-gray-300 rounded-md"/>
+                  </div>
+                  <div>
+                    <label htmlFor="end-date" className="block text-sm font-medium text-gray-700">End Date</label>
+                    <input type="date" id="end-date" value={endDate} onChange={(e) => setEndDate(e.target.value)} min={startDate || new Date().toISOString().split("T")[0]} className="mt-1 w-full p-2 border border-gray-300 rounded-md"/>
+                  </div>
+                </div>
+              </div>
+
+              {totalPrice > 0 && (
+                <div className="mt-6 bg-blue-50 p-4 rounded-lg text-center">
+                  <p className="text-gray-600">Total Price:</p>
+                  <p className="text-2xl font-bold text-blue-700">₹{totalPrice}</p>
+                </div>
+              )}
+
+              <button
+                onClick={handleBooking}
+                disabled={bookingMutation.isPending || !startDate || !endDate || totalPrice <= 0}
+                className="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400"
+              >
+                {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
+              </button>
+            </div>
           </div>
         </div>
 
-        {totalPrice > 0 && (
-          <div className="price-display">
-            Total Price: <strong>₹{totalPrice}</strong>
-          </div>
-        )}
-
-        <button
-          className="book-btn-large"
-          onClick={handleBooking}
-          disabled={bookingMutation.isPending || !startDate || !endDate}
-        >
-          {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
-        </button>
-      </div>
-
-      {/* --- REVIEWS SECTION --- */}
-      <div className="detail-reviews">
-        {/* ... reviews section ... */}
+        {/* Reviews Section */}
+        <div className="mt-16">
+          <h3 className="text-3xl font-bold text-gray-900 mb-6">User Reviews</h3>
+          {vehicle.reviews && vehicle.reviews.length > 0 ? (
+            <div className="space-y-6">
+              {vehicle.reviews.map(review => (
+                <div key={review.id} className="bg-white p-6 rounded-xl shadow-md">
+                  <div className="flex items-center mb-2">
+                    <div className="flex text-yellow-500">
+                        {[...Array(5)].map((_, i) => i < review.rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}
+                    </div>
+                    <p className="ml-3 font-bold text-gray-800">{review.rating}/5</p>
+                  </div>
+                  <p className="text-gray-600 italic">"{review.comment}"</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white p-8 rounded-xl shadow-sm text-center">
+                <p className="text-gray-600">No reviews yet for this vehicle.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

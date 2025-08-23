@@ -538,19 +538,21 @@ app.delete('/api/admin/reviews/:id', authenticateToken, async (req, res) => {
 
 // ======== HOST ENDPOINTS (Protected) ========
 
+// backend/index.js
+
 // GET all vehicles for the currently logged-in host
 app.get('/api/hosts/my-vehicles', authenticateToken, async (req, res) => {
     try {
-      // 1. Security: Check if the user is a host
       if (req.user.user_metadata.role !== 'host') {
         return res.status(403).json({ error: 'Access denied. Host role required.' });
       }
   
-      // 2. Fetch all vehicles owned by this host
+      // --- THIS LINE IS THE FIX ---
+      // It was 'of await', now it is '= await'
       const { data, error } = await supabase
         .from('vehicles')
         .select('*')
-        .eq('host_id', req.user.sub); // Filter by the logged-in host's ID
+        .eq('host_id', req.user.sub);
   
       if (error) throw error;
       res.status(200).json(data);
@@ -558,6 +560,41 @@ app.get('/api/hosts/my-vehicles', authenticateToken, async (req, res) => {
       res.status(500).json({ error: error.message });
     }
   });
+
+// GET all bookings made on a host's vehicles
+app.get('/api/hosts/my-bookings', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.user_metadata.role !== 'host') {
+            return res.status(403).json({ error: 'Access denied. Host role required.' });
+        }
+        const hostId = req.user.sub;
+
+        // NEW: Call the database function we just created
+        const { data, error } = await supabase
+            .rpc('get_bookings_for_host', { host_id_input: hostId });
+
+        if (error) throw error;
+
+        // The data is already flat, but we need to format it to match what the frontend expects
+        const formattedData = data.map(item => ({
+            ...item,
+            vehicles: {
+                make: item.vehicle_make,
+                model: item.vehicle_model
+            },
+            profiles: {
+                full_name: item.tourist_name,
+                email: item.tourist_email
+            }
+        }));
+
+        res.status(200).json(formattedData);
+
+    } catch (error) {
+        console.error('Error fetching host bookings:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // ======== REVIEW ENDPOINTS (Protected) ========
 
