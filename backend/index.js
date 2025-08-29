@@ -1,17 +1,15 @@
-// File: backend/index.js - CONNECTED TO SUPABASE
+// File: backend/index.js - FINAL VERSION WITH BOOKING VALIDATION
 
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
-import 'dotenv/config'; // Loads the .env file
+import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 
-// --- Basic Setup ---
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- Supabase Connection ---
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -21,17 +19,14 @@ if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is not defined in your .env file!");
 }
 
-// --- Authentication Middleware ---
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer TOKEN"
-
-  if (token == null) return res.sendStatus(401); // if there isn't any token
-
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) return res.sendStatus(401);
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403); // if token is no longer valid
-    req.user = user; // Add the decoded user payload to the request object
-    next(); // Proceed to the next step
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
   });
 };
 
@@ -135,14 +130,22 @@ app.put('/api/users/me/upgrade-to-host', authenticateToken, async (req, res) => 
     if (!profileData) return res.status(404).json({ error: 'User not found.' });
     
     // 2. ALSO update the user's metadata in the main Auth system
-    const { data: authData, error: authError } = await supabase.auth.admin.updateUserById(
+    await supabase.auth.admin.updateUserById(
         userId,
         { user_metadata: { role: 'host' } }
-    )
+    );
 
-    if(authError) throw authError;
+    // 3. NEW: Find all of the user's archived vehicles and set them back to pending
+    await supabase
+      .from('vehicles')
+      .update({ status: 'pending' })
+      .eq('host_id', userId)
+      .eq('status', 'archived');
 
-    res.status(200).json({ message: 'User successfully upgraded to host.', profile: profileData });
+    res.status(200).json({ 
+        message: 'User successfully upgraded to host. Archived vehicles have been resubmitted for approval.', 
+        profile: profileData 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -184,12 +187,13 @@ app.put('/api/users/me/downgrade-to-tourist', authenticateToken, async (req, res
 
 // ======== VEHICLE ENDPOINTS ========
 
-// GET all vehicles from the live database
+// GET all vehicles from the live database - UPDATED
 app.get('/api/vehicles', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('vehicles')
-      .select('*');
+      // FIXED: Join with profiles table to get the host's full_name
+      .select(`*, profiles ( full_name )`);
 
     if (error) throw error;
     res.status(200).json(data);
@@ -198,15 +202,17 @@ app.get('/api/vehicles', async (req, res) => {
   }
 });
 
-// GET a single vehicle by its ID from the live database
+// GET a single vehicle by its ID from the live database - UPDATED
 app.get('/api/vehicles/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { data, error } = await supabase
       .from('vehicles')
+      // FIXED: Join with profiles for host name AND for reviewer names
       .select(`
           *,
-          reviews ( * )
+          profiles ( full_name ),
+          reviews ( *, profiles ( full_name ) )
       `)
       .eq('id', id)
       .single();
@@ -218,33 +224,38 @@ app.get('/api/vehicles/:id', async (req, res) => {
   }
 });
 
+// NEW: Endpoint to get booked dates for a vehicle
+app.get('/api/vehicles/:id/booked-dates', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('start_date, end_date')
+      .eq('vehicle_id', id)
+      .eq('status', 'confirmed');
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // CREATE a new vehicle (Protected, for hosts only)
 app.post('/api/vehicles', authenticateToken, async (req, res) => {
   try {
-    // This log shows us the token content
-    console.log('User from token:', req.user);
-
-    // 1. Check if the user is a host
     if (req.user.user_metadata.role !== 'host') {
       return res.status(403).json({ error: 'Only hosts can create vehicles.' });
     }
-
-    // 2. Prepare the data for insertion
     const vehicleToInsert = {
-      host_id: req.user.sub, // Get the user ID from the token's 'sub' field
-      ...req.body // Add all the other details from the request body
+      host_id: req.user.sub,
+      ...req.body
     };
-
-    // THIS IS THE NEW DEBUG LINE
-    console.log('--- Data being sent to Supabase: ---', vehicleToInsert);
-
-    // 3. Insert the new vehicle into the database
     const { data, error } = await supabase
       .from('vehicles')
       .insert([vehicleToInsert])
       .select()
       .single();
-
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
@@ -257,42 +268,35 @@ app.put('/api/vehicles/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-
     const { data, error } = await supabase
       .from('vehicles')
       .update(updates)
       .eq('id', id)
-      .eq('host_id', req.user.sub) // Security: Ensures only the owner can update
+      .eq('host_id', req.user.sub)
       .select()
       .single();
-
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to update it.' });
-
     res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-
 // DELETE a vehicle (Protected, for owner only)
 app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-  
       const { data, error } = await supabase
         .from('vehicles')
         .delete()
         .eq('id', id)
-        .eq('host_id', req.user.sub) // Security: Ensures only the owner can delete
+        .eq('host_id', req.user.sub)
         .select()
         .single();
-  
       if (error) throw error;
       if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to delete it.' });
-  
-      res.status(204).send(); // 204 No Content for successful delete
+      res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -300,7 +304,9 @@ app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
 
 // ======== BOOKING ENDPOINTS (Protected) ========
 
-// CREATE a new booking
+// backend/index.js
+
+// CREATE a new booking - UPDATED WITH CORRECT VALIDATION
 app.post('/api/bookings', authenticateToken, async (req, res) => {
   try {
     const { vehicle_id, start_date, end_date, total_price } = req.body;
@@ -308,15 +314,31 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing required booking information.' });
     }
 
+    // --- FIXED: Replaced the failing .or() filter with a correct overlap check ---
+    const { data: overlappingBookings, error: overlapError } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('vehicle_id', vehicle_id)
+      .eq('status', 'confirmed')
+      .lte('start_date', end_date)   // An existing booking's start is before or on the new booking's end date
+      .gte('end_date', start_date);  // And an existing booking's end is after or on the new booking's start date
+
+    if (overlapError) throw overlapError;
+
+    if (overlappingBookings && overlappingBookings.length > 0) {
+      return res.status(409).json({ error: 'This vehicle is already booked for the selected dates. Please choose a different date range.' });
+    }
+    // --- End of new check ---
+
     const { data, error } = await supabase
       .from('bookings')
       .insert([{
-        user_id: req.user.sub, // Get user ID from the token
+        user_id: req.user.sub,
         vehicle_id,
         start_date,
         end_date,
         total_price,
-        status: 'confirmed' // Default to confirmed for now
+        status: 'confirmed'
       }])
       .select()
       .single();
@@ -335,7 +357,7 @@ app.get('/api/bookings/my-bookings', authenticateToken, async (req, res) => {
         .from('bookings')
         .select(`
           *,
-          vehicles ( make, model, image_urls )
+          vehicles ( *, reviews ( * ) )
         `)
         .eq('user_id', req.user.sub);
   
@@ -392,15 +414,14 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
 // GET all vehicles pending approval
 app.get('/api/admin/vehicles/pending', authenticateToken, async (req, res) => {
   try {
-    // 1. Security: Check if the user is an admin
     if (req.user.user_metadata.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
-    // 2. Fetch pending vehicles from the database
+    // This query now joins with the profiles table to get the host's name
     const { data, error } = await supabase
       .from('vehicles')
-      .select('*')
+      .select(`*, profiles ( full_name )`) 
       .eq('status', 'pending');
 
     if (error) throw error;
@@ -547,8 +568,7 @@ app.get('/api/hosts/my-vehicles', authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Access denied. Host role required.' });
       }
   
-      // --- THIS LINE IS THE FIX ---
-      // It was 'of await', now it is '= await'
+      // Corrected line:
       const { data, error } = await supabase
         .from('vehicles')
         .select('*')
@@ -561,6 +581,8 @@ app.get('/api/hosts/my-vehicles', authenticateToken, async (req, res) => {
     }
   });
 
+// backend/index.js
+
 // GET all bookings made on a host's vehicles
 app.get('/api/hosts/my-bookings', authenticateToken, async (req, res) => {
     try {
@@ -569,26 +591,33 @@ app.get('/api/hosts/my-bookings', authenticateToken, async (req, res) => {
         }
         const hostId = req.user.sub;
 
-        // NEW: Call the database function we just created
-        const { data, error } = await supabase
-            .rpc('get_bookings_for_host', { host_id_input: hostId });
+        // Step 1: Find all vehicles that belong to the current host
+        const { data: hostVehicles, error: vehiclesError } = await supabase
+            .from('vehicles')
+            .select('id')
+            .eq('host_id', hostId);
 
-        if (error) throw error;
+        if (vehiclesError) throw vehiclesError;
 
-        // The data is already flat, but we need to format it to match what the frontend expects
-        const formattedData = data.map(item => ({
-            ...item,
-            vehicles: {
-                make: item.vehicle_make,
-                model: item.vehicle_model
-            },
-            profiles: {
-                full_name: item.tourist_name,
-                email: item.tourist_email
-            }
-        }));
+        if (!hostVehicles || hostVehicles.length === 0) {
+            return res.status(200).json([]);
+        }
 
-        res.status(200).json(formattedData);
+        const vehicleIds = hostVehicles.map(v => v.id);
+
+        // Step 2: Find all bookings that match the host's vehicle IDs
+        const { data: bookings, error: bookingsError } = await supabase
+            .from('bookings')
+            .select(`
+                *,
+                vehicles ( make, model ),
+                profiles ( full_name )
+            `)
+            .in('vehicle_id', vehicleIds);
+
+        if (bookingsError) throw bookingsError;
+
+        res.status(200).json(bookings);
 
     } catch (error) {
         console.error('Error fetching host bookings:', error);

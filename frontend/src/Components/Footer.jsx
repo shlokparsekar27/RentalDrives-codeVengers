@@ -23,12 +23,10 @@ function Footer() {
 
           {/* Quick Links Section */}
           <div className="md:col-span-6 lg:col-span-3 text-center lg:text-left">
-            <h3 className="font-bold text-white text-lg mb-4 tracking-wider">Quick Links</h3>
+            <h3 className="font-bold text-white text-lg mb-4 tracking-wider">Help & Support</h3>
             <ul className="space-y-2">
               <li><Link to="/about" className="hover:text-blue-400 transition-colors">About Us</Link></li>
-              <li><Link to="/cars" className="hover:text-blue-400 transition-colors">Cars</Link></li>
-              <li><Link to="/bikes" className="hover:text-blue-400 transition-colors">Bikes</Link></li>
-              <li><Link to="/contact" className="hover:text-blue-400 transition-colors">Contact</Link></li>
+              <li><Link to="/contact" className="hover:text-blue-400 transition-colors">Contact Us</Link></li>
             </ul>
           </div>
 
@@ -37,16 +35,16 @@ function Footer() {
             <h3 className="font-bold text-white text-lg mb-4 tracking-wider">Follow Us</h3>
             <p className="mb-4">Stay connected for the latest news and offers.</p>
             <div className="flex justify-center lg:justify-start space-x-5">
-              <a href="#" className="hover:text-blue-400 transition-colors" aria-label="Twitter">
+              <a href="https://x.com/home" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="Twitter">
                 <FaTwitter size={24} />
               </a>
-              <a href="#" className="hover:text-blue-400 transition-colors" aria-label="Instagram">
+              <a href="https://www.instagram.com/rental.drives/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="Instagram">
                 <FaInstagram size={24} />
               </a>
-              <a href="#" className="hover:text-blue-400 transition-colors" aria-label="Facebook">
+              <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="Facebook">
                 <FaFacebook size={24} />
               </a>
-              <a href="#" className="hover:text-blue-400 transition-colors" aria-label="LinkedIn">
+              <a href="https://www.linkedin.com/feed/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="LinkedIn">
                 <FaLinkedin size={24} />
               </a>
             </div>

@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-// Old CSS imports are no longer needed
 
 // --- API Functions for Host ---
 const fetchMyVehicles = async () => {
@@ -24,28 +23,16 @@ const deleteVehicle = async (vehicleId) => {
     if (!response.ok) throw new Error('Failed to delete vehicle');
 };
 
-const fetchMyVehicleBookings = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/hosts/my-bookings`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-    });
-    if (!response.ok) throw new Error('Failed to fetch bookings for your vehicles');
-    return response.json();
-}
+// REMOVED: fetchMyVehicleBookings is no longer needed here
 
 // Helper to get color classes for status badges
 const getStatusClasses = (status) => {
     switch (status) {
-        case 'approved':
-        case 'confirmed':
-            return 'bg-green-100 text-green-800';
-        case 'pending':
-            return 'bg-yellow-100 text-yellow-800';
-        case 'rejected':
-        case 'cancelled':
-            return 'bg-red-100 text-red-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
+        case 'approved': return 'bg-green-100 text-green-800';
+        case 'pending': return 'bg-yellow-100 text-yellow-800';
+        case 'rejected': return 'bg-red-100 text-red-800';
+        case 'archived': return 'bg-gray-100 text-gray-800';
+        default: return 'bg-gray-100 text-gray-800';
     }
 };
 
@@ -60,11 +47,7 @@ function HostDashboard() {
     queryFn: fetchMyVehicles,
   });
 
-  const { data: bookings, isLoading: isLoadingBookings, isError: isErrorBookings } = useQuery({
-      enabled: !!user,
-      queryKey: ['myVehicleBookings', user?.id],
-      queryFn: fetchMyVehicleBookings,
-  });
+  // REMOVED: The useQuery for bookings is gone from this page
 
   const deleteMutation = useMutation({
     mutationFn: deleteVehicle,
@@ -81,11 +64,11 @@ function HostDashboard() {
       }
   };
 
-  if (isLoadingVehicles || isLoadingBookings) {
+  if (isLoadingVehicles) {
     return <div className="text-center p-10 font-bold text-xl">Loading Dashboard...</div>;
   }
 
-  if (isErrorVehicles || isErrorBookings) {
+  if (isErrorVehicles) {
     return <div className="text-center p-10 text-red-600"><h2>Error fetching your data.</h2></div>;
   }
 
@@ -95,11 +78,17 @@ function HostDashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
           <div>
             <h2 className="text-4xl font-extrabold text-gray-900">Host Dashboard</h2>
-            <p className="mt-1 text-gray-600">Manage your vehicle listings and view incoming bookings.</p>
+            <p className="mt-1 text-gray-600">Manage your vehicle listings.</p>
           </div>
-          <Link to="/host/add-vehicle" className="mt-4 sm:mt-0 w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all text-center">
-            + Add New Vehicle
-          </Link>
+          {/* FIXED: Added a new button to view bookings */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-4 sm:mt-0">
+            <Link to="/host/bookings" className="w-full sm:w-auto bg-white text-blue-600 border border-blue-600 font-bold py-3 px-6 rounded-lg hover:bg-blue-50 transition-all text-center">
+              View Bookings
+            </Link>
+            <Link to="/host/add-vehicle" className="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all text-center">
+              + Add New Vehicle
+            </Link>
+          </div>
         </div>
 
         {/* --- Your Vehicle Listings Section --- */}
@@ -108,13 +97,15 @@ function HostDashboard() {
           {myVehicles && myVehicles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {myVehicles.map((vehicle) => (
-                <div key={vehicle.id} className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
-                  <img
-                    src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
-                    alt={`${vehicle.make} ${vehicle.model}`}
-                    className="w-full h-52 object-cover"
-                  />
-                  <div className="p-6 flex-grow flex flex-col">
+                <Link to={`/vehicle/${vehicle.id}`} key={vehicle.id} className="block bg-white rounded-xl shadow-md overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                  <div className="overflow-hidden">
+                    <img
+                      src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
+                      alt={`${vehicle.make} ${vehicle.model}`}
+                      className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-6 flex flex-col flex-grow">
                     <div className="flex justify-between items-start">
                         <h4 className="text-xl font-bold text-gray-900">{vehicle.make} {vehicle.model}</h4>
                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${getStatusClasses(vehicle.status)}`}>
@@ -123,11 +114,28 @@ function HostDashboard() {
                     </div>
                     <p className="text-lg font-semibold text-blue-600 mt-2">₹{vehicle.price_per_day}/day</p>
                     <div className="mt-auto pt-6 grid grid-cols-2 gap-3">
-                      <button onClick={() => navigate(`/host/edit-vehicle/${vehicle.id}`)} className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Edit</button>
-                      <button onClick={() => handleDelete(vehicle.id)} disabled={deleteMutation.isPending} className="bg-red-100 text-red-700 font-semibold py-2 px-4 rounded-lg hover:bg-red-200 transition-colors text-sm disabled:opacity-50">Delete</button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          navigate(`/host/edit-vehicle/${vehicle.id}`);
+                        }} 
+                        className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">
+                          Edit
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleDelete(vehicle.id);
+                        }} 
+                        disabled={deleteMutation.isPending} 
+                        className="bg-red-100 text-red-700 font-semibold py-2 px-4 rounded-lg hover:bg-red-200 transition-colors text-sm disabled:opacity-50">
+                          Delete
+                      </button>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
@@ -137,32 +145,7 @@ function HostDashboard() {
           )}
         </div>
 
-        {/* --- Bookings Received Section --- */}
-        <div className="mt-16">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Bookings on Your Vehicles</h3>
-            {bookings && bookings.length > 0 ? (
-                <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                    <ul className="divide-y divide-gray-200">
-                      {bookings.map(booking => (
-                          <li key={booking.id} className="p-6 flex flex-col sm:flex-row justify-between items-center">
-                              <div className="mb-4 sm:mb-0">
-                                  <p className="font-bold text-lg text-gray-900">{booking.vehicle_make} {booking.vehicle_model}</p>
-                                  <p className="text-sm text-gray-600">Booked by: {booking.tourist_name}</p>
-                                  <p className="text-sm text-gray-600">Dates: {new Date(booking.start_date).toLocaleDateString()} to {new Date(booking.end_date).toLocaleDateString()}</p>
-                              </div>
-                              <span className={`text-sm font-semibold px-3 py-1.5 rounded-full ${getStatusClasses(booking.status)}`}>
-                                  {booking.status}
-                              </span>
-                          </li>
-                      ))}
-                    </ul>
-                </div>
-            ) : (
-                <div className="bg-white text-center p-8 rounded-xl shadow-sm">
-                    <p className="text-gray-600">You have not received any bookings on your vehicles yet.</p>
-                </div>
-            )}
-        </div>
+        {/* REMOVED: The bookings section is now on its own page */}
       </div>
     </div>
   );

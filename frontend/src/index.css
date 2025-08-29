@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
-/* Add to the end of frontend/src/index.css */
-
-/* Keyframes for the page load animation */
+/* ------------------------------
+   🔥 Page Load Animation
+--------------------------------*/
 @keyframes fadeInSlideUp {
   from {
     opacity: 0;
@@ -13,17 +13,77 @@
     transform: translateY(0);
   }
 }
-
-/* Class to apply the animation */
 .animate-fadeInSlideUp {
   animation: fadeInSlideUp 0.8s ease-out forwards;
 }
 
-/* Custom styles for the 3D perspective on the card grid */
-.perspective-container {
+/* ------------------------------
+   🎴 3D Perspective Helpers
+--------------------------------*/
+.perspective {
   perspective: 1000px;
 }
-
-.preserve-3d {
+.transform-style-3d {
   transform-style: preserve-3d;
+}
+.translate-z-25 { transform: translateZ(25px); }
+.translate-z-40 { transform: translateZ(40px); }
+.translate-z-60 { transform: translateZ(60px); }
+.translate-z-80 { transform: translateZ(80px); }
+.translate-z-100 { transform: translateZ(100px); }
+
+/* ------------------------------
+   ✨ Uiverse Card Styling
+--------------------------------*/
+
+/* Card hover tilt (matches styled-components) */
+.card-3d {
+  transition: transform 0.3s ease;
+  transform-style: preserve-3d;
+}
+.card-3d:hover {
+  transform: rotateX(10deg) rotateY(-10deg) scale(1.05);
+}
+
+/* Glass inner card */
+.inner-glass {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+.card-3d:hover .inner-glass {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Floating logo circles */
+.circle {
+  position: absolute;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+.circle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Social buttons glow */
+.social-btn {
+  @apply w-10 h-10 rounded-full flex items-center justify-center text-white transition-all duration-300;
+  background: rgba(255, 255, 255, 0.1);
+}
+.social-btn:hover {
+  transform: translateY(-5px) scale(1.1);
+  box-shadow: 0 0 15px currentColor;
 }

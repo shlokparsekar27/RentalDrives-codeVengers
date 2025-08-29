@@ -10,19 +10,19 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Navbar from "./Components/Navbar";
 import Footer from "./Components/Footer";
-import Profile from "./pages/Profile"; // Import the new Profile page
-import VehicleDetail from './pages/VehicleDetail'; // Import the new page
-import HostDashboard from './pages/HostDashboard'; // Import the new page
-import AddVehicle from './pages/AddVehicle'; // Import the new page
-import EditVehicle from './pages/EditVehicle'; // NEW: Import EditVehicle
-import AdminDashboard from './pages/AdminDashboard'; // NEW: Import AdminDashboard
-
+import Profile from "./pages/Profile";
+import VehicleDetail from './pages/VehicleDetail';
+import HostDashboard from './pages/HostDashboard';
+import AddVehicle from './pages/AddVehicle';
+import EditVehicle from './pages/EditVehicle';
+import AdminDashboard from './pages/AdminDashboard';
+import HostBookings from "./pages/HostBookings"; // Import the new page
 
 function App() {
   return (
     <Router>
       <Navbar />
-      <main style={{ paddingBottom: '5rem' }}> {/* Added to prevent footer overlap */}
+      <main style={{ paddingBottom: '5rem' }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/cars" element={<Cars />} />
@@ -32,12 +32,14 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/profile" element={<Profile />} /> {/* Add the new route */}
-          <Route path="/vehicle/:id" element={<VehicleDetail />} /> {/* Add this new route */}
-          <Route path="/host/dashboard" element={<HostDashboard />} /> {/* Add this new route */}
-          <Route path="/host/add-vehicle" element={<AddVehicle />} /> {/* Add this new route */}
-          <Route path="/host/edit-vehicle/:id" element={<EditVehicle />} /> {/* NEW: Add this route */}
-          <Route path="/admin/dashboard" element={<AdminDashboard />} /> {/* NEW: Add this route */}
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/vehicle/:id" element={<VehicleDetail />} />
+          <Route path="/host/dashboard" element={<HostDashboard />} />
+          <Route path="/host/add-vehicle" element={<AddVehicle />} />
+          <Route path="/host/edit-vehicle/:id" element={<EditVehicle />} />
+          {/* NEW: Add the route for the host bookings page */}
+          <Route path="/host/bookings" element={<HostBookings />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
         </Routes>
       </main>
       <Footer />

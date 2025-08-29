@@ -5,21 +5,32 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { createBooking } from '../api/bookings';
-import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar } from 'react-icons/fa';
+import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaUserCircle } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
 
 
 // --- Data Fetching ---
 const fetchVehicleById = async (vehicleId) => {
+  // This query now fetches the host's name and the reviewer's name
   const { data, error } = await supabase
     .from('vehicles')
-    .select(`*, reviews ( * )`)
+    .select(`*, profiles ( full_name ), reviews ( *, profiles ( full_name ) )`)
     .eq('id', vehicleId)
     .single();
   if (error) throw new Error(error.message);
   return data;
 };
+
+// NEW: Function to fetch booked dates for the vehicle
+const fetchBookedDates = async (vehicleId) => {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}/booked-dates`);
+  if (!response.ok) {
+    throw new Error('Could not fetch booked dates.');
+  }
+  return response.json();
+};
+
 
 // --- Helper Components ---
 const FuelInfo = ({ fuelType, className = '' }) => {
@@ -57,6 +68,14 @@ function VehicleDetail() {
     queryKey: ['vehicle', id],
     queryFn: () => fetchVehicleById(id),
   });
+
+  // NEW: Query to get the already booked dates for this vehicle
+  const { data: bookedDates, isLoading: isLoadingBookedDates } = useQuery({
+    queryKey: ['bookedDates', id],
+    queryFn: () => fetchBookedDates(id),
+    enabled: !!id, // Only run this query if the vehicle ID exists
+  });
+
 
   const totalPrice = useMemo(() => {
     if (startDate && endDate && vehicle) {
@@ -101,7 +120,7 @@ function VehicleDetail() {
   }
 
   if (isError) {
-    return <div className="text-center p-10 text-red-600"><h2>Error: {error.message}</h2></div>;
+    return <div className="text-center p-10 text-red-500"><h2>Error: {error.message}</h2></div>;
   }
 
   return (
@@ -135,7 +154,8 @@ function VehicleDetail() {
           <div className="lg:col-span-2">
             <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
               <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
-              <p className="text-2xl font-bold text-blue-600 mt-2">
+              <p className="text-md text-gray-600 mt-1">Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name || 'A verified host'}</span></p>
+              <p className="text-2xl font-bold text-blue-600 mt-4">
                 ₹{vehicle.price_per_day} <span className="text-base font-medium text-gray-500">/day</span>
               </p>
               
@@ -170,6 +190,29 @@ function VehicleDetail() {
             </div>
           </div>
         </div>
+        
+        {/* NEW: Availability Section */}
+        <div className="mt-16">
+            <h3 className="text-3xl font-bold text-gray-900 mb-6">Availability</h3>
+            {isLoadingBookedDates ? (
+                <p className="text-gray-600">Loading availability calendar...</p>
+            ) : bookedDates && bookedDates.length > 0 ? (
+                <div className="bg-white p-6 rounded-xl shadow-md">
+                    <p className="font-semibold text-gray-800 mb-3">This vehicle is already booked on the following dates:</p>
+                    <ul className="space-y-2">
+                        {bookedDates.map((booking, index) => (
+                            <li key={index} className="p-2 bg-red-50 text-red-800 rounded-md">
+                                From <span className="font-semibold">{new Date(booking.start_date).toLocaleDateString()}</span> to <span className="font-semibold">{new Date(booking.end_date).toLocaleDateString()}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : (
+                <div className="bg-green-50 text-green-800 p-6 rounded-xl shadow-md">
+                    <p className="font-semibold">This vehicle is currently available for all dates!</p>
+                </div>
+            )}
+        </div>
 
         {/* Reviews Section */}
         <div className="mt-16">
@@ -178,13 +221,17 @@ function VehicleDetail() {
             <div className="space-y-6">
               {vehicle.reviews.map(review => (
                 <div key={review.id} className="bg-white p-6 rounded-xl shadow-md">
-                  <div className="flex items-center mb-2">
-                    <div className="flex text-yellow-500">
-                        {[...Array(5)].map((_, i) => i < review.rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}
+                  <div className="flex items-center mb-4">
+                    <FaUserCircle size={40} className="text-gray-400 mr-4" />
+                    <div>
+                      <p className="font-bold text-gray-800">{review.profiles?.full_name || 'Anonymous'}</p>
+                      <div className="flex items-center text-sm text-yellow-500">
+                          {[...Array(5)].map((_, i) => i < review.rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}
+                          <span className="ml-2 text-gray-600 font-semibold">{review.rating}/5</span>
+                      </div>
                     </div>
-                    <p className="ml-3 font-bold text-gray-800">{review.rating}/5</p>
                   </div>
-                  <p className="text-gray-600 italic">"{review.comment}"</p>
+                  {review.comment && <p className="text-gray-700 italic">"{review.comment}"</p>}
                 </div>
               ))}
             </div>

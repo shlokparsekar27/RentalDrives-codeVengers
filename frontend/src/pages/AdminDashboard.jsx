@@ -1,7 +1,7 @@
 // src/pages/AdminDashboard.jsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-// import "./Vehicles.css"; // No longer needed
+import { Link } from 'react-router-dom'; // Import Link
 
 // --- API Functions ---
 const fetchPendingVehicles = async () => {
@@ -68,32 +68,45 @@ function AdminDashboard() {
                 {pendingVehicles && pendingVehicles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {pendingVehicles.map((vehicle) => (
-                            <div key={vehicle.id} className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
-                                <img
-                                    src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
-                                    alt={`${vehicle.make} ${vehicle.model}`}
-                                    className="w-full h-52 object-cover"
-                                />
+                            // FIXED: Wrapped the card in a Link component
+                            <Link to={`/vehicle/${vehicle.id}`} key={vehicle.id} className="block bg-white rounded-xl shadow-md overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                                <div className="overflow-hidden">
+                                    <img
+                                        src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
+                                        alt={`${vehicle.make} ${vehicle.model}`}
+                                        className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                </div>
                                 <div className="p-6 flex-grow flex flex-col">
                                     <h3 className="text-2xl font-bold text-gray-800">{vehicle.make} {vehicle.model}</h3>
                                     <p className="text-gray-500 text-sm mt-1">Year: {vehicle.year}</p>
                                     
                                     <div className="mt-4 border-t border-gray-200 pt-4 space-y-2 text-gray-700">
-                                        <p><strong>Host ID:</strong> <span className="font-mono text-xs">{vehicle.host_id}</span></p>
+                                        {/* FIXED: Display host's name instead of ID */}
+                                        <p><strong>Host:</strong> <span className="font-semibold">{vehicle.profiles?.full_name || 'N/A'}</span></p>
                                         <p><strong>Price:</strong> ₹{vehicle.price_per_day}/day</p>
                                         <p><strong>Type:</strong> {vehicle.vehicle_type}</p>
                                     </div>
                                     
                                     <div className="mt-auto pt-6 grid grid-cols-2 gap-4">
+                                        {/* FIXED: Added e.stopPropagation() to buttons */}
                                         <button 
-                                            onClick={() => handleUpdateStatus(vehicle.id, 'approved')}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                handleUpdateStatus(vehicle.id, 'approved');
+                                            }}
                                             disabled={statusMutation.isPending}
                                             className="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-all disabled:bg-gray-400"
                                         >
                                             Approve
                                         </button>
                                         <button 
-                                            onClick={() => handleUpdateStatus(vehicle.id, 'rejected')}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                handleUpdateStatus(vehicle.id, 'rejected');
+                                            }}
                                             disabled={statusMutation.isPending}
                                             className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-all disabled:bg-gray-400"
                                         >
@@ -101,7 +114,7 @@ function AdminDashboard() {
                                         </button>
                                     </div>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 ) : (
