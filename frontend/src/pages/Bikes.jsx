@@ -1,10 +1,11 @@
 // src/pages/Bikes.jsx
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { createBooking } from '../api/bookings';
-import { FaGasPump, FaUsers, FaBolt } from 'react-icons/fa'; // Using react-icons for better UI
+// Import the new icon for the host
+import { FaGasPump, FaUsers, FaBolt, FaUserCircle } from 'react-icons/fa';
+import { GiGearStickPattern } from 'react-icons/gi';
 
 // --- Data Fetching Functions ---
 const fetchVehicles = async () => {
@@ -16,7 +17,7 @@ const fetchVehicles = async () => {
   return data.filter(vehicle => vehicle.vehicle_type === 'Bike' && vehicle.status === 'approved');
 };
 
-// --- NEW: Helper component for dynamically rendering fuel icons and colors ---
+// --- Helper component for dynamically rendering fuel icons and colors ---
 const FuelInfo = ({ fuelType }) => {
   switch (fuelType) {
     case 'Electric':
@@ -36,7 +37,6 @@ const FuelInfo = ({ fuelType }) => {
 };
 
 function Bikes() {
-  const navigate = useNavigate();
   const { user } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,28 +46,6 @@ function Bikes() {
     queryKey: ['bikes'],
     queryFn: fetchVehicles,
   });
-
-  const bookingMutation = useMutation({
-    mutationFn: createBooking,
-    onSuccess: () => {
-      alert('Booking successful!');
-      navigate('/profile');
-    },
-    onError: (error) => {
-      alert(`Booking failed: ${error.message}`);
-    }
-  });
-
-  const handleBooking = (vehicle) => {
-    if (!user) {
-      navigate('/login');
-    } else {
-      const startDate = new Date().toISOString();
-      const endDate = new Date(new Date().setDate(new Date().getDate() + 2)).toISOString();
-      const totalPrice = vehicle.price_per_day * 2;
-      bookingMutation.mutate({ vehicle, user, startDate, endDate, totalPrice });
-    }
-  };
 
   const filteredVehicles = vehicles?.filter(vehicle => {
     const matchesSearch = `${vehicle.make} ${vehicle.model}`.toLowerCase().includes(searchTerm.toLowerCase());
@@ -111,42 +89,42 @@ function Bikes() {
 
         {/* --- Vehicle Grid --- */}
         {filteredVehicles && filteredVehicles.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
             {filteredVehicles.map((vehicle) => (
-              <div key={vehicle.id} className="bg-white rounded-2xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
-                <Link to={`/vehicle/${vehicle.id}`} className="block overflow-hidden">
+              <Link to={`/vehicle/${vehicle.id}`} key={vehicle.id} className="bg-white rounded-2xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
+                <div className="overflow-hidden">
                   <img
                     src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
                     alt={`${vehicle.make} ${vehicle.model}`}
                     className="w-full h-56 object-cover transform group-hover:scale-110 transition-transform duration-300"
                   />
-                </Link>
+                </div>
                 <div className="p-6 flex flex-col flex-grow">
                   <h3 className="text-2xl font-bold text-gray-900 truncate">{vehicle.make} {vehicle.model}</h3>
-                  <div className="flex items-center text-gray-600 mt-2 text-md font-medium">
-                    {/* REPLACED: Using the new FuelInfo component */}
+                  
+                  {/* FIXED: Added the host's name here */}
+                  <div className="flex items-center text-sm text-gray-500 mt-2">
+                    <FaUserCircle className="mr-2" />
+                    <span>Host : {vehicle.profiles?.full_name || 'A verified host'}</span>
+                  </div>
+
+                  <div className="flex items-center text-gray-600 mt-3 text-md font-medium space-x-4">
                     <FuelInfo fuelType={vehicle.fuel_type} />
-                    <span className="mx-2">|</span>
                     <span className="flex items-center"><FaUsers className="mr-1.5" /> {vehicle.seating_capacity} Seat(s)</span>
+                    <span className="flex items-center"><GiGearStickPattern className="mr-1.5" /> {vehicle.transmission}</span>
                   </div>
                   <p className="text-3xl font-bold text-blue-600 mt-4">
                     ₹{vehicle.price_per_day}<span className="text-base font-medium text-gray-500">/day</span>
                   </p>
                   <div className="mt-auto pt-6">
-                    <button
-                      onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleBooking(vehicle);
-                      }}
-                      disabled={bookingMutation.isPending}
-                      className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400 transform hover:scale-105"
+                    <div
+                      className="w-full text-center bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all transform hover:scale-105"
                     >
-                      {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
-                    </button>
+                      View Details
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
