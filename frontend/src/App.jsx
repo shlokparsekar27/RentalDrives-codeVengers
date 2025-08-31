@@ -16,7 +16,8 @@ import HostDashboard from './pages/HostDashboard';
 import AddVehicle from './pages/AddVehicle';
 import EditVehicle from './pages/EditVehicle';
 import AdminDashboard from './pages/AdminDashboard';
-import HostBookings from "./pages/HostBookings"; // Import the new page
+import HostBookings from "./pages/HostBookings";
+import VehicleReviews from './pages/VehicleReviews';
 
 function App() {
   return (
@@ -37,9 +38,9 @@ function App() {
           <Route path="/host/dashboard" element={<HostDashboard />} />
           <Route path="/host/add-vehicle" element={<AddVehicle />} />
           <Route path="/host/edit-vehicle/:id" element={<EditVehicle />} />
-          {/* NEW: Add the route for the host bookings page */}
           <Route path="/host/bookings" element={<HostBookings />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/vehicle/:id/reviews" element={<VehicleReviews />} />
         </Routes>
       </main>
       <Footer />
