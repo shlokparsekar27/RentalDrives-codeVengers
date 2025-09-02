@@ -23,8 +23,6 @@ const deleteVehicle = async (vehicleId) => {
     if (!response.ok) throw new Error('Failed to delete vehicle');
 };
 
-// REMOVED: fetchMyVehicleBookings is no longer needed here
-
 // Helper to get color classes for status badges
 const getStatusClasses = (status) => {
     switch (status) {
@@ -47,8 +45,6 @@ function HostDashboard() {
     queryFn: fetchMyVehicles,
   });
 
-  // REMOVED: The useQuery for bookings is gone from this page
-
   const deleteMutation = useMutation({
     mutationFn: deleteVehicle,
     onSuccess: () => {
@@ -64,23 +60,17 @@ function HostDashboard() {
       }
   };
 
-  if (isLoadingVehicles) {
-    return <div className="text-center p-10 font-bold text-xl">Loading Dashboard...</div>;
-  }
-
-  if (isErrorVehicles) {
-    return <div className="text-center p-10 text-red-600"><h2>Error fetching your data.</h2></div>;
-  }
+  // REMOVED: The early returns for loading and error states.
 
   return (
     <div className="bg-gray-100 min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* --- This header section will now ALWAYS be visible --- */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
           <div>
             <h2 className="text-4xl font-extrabold text-gray-900">Host Dashboard</h2>
             <p className="mt-1 text-gray-600">Manage your vehicle listings.</p>
           </div>
-          {/* FIXED: Added a new button to view bookings */}
           <div className="flex flex-col sm:flex-row gap-4 mt-4 sm:mt-0">
             <Link to="/host/bookings" className="w-full sm:w-auto bg-white text-blue-600 border border-blue-600 font-bold py-3 px-6 rounded-lg hover:bg-blue-50 transition-all text-center">
               View Bookings
@@ -94,7 +84,18 @@ function HostDashboard() {
         {/* --- Your Vehicle Listings Section --- */}
         <div>
           <h3 className="text-2xl font-bold text-gray-800 mb-6">Your Vehicle Listings</h3>
-          {myVehicles && myVehicles.length > 0 ? (
+          
+          {/* --- NEW: Conditional rendering is now handled INSIDE the main layout --- */}
+          {isLoadingVehicles ? (
+            <div className="bg-white text-center p-8 rounded-xl shadow-sm">
+              <p className="text-gray-600">Loading your vehicles...</p>
+            </div>
+          ) : isErrorVehicles ? (
+            <div className="bg-red-50 text-red-700 text-center p-8 rounded-xl shadow-sm">
+              <p className="font-semibold">Error Fetching Your Data</p>
+              <p className="text-sm mt-1">There was a problem loading your vehicles. Please try refreshing the page.</p>
+            </div>
+          ) : myVehicles && myVehicles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {myVehicles.map((vehicle) => (
                 <Link to={`/vehicle/${vehicle.id}`} key={vehicle.id} className="block bg-white rounded-xl shadow-md overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
@@ -144,8 +145,6 @@ function HostDashboard() {
             </div>
           )}
         </div>
-
-        {/* REMOVED: The bookings section is now on its own page */}
       </div>
     </div>
   );

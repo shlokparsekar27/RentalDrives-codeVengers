@@ -82,25 +82,7 @@ const fetchUserBookings = async (userId) => {
     return response.json();
 };
 
-const upgradeToHost = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me/upgrade-to-host`, {
-    method: 'PUT',
-    headers: { 'Authorization': `Bearer ${session.access_token}` }
-  });
-  if (!response.ok) throw new Error('Failed to become a host');
-  return response.json();
-}
-
-const downgradeToTourist = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me/downgrade-to-tourist`, {
-    method: 'PUT',
-    headers: { 'Authorization': `Bearer ${session.access_token}` }
-  });
-  if (!response.ok) throw new Error('Failed to become a tourist');
-  return response.json();
-}
+// REMOVED upgradeToHost and downgradeToTourist functions
 
 const cancelBooking = async (bookingId) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -176,28 +158,12 @@ function Profile() {
     });
 
     const { data: bookings, isLoading: isLoadingBookings } = useQuery({
-        enabled: !!user?.id,
+        enabled: !!user?.id && profile?.role !== 'admin',
         queryKey: ['bookings', user?.id],
         queryFn: () => fetchUserBookings(user.id),
     });
 
-    const upgradeMutation = useMutation({
-        mutationFn: upgradeToHost,
-        onSuccess: () => {
-            alert('You have become a Host!');
-            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
-    });
-
-    const downgradeMutation = useMutation({
-        mutationFn: downgradeToTourist,
-        onSuccess: () => {
-            alert('You have become a Tourist.');
-            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
-    });
+    // REMOVED upgradeMutation and downgradeMutation
     
     const cancelBookingMutation = useMutation({
         mutationFn: cancelBooking,
@@ -295,25 +261,7 @@ function Profile() {
                                 <div className="flex items-center"><FaUserTag className="mr-3 text-gray-500" /> <span className="capitalize font-semibold text-blue-600">{profile?.role}</span></div>
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-xl shadow-md">
-                             <h2 className="text-2xl font-bold text-gray-800 mb-4">Role Management</h2>
-                            {profile?.role === 'tourist' && (
-                                <>
-                                    <p className="text-gray-600 mb-4">Want to list your own vehicles? Become a host!</p>
-                                    <button onClick={() => upgradeMutation.mutate()} className="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-                                        Become a Host
-                                    </button>
-                                </>
-                            )}
-                            {profile?.role === 'host' && (
-                                <>
-                                    <p className="text-gray-600 mb-4">Switch back to a tourist account. Your vehicle listings will be archived.</p>
-                                    <button onClick={() => downgradeMutation.mutate()} className="w-full bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors">
-                                        Switch to Tourist
-                                    </button>
-                                </>
-                            )}
-                        </div>
+                        {/* REMOVED the entire Role Management card div */}
                     </div>
                     <div className="lg:col-span-2">
                         <div className="bg-white p-6 rounded-xl shadow-md">
@@ -364,3 +312,4 @@ function Profile() {
 }
 
 export default Profile;
+

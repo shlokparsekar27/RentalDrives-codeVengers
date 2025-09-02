@@ -3,24 +3,27 @@ import { useState } from "react";
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaUser, FaEnvelope, FaLock } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaLock, FaCar, FaWalking } from 'react-icons/fa';
 
-// The function that calls the backend
-const signUpUser = async ({ email, password, fullName }) => {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/signup`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password, full_name: fullName }),
+// UPDATED: This function now calls Supabase directly from the frontend.
+// This is what allows for the automatic login session to be created.
+const signUpUser = async ({ email, password, fullName, role }) => {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+        role: role,
+      }
+    }
   });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to sign up');
+  if (error) {
+    throw error;
   }
 
-  return response.json();
+  return data;
 };
 
 
@@ -28,13 +31,15 @@ function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('tourist');
   const navigate = useNavigate();
 
   const mutation = useMutation({
     mutationFn: signUpUser,
     onSuccess: () => {
-      alert("Signup successful! Please check your email to verify your account. If you don't see it, check your spam folder.");
-      navigate('/login'); // Redirect to login page after signup
+      alert("Signup successful! Please check your email to verify your account.");
+      // UPDATED: Navigate to the homepage, as the user is now logged in.
+      navigate('/'); 
     },
     onError: (error) => {
       alert(`Error signing up: ${error.message}`);
@@ -43,7 +48,7 @@ function Signup() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    mutation.mutate({ email, password, fullName });
+    mutation.mutate({ email, password, fullName, role });
   };
   
   const inputBaseClass = "w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
@@ -57,61 +62,51 @@ function Signup() {
         </div>
         
         <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Full Name Input */}
+          {/* Role Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">I want to:</label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setRole('tourist')}
+                className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${
+                  role === 'tourist' ? 'border-blue-600 bg-blue-50' : 'border-gray-300 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <FaWalking className={`h-6 w-6 mb-2 ${role === 'tourist' ? 'text-blue-600' : 'text-gray-400'}`} />
+                <span className="font-semibold">Rent a Vehicle</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRole('host')}
+                className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${
+                  role === 'host' ? 'border-blue-600 bg-blue-50' : 'border-gray-300 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <FaCar className={`h-6 w-6 mb-2 ${role === 'host' ? 'text-blue-600' : 'text-gray-400'}`} />
+                <span className="font-semibold">List a Vehicle</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Form Inputs remain the same... */}
           <div className="relative">
             <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Full name" 
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required 
-              className={inputBaseClass}
-            />
+            <input type="text" placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} required className={inputBaseClass}/>
           </div>
-
-          {/* Email Input */}
           <div className="relative">
             <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="email" 
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
-              className={inputBaseClass}
-            />
+            <input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputBaseClass}/>
           </div>
-
-          {/* Password Input */}
           <div className="relative">
             <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="password" 
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)} 
-              required 
-              className={inputBaseClass}
-              minLength="6" // Good practice to enforce a minimum password length
-            />
+            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputBaseClass} minLength="6"/>
           </div>
 
           {/* Submit Button */}
           <div>
-            <button 
-              type="submit" 
-              className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400 flex items-center justify-center" 
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                  <span>Creating Account...</span>
-                </>
-              ) : (
-                'Sign Up'
-              )}
+            <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700" disabled={mutation.isPending}>
+              {mutation.isPending ? 'Creating Account...' : 'Sign Up'}
             </button>
           </div>
         </form>
@@ -128,3 +123,4 @@ function Signup() {
 }
 
 export default Signup;
+
