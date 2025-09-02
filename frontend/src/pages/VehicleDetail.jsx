@@ -1,6 +1,6 @@
 // src/pages/VehicleDetail.jsx
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -11,18 +11,18 @@ import { BsCalendar, BsTagFill } from 'react-icons/bs';
 
 
 // --- Data Fetching ---
+// UPDATED: This query now only fetches the rating from reviews to keep it fast.
 const fetchVehicleById = async (vehicleId) => {
-  // This query now fetches the host's name and the reviewer's name
   const { data, error } = await supabase
     .from('vehicles')
-    .select(`*, profiles ( full_name ), reviews ( *, profiles ( full_name ) )`)
+    .select(`*, profiles ( full_name ), reviews ( rating )`) // Only fetch the rating
     .eq('id', vehicleId)
     .single();
   if (error) throw new Error(error.message);
   return data;
 };
 
-// NEW: Function to fetch booked dates for the vehicle
+// This function to fetch booked dates remains the same.
 const fetchBookedDates = async (vehicleId) => {
   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}/booked-dates`);
   if (!response.ok) {
@@ -34,14 +34,16 @@ const fetchBookedDates = async (vehicleId) => {
 
 // --- Helper Components ---
 const FuelInfo = ({ fuelType, className = '' }) => {
+  // This component now only returns the icon with its specific color.
+  // The color class here will override the default blue from SpecItem.
   switch (fuelType) {
     case 'Electric':
-      return <span className={`flex items-center text-green-600 ${className}`}><FaBolt className="mr-2" /> Electric</span>;
+      return <FaBolt className={`text-green-600 ${className}`} size={24} />;
     case 'Diesel':
-      return <span className={`flex items-center text-gray-800 ${className}`}><FaGasPump className="mr-2" /> Diesel</span>;
+      return <FaGasPump className={`text-red-600 ${className}`} size={24} />;
     case 'Petrol':
     default:
-      return <span className={`flex items-center text-yellow-600 ${className}`}><FaGasPump className="mr-2" /> Petrol</span>;
+      return <FaGasPump className={`text-yellow-600 ${className}`} size={24} />;
   }
 };
 
@@ -60,7 +62,7 @@ function VehicleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-
+  
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -69,11 +71,16 @@ function VehicleDetail() {
     queryFn: () => fetchVehicleById(id),
   });
 
-  // NEW: Query to get the already booked dates for this vehicle
+  // MOVED a few lines down: Calculate review average and count AFTER vehicle data is fetched.
+  const reviewCount = vehicle?.reviews?.length || 0;
+  const averageRating = reviewCount > 0
+      ? vehicle.reviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount
+      : 0;
+
   const { data: bookedDates, isLoading: isLoadingBookedDates } = useQuery({
     queryKey: ['bookedDates', id],
     queryFn: () => fetchBookedDates(id),
-    enabled: !!id, // Only run this query if the vehicle ID exists
+    enabled: !!id,
   });
 
 
@@ -103,11 +110,17 @@ function VehicleDetail() {
   const handleBooking = () => {
     if (!user) {
       navigate('/login');
-    } else if (!startDate || !endDate || totalPrice <= 0) {
+      return;
+    } 
+    if (!startDate || !endDate || totalPrice <= 0) {
       alert('Please select a valid date range.');
-    } else {
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to book the ${vehicle.make} ${vehicle.model} for ₹${totalPrice}?`)) {
       bookingMutation.mutate({
-        vehicle, user,
+        vehicle, 
+        user,
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString(),
         totalPrice
@@ -128,9 +141,7 @@ function VehicleDetail() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
           
-          {/* Left Column: Image and Specs */}
           <div className="lg:col-span-3">
-            {/* Main Image */}
             <div className="mb-8 shadow-2xl rounded-2xl overflow-hidden">
               <img
                 src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/800x500.png?text=No+Image'}
@@ -139,7 +150,6 @@ function VehicleDetail() {
               />
             </div>
 
-            {/* Specs Grid */}
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Key Details</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <SpecItem icon={<BsCalendar size={24} />} label="Year" value={vehicle.year} />
@@ -150,11 +160,27 @@ function VehicleDetail() {
             </div>
           </div>
 
-          {/* Right Column: Booking Widget */}
           <div className="lg:col-span-2">
             <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
               <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
               <p className="text-md text-gray-600 mt-1">Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name || 'A verified host'}</span></p>
+
+              <div className="mt-4 flex items-center">
+                {reviewCount > 0 ? (
+                  <>
+                    <div className="flex items-center text-yellow-500">
+                      {[...Array(5)].map((_, i) => i < Math.round(averageRating) ? <FaStar key={i} /> : <FaRegStar key={i} />)}
+                    </div>
+                    <span className="ml-2 text-gray-600 font-semibold">{averageRating.toFixed(1)}</span>
+                    <Link to={`/vehicle/${id}/reviews`} className="ml-3 text-blue-600 hover:underline text-sm font-medium">
+                      ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+                    </Link>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">No reviews yet.</p>
+                )}
+              </div>
+
               <p className="text-2xl font-bold text-blue-600 mt-4">
                 ₹{vehicle.price_per_day} <span className="text-base font-medium text-gray-500">/day</span>
               </p>
@@ -191,7 +217,6 @@ function VehicleDetail() {
           </div>
         </div>
         
-        {/* NEW: Availability Section */}
         <div className="mt-16">
             <h3 className="text-3xl font-bold text-gray-900 mb-6">Availability</h3>
             {isLoadingBookedDates ? (
@@ -214,36 +239,11 @@ function VehicleDetail() {
             )}
         </div>
 
-        {/* Reviews Section */}
-        <div className="mt-16">
-          <h3 className="text-3xl font-bold text-gray-900 mb-6">User Reviews</h3>
-          {vehicle.reviews && vehicle.reviews.length > 0 ? (
-            <div className="space-y-6">
-              {vehicle.reviews.map(review => (
-                <div key={review.id} className="bg-white p-6 rounded-xl shadow-md">
-                  <div className="flex items-center mb-4">
-                    <FaUserCircle size={40} className="text-gray-400 mr-4" />
-                    <div>
-                      <p className="font-bold text-gray-800">{review.profiles?.full_name || 'Anonymous'}</p>
-                      <div className="flex items-center text-sm text-yellow-500">
-                          {[...Array(5)].map((_, i) => i < review.rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}
-                          <span className="ml-2 text-gray-600 font-semibold">{review.rating}/5</span>
-                      </div>
-                    </div>
-                  </div>
-                  {review.comment && <p className="text-gray-700 italic">"{review.comment}"</p>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white p-8 rounded-xl shadow-sm text-center">
-                <p className="text-gray-600">No reviews yet for this vehicle.</p>
-            </div>
-          )}
-        </div>
+        {/* REMOVED: The full reviews section is now on a separate page */}
       </div>
     </div>
   );
 }
 
 export default VehicleDetail;
+

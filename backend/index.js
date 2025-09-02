@@ -37,7 +37,11 @@ const authenticateToken = (req, res, next) => {
 // User Signup
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { email, password, full_name } = req.body; // 'role' is no longer read from the body
+    // UPDATED: Now reads the 'role' from the request body
+    const { email, password, full_name, role } = req.body; 
+
+    // A small security check to ensure the role is valid
+    const userRole = (role === 'host' || role === 'tourist') ? role : 'tourist';
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -45,14 +49,14 @@ app.post('/api/auth/signup', async (req, res) => {
       options: {
         data: {
           full_name,
-          role: 'tourist', // Always sign up new users as a tourist
+          role: userRole, // UPDATED: Uses the role sent from the frontend
         }
       }
     });
 
     if (error) throw error;
 
-    res.status(201).json({ message: 'User created successfully as a tourist.', user: data.user });
+    res.status(201).json({ message: `User created successfully as a ${userRole}.`, user: data.user });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -108,78 +112,6 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
     if (!data) return res.status(404).json({ error: 'Profile not found.' });
 
     res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Upgrade a user's role from 'tourist' to 'host'
-app.put('/api/users/me/upgrade-to-host', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.sub;
-
-    // 1. Update the user's role in the profiles table
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .update({ role: 'host' })
-      .eq('id', userId)
-      .select()
-      .single();
-
-    if (profileError) throw profileError;
-    if (!profileData) return res.status(404).json({ error: 'User not found.' });
-    
-    // 2. ALSO update the user's metadata in the main Auth system
-    await supabase.auth.admin.updateUserById(
-        userId,
-        { user_metadata: { role: 'host' } }
-    );
-
-    // 3. NEW: Find all of the user's archived vehicles and set them back to pending
-    await supabase
-      .from('vehicles')
-      .update({ status: 'pending' })
-      .eq('host_id', userId)
-      .eq('status', 'archived');
-
-    res.status(200).json({ 
-        message: 'User successfully upgraded to host. Archived vehicles have been resubmitted for approval.', 
-        profile: profileData 
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Downgrade a user's role from 'host' to 'tourist'
-app.put('/api/users/me/downgrade-to-tourist', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.sub;
-
-    // Step 1: Deactivate all of the host's active vehicle listings
-    await supabase
-      .from('vehicles')
-      .update({ status: 'archived' })
-      .eq('host_id', userId)
-      .in('status', ['pending', 'approved']);
-    
-    // Step 2: Update the user's role in the profiles table
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .update({ role: 'tourist' })
-      .eq('id', userId)
-      .select()
-      .single();
-
-    if (profileError) throw profileError;
-
-    // Step 3: Update the user's metadata in the main Auth system
-    await supabase.auth.admin.updateUserById(
-        userId,
-        { user_metadata: { role: 'tourist' } }
-    );
-
-    res.status(200).json({ message: 'User successfully downgraded to tourist.', profile: profileData });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
