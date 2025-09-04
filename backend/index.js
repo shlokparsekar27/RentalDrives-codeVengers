@@ -1,14 +1,26 @@
 // File: backend/index.js - FINAL VERSION WITH BOOKING VALIDATION
-
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
-import 'dotenv/config';
+
 import jwt from 'jsonwebtoken';
+
+import Razorpay from "razorpay";
+import crypto from "crypto";
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -239,7 +251,7 @@ app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
 // backend/index.js
 
 // CREATE a new booking - UPDATED WITH CORRECT VALIDATION
-app.post('/api/bookings', authenticateToken, async (req, res) => {
+app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
   try {
     const { vehicle_id, start_date, end_date, total_price } = req.body;
     if (!vehicle_id || !start_date || !end_date || !total_price) {
@@ -261,27 +273,168 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'This vehicle is already booked for the selected dates. Please choose a different date range.' });
     }
     // --- End of new check ---
+      //<--------------------------------------- booking start ------------------------------------------>
 
-    const { data, error } = await supabase
-      .from('bookings')
-      .insert([{
-        user_id: req.user.sub,
-        vehicle_id,
-        start_date,
-        end_date,
-        total_price,
-        status: 'confirmed'
-      }])
+      //insert booking as pending
+           const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .insert([
+        {
+          user_id: req.user.sub,
+          vehicle_id,
+          start_date,
+          end_date,
+          total_price,
+          status: "pending",
+        },
+      ])
       .select()
       .single();
 
-    if (error) throw error;
-    res.status(201).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    if (bookingError) throw bookingError;
+
+    // 2 Create Razorpay order
+    const order = await razorpay.orders.create({
+      amount: Math.round(total_price * 100), // INR in paise
+      currency: "INR",
+      receipt: booking.id,
+    });
+
+    // 3 Insert payment record (pending)
+    const { data: payment, error: paymentError } = await supabase
+      .from("payments")
+      .insert([
+        {
+          booking_id: booking.id,
+          amount: total_price,
+          currency: "INR",
+          status: "pending",
+          payment_gateway: "razorpay",
+          razorpay_order_id: order.id,
+        },
+      ])
+      .select()
+      .single();
+
+    if (paymentError) throw paymentError;
+
+    res.json({ booking, order });
+  } catch (err) {
+    console.error("Error creating booking order:", err);
+    res.status(500).json({ error: "Failed to create booking order" });
+  }
+   
+});
+
+// --- Verify Payment ---
+app.post("/api/payments/verify", async (req, res) => {
+  try {
+    const { bookingId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    // Debug log request
+   /* console.log("Verify API called with:", {
+      bookingId,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    });   */
+
+    //  Verify signature
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+
+    //console.log("Expected Signature:", expectedSignature);
+   // console.log("Received Signature:", razorpay_signature);
+
+    if (expectedSignature !== razorpay_signature) {
+      console.error("❌ Signature mismatch!");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    // Update payment row by booking_id
+    const { data: updatedPayment, error: paymentUpdateError } = await supabase
+      .from("payments")
+      .update({
+        razorpay_payment_id,
+        razorpay_order_id, // optional: re-save for reference
+        status: "paid",
+      })
+      .eq("booking_id", bookingId)
+      .select();
+
+    if (paymentUpdateError) {
+      console.error("❌ Payment update error:", paymentUpdateError);
+      return res.status(500).json({ error: "Failed to update payment" });
+    }
+
+   // console.log("✅ Payment updated:", updatedPayment);
+
+    //  Update booking status
+    const { data: updatedBooking, error: bookingUpdateError } = await supabase
+      .from("bookings")
+      .update({ status: "confirmed" })
+      .eq("id", bookingId)
+      .select();
+
+    if (bookingUpdateError) {
+      console.error("❌ Booking update error:", bookingUpdateError);
+      return res.status(500).json({ error: "Failed to update booking" });
+    }
+
+    //console.log("✅ Booking updated:", updatedBooking);
+
+    res.json({ success: true, payment: updatedPayment, booking: updatedBooking });
+  } catch (err) {
+    console.error("🔥 Error verifying payment:", err);
+    res.status(500).json({ error: "Payment verification failed" });
   }
 });
 
+
+//<----------- payment failure endpoint --------------->
+
+app.post("/api/payments/fail", async (req, res) => {
+  try {
+    const { booking_id, razorpay_order_id } = req.body;
+   // console.log("⚠️ Payment failure called with:", { booking_id, razorpay_order_id });
+
+    // Update payments table
+    const { data: failedPayment, error: paymentFailError } = await supabase
+      .from("payments")
+      .update({ status: "failed" })
+      .eq("razorpay_order_id", razorpay_order_id)
+      .select();
+
+    if (paymentFailError) {
+      console.error("❌ Failed to update payments:", paymentFailError);
+      return res.status(500).json({ error: "Payment update failed" });
+    }
+   // console.log("✅ Payment marked as failed:", failedPayment);
+
+    // Update booking table
+    const { data: cancelledBooking, error: bookingFailError } = await supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("id", booking_id)
+      .select();
+
+    if (bookingFailError) {
+      console.error("❌ Failed to update booking:", bookingFailError);
+      return res.status(500).json({ error: "Booking update failed" });
+    }
+   // console.log("✅ Booking cancelled:", cancelledBooking);
+
+    res.json({ success: true, msg: "Payment failed & booking cancelled" });
+  } catch (err) {
+    console.error("🔥 Error in fail route:", err);
+    res.status(500).json({ success: false, msg: "Error updating failed payment" });
+  }
+});
+
+//<--------------- end of booking -------------------------------------------------------->
 // READ all of the current user's bookings
 app.get('/api/bookings/my-bookings', authenticateToken, async (req, res) => {
     try {
