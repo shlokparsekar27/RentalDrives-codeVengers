@@ -1,6 +1,7 @@
 // File: backend/index.js - FINAL VERSION WITH BOOKING VALIDATION
 import 'dotenv/config';
 import express from 'express';
+import fetch from "node-fetch";
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 
@@ -20,6 +21,9 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+
+const WHATSAPP_API_URL = `https://graph.facebook.com/v17.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -42,6 +46,84 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+
+//<--------------- Function to send WhatsApp messages---------->s
+async function sendWhatsAppMessage(to, message, recipientType = "user") {
+
+  console.log("\n============================");
+  console.log(`📩 Preparing WhatsApp for ${recipientType.toUpperCase()}`);
+  console.log(`👉 Recipient number: ${to}`);
+  console.log(`👉 Message content:\n${message}`);
+  console.log("============================\n");
+  try {
+    const res = await fetch(WHATSAPP_API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: to,
+        type: "text",
+        text: { body: message },
+      }),
+    });
+
+    const data = await res.json();
+    // console.log(`📩 WhatsApp API response for ${recipientType}:`, data);
+    if (!res.ok) {
+      console.error(`❌ WhatsApp API error for ${recipientType}:`, data);
+      return false;
+    }
+    // console.log(`✅ WhatsApp sent successfully to ${recipientType}:`, data);
+    return true;
+  } catch (err) {
+    console.error(`❌ WhatsApp API error for ${recipientType}:`, data);
+    return false;
+  }
+}
+async function notifyBooking(userData, hostData, vehicle, booking) {
+  try {
+    /* console.log("\n============================");
+     console.log(" Starting notifyBooking...");
+     console.log(" User Data:", userData);
+     console.log(" Host Data:", hostData);
+     console.log(" Vehicle Data:", vehicle);
+     console.log("Booking Data:", booking);
+     console.log("============================\n");
+     */
+
+    // Extract only the date part
+    const startDate = booking.start_date.split("T")[0];
+    const endDate = booking.end_date.split("T")[0];
+
+            const userMessage = `✅ Booking Confirmed!
+        Vehicle: ${vehicle.make} ${vehicle.model}
+        From: ${startDate} To: ${endDate}
+        Amount: ₹${booking.total_price}`;
+
+            const hostMessage = `📢 New Booking!
+        Customer: ${userData.full_name}
+        Vehicle: ${vehicle.make} ${vehicle.model}
+        From: ${startDate} To: ${endDate}`;
+
+    //console.log("📩 Final user message:\n", userMessage);
+    //console.log("📩 Final host message:\n", hostMessage);
+
+    // Send in parallel
+    await Promise.all([
+      sendWhatsAppMessage(userData.phone_number, userMessage, "user"),
+      sendWhatsAppMessage(hostData.phone_number, hostMessage, "host"),
+    ]);
+
+   // console.log("✅ WhatsApp notifications sent");
+
+  } catch (err) {
+    console.error("❌ WhatsApp notify failed:", err);
+  }
+}
+//<---------------------whatsapp function ends here ----------------->
 // --- API Endpoints ---
 
 // ======== AUTHENTICATION ENDPOINTS ========
@@ -50,7 +132,7 @@ const authenticateToken = (req, res, next) => {
 app.post('/api/auth/signup', async (req, res) => {
   try {
     // UPDATED: Now reads the 'role' from the request body
-    const { email, password, full_name, role } = req.body; 
+    const { email, password, full_name, role } = req.body;
 
     // A small security check to ensure the role is valid
     const userRole = (role === 'host' || role === 'tourist') ? role : 'tourist';
@@ -77,37 +159,37 @@ app.post('/api/auth/signup', async (req, res) => {
 
 // User Login
 app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-        // Step 1: Authenticate the user with Supabase Auth
-        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+    // Step 1: Authenticate the user with Supabase Auth
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-        if (loginError) throw loginError;
+    if (loginError) throw loginError;
 
-        // Step 2: Fetch the user's profile to get our custom role
-        const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', loginData.user.id)
-            .single();
+    // Step 2: Fetch the user's profile to get our custom role
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', loginData.user.id)
+      .single();
 
-        if (profileError) throw profileError;
+    if (profileError) throw profileError;
 
-        // Step 3: Combine the session (with token) and the profile data for the response
-        const response = {
-            session: loginData.session,
-            profile: profileData
-        };
+    // Step 3: Combine the session (with token) and the profile data for the response
+    const response = {
+      session: loginData.session,
+      profile: profileData
+    };
 
-        res.status(200).json(response);
+    res.status(200).json(response);
 
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // GET the profile of the currently logged-in user
@@ -229,22 +311,22 @@ app.put('/api/vehicles/:id', authenticateToken, async (req, res) => {
 
 // DELETE a vehicle (Protected, for owner only)
 app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { data, error } = await supabase
-        .from('vehicles')
-        .delete()
-        .eq('id', id)
-        .eq('host_id', req.user.sub)
-        .select()
-        .single();
-      if (error) throw error;
-      if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to delete it.' });
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('vehicles')
+      .delete()
+      .eq('id', id)
+      .eq('host_id', req.user.sub)
+      .select()
+      .single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to delete it.' });
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ======== BOOKING ENDPOINTS (Protected) ========
 
@@ -273,10 +355,10 @@ app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'This vehicle is already booked for the selected dates. Please choose a different date range.' });
     }
     // --- End of new check ---
-      //<--------------------------------------- booking start ------------------------------------------>
+    //<--------------------------------------- booking start ------------------------------------------>
 
-      //insert booking as pending
-           const { data: booking, error: bookingError } = await supabase
+    //insert booking as pending
+    const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert([
         {
@@ -323,21 +405,23 @@ app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
     console.error("Error creating booking order:", err);
     res.status(500).json({ error: "Failed to create booking order" });
   }
-   
+
 });
 
 // --- Verify Payment ---
 app.post("/api/payments/verify", async (req, res) => {
+
   try {
+    // console.log("🔎 Full request body:", req.body);
     const { bookingId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
     // Debug log request
-   /* console.log("Verify API called with:", {
-      bookingId,
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-    });   */
+    /* console.log("Verify API called with:", {
+       bookingId,
+       razorpay_order_id,
+       razorpay_payment_id,
+       razorpay_signature,
+     });   */
 
     //  Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -347,7 +431,7 @@ app.post("/api/payments/verify", async (req, res) => {
       .digest("hex");
 
     //console.log("Expected Signature:", expectedSignature);
-   // console.log("Received Signature:", razorpay_signature);
+    // console.log("Received Signature:", razorpay_signature);
 
     if (expectedSignature !== razorpay_signature) {
       console.error("❌ Signature mismatch!");
@@ -370,7 +454,7 @@ app.post("/api/payments/verify", async (req, res) => {
       return res.status(500).json({ error: "Failed to update payment" });
     }
 
-   // console.log("✅ Payment updated:", updatedPayment);
+    // console.log("✅ Payment updated:", updatedPayment);
 
     //  Update booking status
     const { data: updatedBooking, error: bookingUpdateError } = await supabase
@@ -386,10 +470,54 @@ app.post("/api/payments/verify", async (req, res) => {
 
     //console.log("✅ Booking updated:", updatedBooking);
 
-    res.json({ success: true, payment: updatedPayment, booking: updatedBooking });
+    // ✅ Fetch booking with user + host details
+    //  console.log("🔎 Booking ID received in verify API:", bookingId);
+
+    const { data: booking, error } = await supabase
+      .from("bookings")
+      .select(`
+    *,
+    vehicles (
+      *,
+      profiles (*)
+    ),
+    profiles (*)
+  `)
+      .eq("id", bookingId)
+      .single();
+
+  //  console.log("📌 Booking data fetched:", JSON.stringify(booking, null, 2));
+
+    if (error) {
+      console.error("❌ Supabase error while fetching booking:", error);
+      return res.status(500).json({ success: false, message: "Error fetching booking" });
+    }
+
+    if (!booking) {
+      console.error("❌ No booking found in DB for bookingId:", bookingId);
+      return res.status(404).json({ success: false, message: "Booking not found in DB" });
+
+    }
+
+
+
+    const vehicle = booking.vehicles;
+    const userPhone = booking?.profiles?.phone_number;
+    const hostPhone = booking?.vehicles?.profiles?.phone_number;
+    const userProfile = booking.profiles;
+    const hostProfile = booking.vehicles?.profiles;
+
+   // console.log("📌 User phone:", userPhone);
+   // console.log("📌 Host phone:", hostPhone);
+
+    // ✅ Send WhatsApp confirmation
+    // ✅ Send WhatsApp notifications
+    await notifyBooking(userProfile, hostProfile, vehicle, booking);
+
+    return res.json({ success: true, message: "Payment verified + WhatsApp sent" });
   } catch (err) {
-    console.error("🔥 Error verifying payment:", err);
-    res.status(500).json({ error: "Payment verification failed" });
+    console.error("❌ verifyPayment error:", err);
+    return res.status(500).json({ success: false, message: "Internal error" });
   }
 });
 
@@ -399,7 +527,7 @@ app.post("/api/payments/verify", async (req, res) => {
 app.post("/api/payments/fail", async (req, res) => {
   try {
     const { booking_id, razorpay_order_id } = req.body;
-   // console.log("⚠️ Payment failure called with:", { booking_id, razorpay_order_id });
+    // console.log("⚠️ Payment failure called with:", { booking_id, razorpay_order_id });
 
     // Update payments table
     const { data: failedPayment, error: paymentFailError } = await supabase
@@ -412,7 +540,7 @@ app.post("/api/payments/fail", async (req, res) => {
       console.error("❌ Failed to update payments:", paymentFailError);
       return res.status(500).json({ error: "Payment update failed" });
     }
-   // console.log("✅ Payment marked as failed:", failedPayment);
+    // console.log("✅ Payment marked as failed:", failedPayment);
 
     // Update booking table
     const { data: cancelledBooking, error: bookingFailError } = await supabase
@@ -425,7 +553,7 @@ app.post("/api/payments/fail", async (req, res) => {
       console.error("❌ Failed to update booking:", bookingFailError);
       return res.status(500).json({ error: "Booking update failed" });
     }
-   // console.log("✅ Booking cancelled:", cancelledBooking);
+    // console.log("✅ Booking cancelled:", cancelledBooking);
 
     res.json({ success: true, msg: "Payment failed & booking cancelled" });
   } catch (err) {
@@ -437,42 +565,42 @@ app.post("/api/payments/fail", async (req, res) => {
 //<--------------- end of booking -------------------------------------------------------->
 // READ all of the current user's bookings
 app.get('/api/bookings/my-bookings', authenticateToken, async (req, res) => {
-    try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(`
           *,
           vehicles ( *, reviews ( * ) )
         `)
-        .eq('user_id', req.user.sub);
-  
-      if (error) throw error;
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+      .eq('user_id', req.user.sub);
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // UPDATE a booking's status to 'cancelled'
 app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { data, error } = await supabase
-        .from('bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', id)
-        .eq('user_id', req.user.sub) // Security: Ensures only the owner can cancel
-        .select()
-        .single();
-  
-      if (error) throw error;
-      if (!data) return res.status(404).json({ error: 'Booking not found or you do not have permission to cancel it.' });
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .eq('user_id', req.user.sub) // Security: Ensures only the owner can cancel
+      .select()
+      .single();
 
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Booking not found or you do not have permission to cancel it.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ======== ADMIN ENDPOINTS (Protected) ========
 
@@ -506,7 +634,7 @@ app.get('/api/admin/vehicles/pending', authenticateToken, async (req, res) => {
     // This query now joins with the profiles table to get the host's name
     const { data, error } = await supabase
       .from('vehicles')
-      .select(`*, profiles ( full_name )`) 
+      .select(`*, profiles ( full_name )`)
       .eq('status', 'pending');
 
     if (error) throw error;
@@ -648,66 +776,66 @@ app.delete('/api/admin/reviews/:id', authenticateToken, async (req, res) => {
 
 // GET all vehicles for the currently logged-in host
 app.get('/api/hosts/my-vehicles', authenticateToken, async (req, res) => {
-    try {
-      if (req.user.user_metadata.role !== 'host') {
-        return res.status(403).json({ error: 'Access denied. Host role required.' });
-      }
-  
-      // Corrected line:
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('host_id', req.user.sub);
-  
-      if (error) throw error;
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+  try {
+    if (req.user.user_metadata.role !== 'host') {
+      return res.status(403).json({ error: 'Access denied. Host role required.' });
     }
-  });
+
+    // Corrected line:
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('host_id', req.user.sub);
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // backend/index.js
 
 // GET all bookings made on a host's vehicles
 app.get('/api/hosts/my-bookings', authenticateToken, async (req, res) => {
-    try {
-        if (req.user.user_metadata.role !== 'host') {
-            return res.status(403).json({ error: 'Access denied. Host role required.' });
-        }
-        const hostId = req.user.sub;
+  try {
+    if (req.user.user_metadata.role !== 'host') {
+      return res.status(403).json({ error: 'Access denied. Host role required.' });
+    }
+    const hostId = req.user.sub;
 
-        // Step 1: Find all vehicles that belong to the current host
-        const { data: hostVehicles, error: vehiclesError } = await supabase
-            .from('vehicles')
-            .select('id')
-            .eq('host_id', hostId);
+    // Step 1: Find all vehicles that belong to the current host
+    const { data: hostVehicles, error: vehiclesError } = await supabase
+      .from('vehicles')
+      .select('id')
+      .eq('host_id', hostId);
 
-        if (vehiclesError) throw vehiclesError;
+    if (vehiclesError) throw vehiclesError;
 
-        if (!hostVehicles || hostVehicles.length === 0) {
-            return res.status(200).json([]);
-        }
+    if (!hostVehicles || hostVehicles.length === 0) {
+      return res.status(200).json([]);
+    }
 
-        const vehicleIds = hostVehicles.map(v => v.id);
+    const vehicleIds = hostVehicles.map(v => v.id);
 
-        // Step 2: Find all bookings that match the host's vehicle IDs
-        const { data: bookings, error: bookingsError } = await supabase
-            .from('bookings')
-            .select(`
+    // Step 2: Find all bookings that match the host's vehicle IDs
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select(`
                 *,
                 vehicles ( make, model ),
                 profiles ( full_name )
             `)
-            .in('vehicle_id', vehicleIds);
+      .in('vehicle_id', vehicleIds);
 
-        if (bookingsError) throw bookingsError;
+    if (bookingsError) throw bookingsError;
 
-        res.status(200).json(bookings);
+    res.status(200).json(bookings);
 
-    } catch (error) {
-        console.error('Error fetching host bookings:', error);
-        res.status(500).json({ error: error.message });
-    }
+  } catch (error) {
+    console.error('Error fetching host bookings:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ======== REVIEW ENDPOINTS (Protected) ========
@@ -745,45 +873,45 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
 
 // UPDATE a review
 app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { rating, comment } = req.body;
-      const { data, error } = await supabase
-        .from('reviews')
-        .update({ rating, comment })
-        .eq('id', id)
-        .eq('user_id', req.user.sub) // Security: Ensures only the owner can update
-        .select()
-        .single();
-  
-      if (error) throw error;
-      if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to edit it.' });
+  try {
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+    const { data, error } = await supabase
+      .from('reviews')
+      .update({ rating, comment })
+      .eq('id', id)
+      .eq('user_id', req.user.sub) // Security: Ensures only the owner can update
+      .select()
+      .single();
 
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to edit it.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // DELETE a review
 app.delete('/api/reviews/:id', authenticateToken, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { data, error } = await supabase
-            .from('reviews')
-            .delete()
-            .eq('id', id)
-            .eq('user_id', req.user.sub) // Security: Ensures only the owner can delete
-            .select()
-            .single();
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.sub) // Security: Ensures only the owner can delete
+      .select()
+      .single();
 
-        if (error) throw error;
-        if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to delete it.' });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to delete it.' });
 
-        res.status(204).send();
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // --- Server Start ---

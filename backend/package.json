@@ -17,6 +17,7 @@
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2",
     "razorpay": "^2.9.6"
   },
   "devDependencies": {
