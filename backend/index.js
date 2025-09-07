@@ -306,40 +306,48 @@ app.get('/api/hosts/:id/vehicles', async (req, res) => {
 
 // backend/index.js
 
-// CREATE a new booking - UPDATED WITH CORRECT VALIDATION
+// backend/index.js
+
+// CREATE a new booking - UPDATED WITH DROPOFF LOCATION
 app.post('/api/bookings', authenticateToken, async (req, res) => {
   try {
-    const { vehicle_id, start_date, end_date, total_price } = req.body;
+    // ADDED: dropoff_location to the destructuring
+    const { vehicle_id, start_date, end_date, total_price, dropoff_location } = req.body;
     if (!vehicle_id || !start_date || !end_date || !total_price) {
       return res.status(400).json({ error: 'Missing required booking information.' });
     }
 
-    // --- FIXED: Replaced the failing .or() filter with a correct overlap check ---
+    // --- Overlap check remains the same ---
     const { data: overlappingBookings, error: overlapError } = await supabase
       .from('bookings')
       .select('id')
       .eq('vehicle_id', vehicle_id)
       .eq('status', 'confirmed')
-      .lte('start_date', end_date)   // An existing booking's start is before or on the new booking's end date
-      .gte('end_date', start_date);  // And an existing booking's end is after or on the new booking's start date
+      .lte('start_date', end_date)
+      .gte('end_date', start_date);
 
     if (overlapError) throw overlapError;
 
     if (overlappingBookings && overlappingBookings.length > 0) {
       return res.status(409).json({ error: 'This vehicle is already booked for the selected dates. Please choose a different date range.' });
     }
-    // --- End of new check ---
 
-    const { data, error } = await supabase
-      .from('bookings')
-      .insert([{
+    // --- End of check ---
+
+    // ADDED: dropoff_location to the insert object
+    const bookingData = {
         user_id: req.user.sub,
         vehicle_id,
         start_date,
         end_date,
         total_price,
-        status: 'confirmed'
-      }])
+        status: 'confirmed',
+        dropoff_location: dropoff_location || null // Save location or null if not provided
+    };
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert([bookingData])
       .select()
       .single();
 
