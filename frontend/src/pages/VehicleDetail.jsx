@@ -5,24 +5,22 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { createBooking } from '../api/bookings';
-import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaUserCircle } from 'react-icons/fa';
+import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaUserCircle, FaMapMarkerAlt, FaShippingFast } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
 
 
 // --- Data Fetching ---
-// UPDATED: This query now only fetches the rating from reviews to keep it fast.
 const fetchVehicleById = async (vehicleId) => {
   const { data, error } = await supabase
     .from('vehicles')
-    .select(`*, profiles ( full_name ), reviews ( rating )`) // Only fetch the rating
+    .select(`*, profiles ( full_name, address )`) // UPDATED: Also fetch host's address
     .eq('id', vehicleId)
     .single();
   if (error) throw new Error(error.message);
   return data;
 };
 
-// This function to fetch booked dates remains the same.
 const fetchBookedDates = async (vehicleId) => {
   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}/booked-dates`);
   if (!response.ok) {
@@ -33,17 +31,15 @@ const fetchBookedDates = async (vehicleId) => {
 
 
 // --- Helper Components ---
-const FuelInfo = ({ fuelType, className = '' }) => {
-  // This component now only returns the icon with its specific color.
-  // The color class here will override the default blue from SpecItem.
+const FuelInfo = ({ fuelType }) => {
   switch (fuelType) {
     case 'Electric':
-      return <FaBolt className={`text-green-600 ${className}`} size={24} />;
+      return <FaBolt size={24} className="text-green-600" />;
     case 'Diesel':
-      return <FaGasPump className={`text-red-600 ${className}`} size={24} />;
+      return <FaGasPump size={24} className="text-red-600" />;
     case 'Petrol':
     default:
-      return <FaGasPump className={`text-yellow-600 ${className}`} size={24} />;
+      return <FaGasPump size={24} className="text-yellow-600" />;
   }
 };
 
@@ -70,8 +66,7 @@ function VehicleDetail() {
     queryKey: ['vehicle', id],
     queryFn: () => fetchVehicleById(id),
   });
-
-  // MOVED a few lines down: Calculate review average and count AFTER vehicle data is fetched.
+  
   const reviewCount = vehicle?.reviews?.length || 0;
   const averageRating = reviewCount > 0
       ? vehicle.reviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount
@@ -110,11 +105,11 @@ function VehicleDetail() {
   const handleBooking = () => {
     if (!user) {
       navigate('/login');
-      return;
+      return; 
     } 
     if (!startDate || !endDate || totalPrice <= 0) {
       alert('Please select a valid date range.');
-      return;
+      return; 
     }
 
     if (window.confirm(`Are you sure you want to book the ${vehicle.make} ${vehicle.model} for ₹${totalPrice}?`)) {
@@ -158,13 +153,41 @@ function VehicleDetail() {
                 <SpecItem icon={<BsTagFill size={24} />} label="Type" value={vehicle.vehicle_type} />
                 <SpecItem icon={<FuelInfo fuelType={vehicle.fuel_type} />} label="Fuel" value={vehicle.fuel_type} />
             </div>
+
+            {/* --- Pickup & Drop-off Section --- */}
+            <div className="mt-12">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Pickup & Drop-off</h3>
+                <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
+                    {/* Pickup Location is always shown */}
+                    <div className="flex items-start">
+                        <FaMapMarkerAlt className="text-gray-500 mr-4 mt-1 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-gray-800">Pickup Location</p>
+                            <p className="text-gray-600">{vehicle.profiles?.address || 'Address not provided by host.'}</p>
+                        </div>
+                    </div>
+                    {/* UPDATED: Delivery Option is now only shown if available */}
+                    {vehicle.delivery_available && (
+                        <div className="flex items-start pt-4 border-t border-gray-200">
+                            <FaShippingFast className="text-gray-500 mr-4 mt-1 flex-shrink-0" />
+                            <div>
+                                <p className="font-semibold text-gray-800">Delivery</p>
+                                <p className="text-green-600">
+                                    Available for an additional charge of ₹{vehicle.delivery_charge}.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
           </div>
 
           <div className="lg:col-span-2">
             <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
               <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
               <p className="text-md text-gray-600 mt-1">Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name || 'A verified host'}</span></p>
-
+              
               <div className="mt-4 flex items-center">
                 {reviewCount > 0 ? (
                   <>
@@ -238,8 +261,6 @@ function VehicleDetail() {
                 </div>
             )}
         </div>
-
-        {/* REMOVED: The full reviews section is now on a separate page */}
       </div>
     </div>
   );

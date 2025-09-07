@@ -3,11 +3,9 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useNavigate, useParams } from 'react-router-dom';
-// import "../styles/Auth.css"; // No longer needed
 
 // --- API Functions ---
 const fetchVehicleById = async (vehicleId) => {
-    // This can be a direct Supabase call or through your backend
     const { data, error } = await supabase.from('vehicles').select('*').eq('id', vehicleId).single();
     if (error) throw new Error('Failed to fetch vehicle data.');
     return data;
@@ -41,15 +39,19 @@ function EditVehicle() {
     useEffect(() => {
         if (vehicle) {
             setFormData({
-                make: vehicle.make,
-                model: vehicle.model,
-                year: vehicle.year,
-                license_plate: vehicle.license_plate,
-                price_per_day: vehicle.price_per_day,
-                vehicle_type: vehicle.vehicle_type,
-                transmission: vehicle.transmission,
-                fuel_type: vehicle.fuel_type,
-                seating_capacity: vehicle.seating_capacity,
+                make: vehicle.make || '',
+                model: vehicle.model || '',
+                year: vehicle.year || '',
+                license_plate: vehicle.license_plate || '',
+                price_per_day: vehicle.price_per_day || '',
+                vehicle_type: vehicle.vehicle_type || 'Car',
+                transmission: vehicle.transmission || 'Manual',
+                fuel_type: vehicle.fuel_type || 'Petrol',
+                seating_capacity: vehicle.seating_capacity || '',
+                pickup_available: vehicle.pickup_available || false,
+                dropoff_available: vehicle.dropoff_available || false,
+                pickup_charge: vehicle.pickup_charge || 0,
+                dropoff_charge: vehicle.dropoff_charge || 0,
             });
         }
     }, [vehicle]);
@@ -66,12 +68,18 @@ function EditVehicle() {
     });
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value, type, checked } = e.target;
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: type === 'checkbox' ? checked : value
+        }));
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        mutation.mutate({ vehicleId: id, formData });
+        // Create a copy of the form data without the license_plate
+        const { license_plate, ...dataToUpdate } = formData;
+        mutation.mutate({ vehicleId: id, formData: dataToUpdate });
     };
 
     const labelClass = "block text-sm font-medium text-gray-700 mb-1";
@@ -94,43 +102,39 @@ function EditVehicle() {
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Make */}
                         <div>
                             <label htmlFor="make" className={labelClass}>Make</label>
                             <input type="text" name="make" id="make" value={formData.make} onChange={handleChange} required className={inputClass} />
                         </div>
-                        
-                        {/* Model */}
                         <div>
                             <label htmlFor="model" className={labelClass}>Model</label>
                             <input type="text" name="model" id="model" value={formData.model} onChange={handleChange} required className={inputClass} />
                         </div>
-
-                        {/* Year */}
                         <div>
                             <label htmlFor="year" className={labelClass}>Year</label>
                             <input type="number" name="year" id="year" value={formData.year} onChange={handleChange} required className={inputClass} />
                         </div>
-
-                        {/* License Plate */}
+                        {/* UPDATED: License Plate is now disabled */}
                         <div>
-                            <label htmlFor="license_plate" className={labelClass}>License Plate</label>
-                            <input type="text" name="license_plate" id="license_plate" value={formData.license_plate} onChange={handleChange} required className={inputClass} />
+                            <label htmlFor="license_plate" className={labelClass}>License Plate (Cannot be changed)</label>
+                            <input 
+                                type="text" 
+                                name="license_plate" 
+                                id="license_plate" 
+                                value={formData.license_plate} 
+                                required 
+                                className={`${inputClass} bg-gray-100 cursor-not-allowed`}
+                                disabled 
+                            />
                         </div>
-
-                        {/* Price Per Day */}
                         <div>
                             <label htmlFor="price_per_day" className={labelClass}>Price Per Day (₹)</label>
                             <input type="number" name="price_per_day" id="price_per_day" value={formData.price_per_day} onChange={handleChange} required className={inputClass} />
                         </div>
-
-                        {/* Seating Capacity */}
                         <div>
                             <label htmlFor="seating_capacity" className={labelClass}>Seating Capacity</label>
                             <input type="number" name="seating_capacity" id="seating_capacity" value={formData.seating_capacity} onChange={handleChange} required className={inputClass} />
                         </div>
-
-                        {/* Vehicle Type */}
                         <div>
                             <label htmlFor="vehicle_type" className={labelClass}>Vehicle Type</label>
                             <select name="vehicle_type" id="vehicle_type" value={formData.vehicle_type} onChange={handleChange} className={inputClass}>
@@ -139,8 +143,6 @@ function EditVehicle() {
                                 <option value="Scooter">Scooter</option>
                             </select>
                         </div>
-
-                        {/* Transmission */}
                         <div>
                             <label htmlFor="transmission" className={labelClass}>Transmission</label>
                             <select name="transmission" id="transmission" value={formData.transmission} onChange={handleChange} className={inputClass}>
@@ -149,8 +151,6 @@ function EditVehicle() {
                             </select>
                         </div>
                     </div>
-
-                    {/* Fuel Type (Full Width) */}
                     <div>
                         <label htmlFor="fuel_type" className={labelClass}>Fuel Type</label>
                         <select name="fuel_type" id="fuel_type" value={formData.fuel_type} onChange={handleChange} className={inputClass}>
@@ -160,7 +160,63 @@ function EditVehicle() {
                         </select>
                     </div>
 
-                    {/* Submit Button */}
+                    <div className="space-y-4 rounded-lg bg-gray-50 p-4 border">
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                name="pickup_available"
+                                id="pickup_available"
+                                checked={formData.pickup_available}
+                                onChange={handleChange}
+                                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="pickup_available" className="ml-3 block font-medium text-gray-800">
+                                Offer vehicle pickup?
+                            </label>
+                        </div>
+                        {formData.pickup_available && (
+                            <div className="pl-8">
+                                <label htmlFor="pickup_charge" className={labelClass}>Pickup Service Charge (₹)</label>
+                                <input 
+                                    type="number" 
+                                    name="pickup_charge" 
+                                    id="pickup_charge" 
+                                    value={formData.pickup_charge} 
+                                    onChange={handleChange} 
+                                    className={inputClass} 
+                                    placeholder="e.g., 300" 
+                                />
+                            </div>
+                        )}
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                name="dropoff_available"
+                                id="dropoff_available"
+                                checked={formData.dropoff_available}
+                                onChange={handleChange}
+                                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="dropoff_available" className="ml-3 block font-medium text-gray-800">
+                                Offer vehicle drop-off?
+                            </label>
+                        </div>
+                        {formData.dropoff_available && (
+                            <div className="pl-8">
+                                <label htmlFor="dropoff_charge" className={labelClass}>Drop-off Service Charge (₹)</label>
+                                <input 
+                                    type="number" 
+                                    name="dropoff_charge" 
+                                    id="dropoff_charge" 
+                                    value={formData.dropoff_charge} 
+                                    onChange={handleChange} 
+                                    className={inputClass} 
+                                    placeholder="e.g., 300" 
+                                />
+                            </div>
+                        )}
+                    </div>
+
                     <div>
                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400" disabled={mutation.isPending}>
                             {mutation.isPending ? 'Saving Changes...' : 'Save Changes'}
@@ -173,3 +229,4 @@ function EditVehicle() {
 }
 
 export default EditVehicle;
+
