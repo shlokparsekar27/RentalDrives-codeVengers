@@ -1,7 +1,7 @@
 // src/pages/AdminDashboard.jsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { Link } from 'react-router-dom'; // Import Link
+import { Link } from 'react-router-dom';
 
 // --- API Functions ---
 const fetchPendingVehicles = async () => {
@@ -62,13 +62,23 @@ function AdminDashboard() {
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="text-center mb-10">
                     <h2 className="text-4xl font-extrabold text-gray-900">Admin Dashboard</h2>
-                    <p className="mt-2 text-lg text-gray-600">Manage pending vehicle approvals.</p>
+                    <p className="mt-2 text-lg text-gray-600">Manage pending vehicle and host approvals.</p>
+                </div>
+
+                {/* NEW: Link to the Host Verification Page */}
+                <div className="mb-10 text-center">
+                    <Link 
+                        to="/admin/verify-hosts" 
+                        className="inline-block bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-all text-center"
+                    >
+                        Review Pending Hosts
+                    </Link>
                 </div>
                 
+                <h3 className="text-2xl font-bold text-center text-gray-800 mb-6">Pending Vehicle Approvals</h3>
                 {pendingVehicles && pendingVehicles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {pendingVehicles.map((vehicle) => (
-                            // FIXED: Wrapped the card in a Link component
                             <Link to={`/vehicle/${vehicle.id}`} key={vehicle.id} className="block bg-white rounded-xl shadow-md overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                                 <div className="overflow-hidden">
                                     <img
@@ -82,14 +92,12 @@ function AdminDashboard() {
                                     <p className="text-gray-500 text-sm mt-1">Year: {vehicle.year}</p>
                                     
                                     <div className="mt-4 border-t border-gray-200 pt-4 space-y-2 text-gray-700">
-                                        {/* FIXED: Display host's name instead of ID */}
                                         <p><strong>Host:</strong> <span className="font-semibold">{vehicle.profiles?.full_name || 'N/A'}</span></p>
                                         <p><strong>Price:</strong> ₹{vehicle.price_per_day}/day</p>
                                         <p><strong>Type:</strong> {vehicle.vehicle_type}</p>
                                     </div>
                                     
                                     <div className="mt-auto pt-6 grid grid-cols-2 gap-4">
-                                        {/* FIXED: Added e.stopPropagation() to buttons */}
                                         <button 
                                             onClick={(e) => {
                                                 e.stopPropagation();

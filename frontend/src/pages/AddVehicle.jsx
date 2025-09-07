@@ -3,27 +3,24 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { FaUpload } from 'react-icons/fa'; // Using an icon for the upload button
+import { FaUpload } from 'react-icons/fa';
 
-// This function now handles image upload first, then sends the URL to your backend
 const createVehicle = async ({ formData, imageFile }) => {
     let imageUrls = [];
 
-    // 1. If an image is selected, upload it to Supabase Storage
     if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-            .from('vehicle-images') // The bucket we created
+            .from('vehicle-images')
             .upload(filePath, imageFile);
 
         if (uploadError) {
             throw new Error(`Image Upload Failed: ${uploadError.message}`);
         }
 
-        // 2. Get the public URL of the uploaded image
         const { data: urlData } = supabase.storage
             .from('vehicle-images')
             .getPublicUrl(filePath);
@@ -31,13 +28,11 @@ const createVehicle = async ({ formData, imageFile }) => {
         imageUrls.push(urlData.publicUrl);
     }
 
-    // 3. Prepare the final vehicle data including the image URL
     const vehicleData = {
         ...formData,
         image_urls: imageUrls,
     };
 
-    // 4. Send the complete data to your backend API
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles`, {
         method: 'POST',
@@ -62,9 +57,14 @@ function AddVehicle() {
         make: '', model: '', year: '', license_plate: '',
         price_per_day: '', vehicle_type: 'Car', transmission: 'Manual',
         fuel_type: 'Petrol', seating_capacity: '',
+        // UPDATED: State for separate pickup and drop-off options and charges
+        pickup_available: false,
+        dropoff_available: false,
+        pickup_charge: 0,
+        dropoff_charge: 0,
     });
-    const [imageFile, setImageFile] = useState(null); // NEW: State for the image file
-    const [imagePreview, setImagePreview] = useState(''); // NEW: State for image preview
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState('');
 
     const mutation = useMutation({
         mutationFn: createVehicle,
@@ -79,10 +79,13 @@ function AddVehicle() {
     });
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value, type, checked } = e.target;
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: type === 'checkbox' ? checked : value
+        }));
     };
 
-    // NEW: Handler for the file input
     const handleImageChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -97,7 +100,6 @@ function AddVehicle() {
             alert('Please upload an image for the vehicle.');
             return;
         }
-        // Pass both form data and the image file to the mutation
         mutation.mutate({ formData, imageFile });
     };
     
@@ -113,7 +115,6 @@ function AddVehicle() {
                 </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* --- NEW: Image Upload Section --- */}
                     <div>
                         <label className={labelClass}>Vehicle Image</label>
                         <div className="mt-1 flex items-center justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
@@ -135,9 +136,7 @@ function AddVehicle() {
                         </div>
                     </div>
                     
-                    {/* --- Rest of the form --- */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Fields remain the same as before */}
                         <div>
                             <label htmlFor="make" className={labelClass}>Make</label>
                             <input type="text" name="make" id="make" value={formData.make} onChange={handleChange} required className={inputClass} placeholder="e.g., Maruti" />
@@ -146,7 +145,6 @@ function AddVehicle() {
                             <label htmlFor="model" className={labelClass}>Model</label>
                             <input type="text" name="model" id="model" value={formData.model} onChange={handleChange} required className={inputClass} placeholder="e.g., Swift" />
                         </div>
-                        {/* ... other input fields ... */}
                          <div>
                             <label htmlFor="year" className={labelClass}>Year</label>
                             <input type="number" name="year" id="year" value={formData.year} onChange={handleChange} required className={inputClass} placeholder="e.g., 2023" />
@@ -188,6 +186,66 @@ function AddVehicle() {
                         </select>
                     </div>
 
+                    {/* --- UPDATED: Delivery Options Section --- */}
+                    <div className="space-y-4 rounded-lg bg-gray-50 p-4 border">
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                name="pickup_available"
+                                id="pickup_available"
+                                checked={formData.pickup_available}
+                                onChange={handleChange}
+                                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="pickup_available" className="ml-3 block font-medium text-gray-800">
+                                Offer vehicle pickup?
+                            </label>
+                        </div>
+                        {/* This input only appears if pickup is checked */}
+                        {formData.pickup_available && (
+                            <div className="pl-8">
+                                <label htmlFor="pickup_charge" className={labelClass}>Pickup Service Charge (₹)</label>
+                                <input 
+                                    type="number" 
+                                    name="pickup_charge" 
+                                    id="pickup_charge" 
+                                    value={formData.pickup_charge} 
+                                    onChange={handleChange} 
+                                    className={inputClass} 
+                                    placeholder="e.g., 300" 
+                                />
+                            </div>
+                        )}
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                name="dropoff_available"
+                                id="dropoff_available"
+                                checked={formData.dropoff_available}
+                                onChange={handleChange}
+                                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="dropoff_available" className="ml-3 block font-medium text-gray-800">
+                                Offer vehicle drop-off?
+                            </label>
+                        </div>
+                        {/* This input only appears if dropoff is checked */}
+                        {formData.dropoff_available && (
+                            <div className="pl-8">
+                                <label htmlFor="dropoff_charge" className={labelClass}>Drop-off Service Charge (₹)</label>
+                                <input 
+                                    type="number" 
+                                    name="dropoff_charge" 
+                                    id="dropoff_charge" 
+                                    value={formData.dropoff_charge} 
+                                    onChange={handleChange} 
+                                    className={inputClass} 
+                                    placeholder="e.g., 300" 
+                                />
+                            </div>
+                        )}
+                    </div>
+
                     <div>
                         <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400" disabled={mutation.isPending}>
                             {mutation.isPending ? 'Submitting...' : 'Submit for Approval'}
@@ -200,3 +258,4 @@ function AddVehicle() {
 }
 
 export default AddVehicle;
+
