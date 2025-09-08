@@ -1,15 +1,18 @@
 // src/pages/Profile.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar, FaEdit, FaShieldAlt, FaUpload, FaCheckCircle, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar, FaEdit, FaUpload, FaCheckCircle, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 // --- Edit Profile Modal Component ---
 function EditProfileModal({ profile, onClose, onSubmit }) {
     const [fullName, setFullName] = useState(profile?.full_name || '');
-    const [address, setAddress] = useState(profile?.address || ''); // NEW: State for address
+    const [address, setAddress] = useState(profile?.address || '');
+    // NEW: State for phone numbers
+    const [phonePrimary, setPhonePrimary] = useState(profile?.phone_primary || '');
+    const [phoneSecondary, setPhoneSecondary] = useState(profile?.phone_secondary || '');
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -17,8 +20,13 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
             alert('Please enter your full name.');
             return;
         }
-        // NEW: Pass both fields to the submit handler
-        onSubmit({ full_name: fullName, address: address });
+        // NEW: Pass all fields to the submit handler
+        onSubmit({ 
+            full_name: fullName, 
+            address: address,
+            phone_primary: phonePrimary,
+            phone_secondary: phoneSecondary
+        });
     };
 
     return (
@@ -37,8 +45,9 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
                             required
                         />
                     </div>
-                    {/* NEW: Address Textarea */}
-                    <div className="mb-6">
+                    
+                    {/* Address Textarea */}
+                    <div className="mb-4">
                         <label htmlFor="address" className="block text-gray-700 font-semibold mb-2">Your Address (for pickup)</label>
                         <textarea
                             id="address"
@@ -49,6 +58,31 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
                             placeholder="e.g., 123 Beach Rd, Panjim, Goa"
                         />
                     </div>
+
+                    {/* NEW: Phone Number Inputs */}
+                    <div className="mb-4">
+                        <label htmlFor="phonePrimary" className="block text-gray-700 font-semibold mb-2">Primary Phone</label>
+                        <input
+                            id="phonePrimary"
+                            type="tel"
+                            className="w-full p-3 border border-gray-300 rounded-lg"
+                            value={phonePrimary}
+                            onChange={(e) => setPhonePrimary(e.target.value)}
+                            placeholder="e.g., +91 9876543210"
+                        />
+                    </div>
+                     <div className="mb-6">
+                        <label htmlFor="phoneSecondary" className="block text-gray-700 font-semibold mb-2">Secondary Phone (Optional)</label>
+                        <input
+                            id="phoneSecondary"
+                            type="tel"
+                            className="w-full p-3 border border-gray-300 rounded-lg"
+                            value={phoneSecondary}
+                            onChange={(e) => setPhoneSecondary(e.target.value)}
+                            placeholder="e.g., +91 9876543211"
+                        />
+                    </div>
+
                     <div className="flex justify-end gap-4">
                         <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
                             Cancel
@@ -249,7 +283,8 @@ function Profile() {
     });
 
     const { data: bookings, isLoading: isLoadingBookings } = useQuery({
-        enabled: !!user?.id && profile?.role !== 'admin',
+        // FIX: The query for bookings should only run once the profile is loaded
+        enabled: !!user?.id && !!profile && profile.role !== 'admin',
         queryKey: ['bookings', user?.id],
         queryFn: () => fetchUserBookings(user.id),
     });
@@ -350,7 +385,8 @@ function Profile() {
         }
     };
 
-    if (isLoadingProfile || isLoadingBookings) {
+    // FIX: Show a loading state until the profile is fully loaded to prevent flickering
+    if (isLoadingProfile) {
         return <div className="text-center p-10 font-bold text-xl">Loading Profile...</div>;
     }
 
@@ -386,22 +422,31 @@ function Profile() {
                                 <div className="flex items-center"><FaUser className="mr-3 text-gray-500" /> <span className="text-gray-700">{profile?.full_name}</span></div>
                                 <div className="flex items-center"><FaEnvelope className="mr-3 text-gray-500" /> <span className="text-gray-700">{user?.email}</span></div>
                                 <div className="flex items-center"><FaUserTag className="mr-3 text-gray-500" /> <span className="capitalize font-semibold text-blue-600">{profile?.role}</span></div>
-                                {/* NEW: Display Address if it exists */}
+                                
+                                {/* UPDATED: Display Address and Phone Numbers */}
                                 {profile?.address && (
                                     <div className="flex items-start"><FaMapMarkerAlt className="mr-3 mt-1 text-gray-500 flex-shrink-0" /> <span className="text-gray-700">{profile.address}</span></div>
                                 )}
+                                <div className="flex items-center">
+                                    <FaPhone className="mr-3 text-gray-500" /> 
+                                    <span className="text-gray-700">{profile?.phone_primary || 'N/A'}</span>
+                                </div>
+                                 <div className="flex items-center">
+                                    <FaPhone className="mr-3 text-gray-500" /> 
+                                    <span className="text-gray-700">{profile?.phone_secondary || 'N/A'}</span>
+                                </div>
                             </div>
                         </div>
 
                         {profile?.role === 'host' && (
                             <div className="bg-white p-6 rounded-xl shadow-md">
                                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Host Verification</h2>
-                                {profile.is_verified ? (
+                                {profile?.is_verified ? (
                                     <div className="flex items-center text-green-600">
                                         <FaCheckCircle className="mr-3" />
                                         <span className="font-semibold">Verified Host</span>
                                     </div>
-                                ) : profile.business_document_url ? (
+                                ) : profile?.business_document_url ? (
                                     <div className="text-center">
                                         <p className="text-yellow-600 font-semibold mb-2">Document Submitted</p>
                                         <p className="text-sm text-gray-500">Your document is pending review by our team.</p>
@@ -430,7 +475,9 @@ function Profile() {
                     <div className="lg:col-span-2">
                         <div className="bg-white p-6 rounded-xl shadow-md">
                             <h2 className="text-2xl font-bold text-gray-800 mb-6">My Bookings</h2>
-                            {bookings && bookings.length > 0 ? (
+                            {isLoadingBookings ? (
+                               <p className="text-center text-gray-500 py-8">Loading bookings...</p>
+                            ) : bookings && bookings.length > 0 ? (
                                 <ul className="space-y-6">
                                     {bookings.map(booking => {
                                         const existingReview = booking.vehicles.reviews?.find(r => r.booking_id === booking.id);

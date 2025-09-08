@@ -117,19 +117,21 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
   }
 });
 
-// UPDATED: Can now update full_name and/or the address
+// ... existing code ...
+// UPDATED: Can now update full_name, address, and phone numbers
 app.put('/api/users/me', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.sub;
-    const { full_name, address } = req.body; 
+    // ADDED: phone_primary and phone_secondary
+    const { full_name, address, phone_primary, phone_secondary } = req.body; 
 
     const updates = {};
-    if (full_name) {
-      updates.full_name = full_name;
-    }
-    if (address) {
-      updates.address = address;
-    }
+    if (full_name) updates.full_name = full_name;
+    if (address) updates.address = address;
+    // ADDED: Logic to handle phone numbers
+    if (phone_primary) updates.phone_primary = phone_primary;
+    if (phone_secondary) updates.phone_secondary = phone_secondary;
+
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No update data provided.' });
@@ -150,6 +152,7 @@ app.put('/api/users/me', authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// ... existing code ...
 
 // ======== VEHICLE ENDPOINTS ========
 
