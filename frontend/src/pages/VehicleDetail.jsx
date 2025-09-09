@@ -8,6 +8,7 @@ import { createBooking ,openRazorpayCheckout } from '../api/bookings';
 import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaUserCircle } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
+import TermsPopup from '../Components/TermsPopup';
 
 
 // --- Data Fetching ---
@@ -66,6 +67,9 @@ function VehicleDetail() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  const [showTerms, setShowTerms] = useState(false);
+  // const [pendingBooking, setPendingBooking] = useState(null);
+
   const { data: vehicle, isLoading, isError, error } = useQuery({
     queryKey: ['vehicle', id],
     queryFn: () => fetchVehicleById(id),
@@ -117,17 +121,28 @@ const bookingMutation = useMutation({
     alert("Please select valid dates.");
     return;
   }
-
-   if (window.confirm(`Are you sure you want to book the ${vehicle.make} ${vehicle.model} for ₹${totalPrice}?`)) {
+  setShowTerms(true);
+  };
+/*  setPendingBooking({
+      vehicle,
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      totalPrice,
+    });
+    setShowTerms(true);
+  };
+  */
+    const confirmBooking = () => {
+    setShowTerms(false);
     bookingMutation.mutate({
       vehicle,
       startDate: new Date(startDate).toISOString(),
       endDate: new Date(endDate).toISOString(),
       totalPrice,
     });
-  }
-};
+  };
 
+ 
     
 
   if (isLoading) {
@@ -215,6 +230,15 @@ const bookingMutation = useMutation({
             >
               {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
             </button>
+
+             {/* ✅ Show popup if required */}
+{showTerms && (
+  <TermsPopup
+    onAccept={confirmBooking}
+    onDecline={() => setShowTerms(false)} 
+  />
+)}
+      
          
             </div>
           </div>

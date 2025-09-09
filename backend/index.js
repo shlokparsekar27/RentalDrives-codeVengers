@@ -10,6 +10,10 @@ import jwt from 'jsonwebtoken';
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
+import PDFDocument from "pdfkit";
+import fs from "fs";
+import FormData from "form-data";
+
 
 const app = express();
 app.use(cors());
@@ -48,13 +52,15 @@ const authenticateToken = (req, res, next) => {
 
 
 //<--------------- Function to send WhatsApp messages---------->s
-async function sendWhatsAppMessage(to, message, recipientType = "user") {
+async function sendWhatsAppMessage(to, message, recipientType = "user" ,filePath , bookingId) {
 
   console.log("\n============================");
   console.log(`📩 Preparing WhatsApp for ${recipientType.toUpperCase()}`);
   console.log(`👉 Recipient number: ${to}`);
   console.log(`👉 Message content:\n${message}`);
   console.log("============================\n");
+   if (filePath) console.log(`👉 With attachment: ${filePath}`);
+  
   try {
     const res = await fetch(WHATSAPP_API_URL, {
       method: "POST",
@@ -77,52 +83,253 @@ async function sendWhatsAppMessage(to, message, recipientType = "user") {
       return false;
     }
     // console.log(`✅ WhatsApp sent successfully to ${recipientType}:`, data);
+    
+    // 2️⃣ If invoice PDF exists, upload & send
+    if (filePath) {
+       console.log("📂 Uploading PDF from path:", filePath);
+
+     const formData = new FormData();
+      formData.append("file", fs.createReadStream(filePath)); // ✅ only file
+      formData.append("type", "application/pdf"); // ✅ tell WhatsApp it's a document
+      formData.append("messaging_product", "whatsapp");
+
+  
+
+      const uploadRes = await fetch(
+        `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/media`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` ,
+          ...formData.getHeaders()   // ✅ required for multipart boundary
+           },
+          body: formData,
+        }
+      );
+
+      const uploadData = await uploadRes.json();
+       console.log("📂 Upload response:", JSON.stringify(uploadData, null, 2));
+if (!uploadRes.ok || !uploadData.id) {
+        console.error("❌ Error uploading invoice:", uploadData);
+        return false;
+      }
+       console.log("✅ Media uploaded with ID:", uploadData.id);
+
+       const docRes=await fetch(WHATSAPP_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to,
+          type: "document",
+          document: {
+            id: uploadData.id,
+            caption: "📄 Your Rental Invoice",
+           filename: `invoice-${bookingId || Date.now()}.pdf`,
+          },
+        }),
+      });
+      const docData = await docRes.json();
+       console.log("📤 Document send response:", JSON.stringify(docData, null, 2));
+     // console.log("📤 Upload response:", uploadData);
+         console.log("📩 Document message response:", docData);
+      if (!docRes.ok) {
+        console.error("❌ Error sending PDF:", docData);
+        return false;
+    }
+    console.log("✅ PDF invoice sent successfully!");
+  }
+
+    console.log(`✅ WhatsApp sent successfully to ${recipientType}`);
     return true;
   } catch (err) {
-    console.error(`❌ WhatsApp API error for ${recipientType}:`, data);
+    console.error(`❌ WhatsApp error for ${recipientType}:`, err);
     return false;
   }
 }
-async function notifyBooking(userData, hostData, vehicle, booking) {
+async function notifyBooking(userData, hostData, vehicle, booking, invoicePath) {
   try {
-    /* console.log("\n============================");
-     console.log(" Starting notifyBooking...");
-     console.log(" User Data:", userData);
-     console.log(" Host Data:", hostData);
-     console.log(" Vehicle Data:", vehicle);
-     console.log("Booking Data:", booking);
-     console.log("============================\n");
-     */
+    // Generate hybrid invoice number: INV-YYYY-XXXX
+    const year = new Date().getFullYear();
+    const invoiceNumber = `INV-${year}-${booking.id.slice(0, 4)}`; // first 4 chars of UUID as sequence
 
     // Extract only the date part
     const startDate = booking.start_date.split("T")[0];
     const endDate = booking.end_date.split("T")[0];
 
-            const userMessage = `✅ Booking Confirmed!
-        Vehicle: ${vehicle.make} ${vehicle.model}
-        From: ${startDate} To: ${endDate}
-        Amount: ₹${booking.total_price}`;
+    // WhatsApp message to user
+    const userMessage = `✅ Booking Confirmed!
+Invoice No: ${invoiceNumber}
+Vehicle: ${vehicle.make} ${vehicle.model}
+From: ${startDate} To: ${endDate}
+Amount: ₹${booking.total_price}`;
 
-            const hostMessage = `📢 New Booking!
-        Customer: ${userData.full_name}
-        Vehicle: ${vehicle.make} ${vehicle.model}
-        From: ${startDate} To: ${endDate}`;
+const hostMessage = `📢 New Booking!
+ Customer: ${userData.full_name} 
+ Vehicle: ${vehicle.make} ${vehicle.model} 
+ From: ${startDate} To: ${endDate};`;
 
-    //console.log("📩 Final user message:\n", userMessage);
-    //console.log("📩 Final host message:\n", hostMessage);
+    // Check if invoice exists
+    if (!fs.existsSync(invoicePath)) {
+      console.error("❌ Invoice PDF not found at:", invoicePath);
+      return false;
+    }
 
-    // Send in parallel
-    await Promise.all([
-      sendWhatsAppMessage(userData.phone_number, userMessage, "user"),
-      sendWhatsAppMessage(hostData.phone_number, hostMessage, "host"),
-    ]);
+    // Send WhatsApp message to user only
+    await sendWhatsAppMessage(
+      userData.phone_number,
+      userMessage,
+      "user",
+      invoicePath,
+      invoiceNumber
+    );
 
-   // console.log("✅ WhatsApp notifications sent");
+      await sendWhatsAppMessage(
+      hostData.phone_number,
+      hostMessage,
+      "host" // 🚫 no invoice attached for host
+    );
+   
+
+
+
+    console.log("✅ WhatsApp notification sent to user with hybrid invoice number");
+
+    // Delete invoice after sending
+    fs.unlink(invoicePath, (err) => {
+      if (err) console.error("❌ Error deleting invoice:", err);
+      else console.log("🗑️ Deleted invoice file:", invoicePath);
+    });
 
   } catch (err) {
     console.error("❌ WhatsApp notify failed:", err);
   }
 }
+
+
+
+// <--------------- Function to generate invoice PDF ----------->
+
+async function generateInvoice(booking, userData, hostData, vehicle) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // ---------------- Generate hybrid invoice number ----------------
+      let invoiceNo = booking.invoice_no;
+      if (!invoiceNo) {
+        // Fetch last booking with invoice_no like INV-YYYY-XXXX
+        const { data: lastBooking } = await supabase
+          .from("bookings")
+          .select("invoice_no")
+          .like("invoice_no", `INV-${new Date().getFullYear()}-%`)
+          .order("invoice_no", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!lastBooking?.invoice_no) {
+          invoiceNo = `INV-${new Date().getFullYear()}-0001`;
+        } else {
+          const lastNumber = parseInt(lastBooking.invoice_no.split("-")[2]);
+          const newNumber = String(lastNumber + 1).padStart(4, "0");
+          invoiceNo = `INV-${new Date().getFullYear()}-${newNumber}`;
+        }
+
+        // Save the new invoice number back to booking
+        const { error: invoiceUpdateError } = await supabase
+          .from("bookings")
+          .update({ invoice_no: invoiceNo })
+          .eq("id", booking.id);
+
+        if (invoiceUpdateError) console.error("❌ Failed to save invoice_no:", invoiceUpdateError);
+      }
+
+      const invoicePath = `./invoices/invoice-${invoiceNo}.pdf`;
+
+      // Ensure invoices folder exists
+      if (!fs.existsSync("./invoices")) fs.mkdirSync("./invoices");
+
+      const doc = new PDFDocument({ margin: 50 });
+      const stream = fs.createWriteStream(invoicePath);
+      doc.pipe(stream);
+
+      // ===== HEADER =====
+      doc.fontSize(20).font("Helvetica-Bold").text("Rental Drives", { align: "center" });
+      doc.moveDown(0.5);
+      doc.fontSize(12).font("Helvetica").text("Official Vehicle Rental Marketplace", { align: "center" });
+      doc.moveDown(1);
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+      doc.moveDown(1);
+
+      // ===== INVOICE TITLE =====
+      doc.fontSize(16).font("Helvetica-Bold").text("INVOICE", { align: "center" });
+      doc.moveDown(1);
+
+      // ===== Invoice Info =====
+      doc.fontSize(12).font("Helvetica");
+      doc.text(`Invoice No: ${invoiceNo}`);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`);
+      doc.moveDown(1);
+
+      // ===== BILL TO =====
+      doc.fontSize(14).font("Helvetica-Bold").text("Billed To:");
+      doc.fontSize(12).font("Helvetica");
+      doc.text(`${userData.full_name}`);
+      doc.text(`Phone: ${userData.phone_number}`);
+      doc.moveDown(1);
+
+      // ===== HOST =====
+      doc.fontSize(14).font("Helvetica-Bold").text("Host:");
+      doc.fontSize(12).font("Helvetica");
+      doc.text(`${hostData.full_name}`);
+      doc.text(`Phone: ${hostData.phone_number}`);
+      doc.moveDown(1);
+
+      // ===== BOOKING SUMMARY (Table Style) =====
+      doc.fontSize(14).font("Helvetica-Bold").text("Booking Summary");
+      doc.moveDown(0.5);
+
+      const tableTop = doc.y;
+      const itemX = 50, fromX = 200, toX = 300, amountX = 450;
+
+      doc.fontSize(12).font("Helvetica-Bold");
+      doc.text("Vehicle", itemX, tableTop);
+      doc.text("From", fromX, tableTop);
+      doc.text("To", toX, tableTop);
+      doc.text("Amount (₹)", amountX, tableTop);
+
+      doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+
+      doc.font("Helvetica").fontSize(12);
+      doc.text(`${vehicle.make} ${vehicle.model}`, itemX, tableTop + 25);
+      doc.text(`${booking.start_date.split("T")[0]}`, fromX, tableTop + 25);
+      doc.text(`${booking.end_date.split("T")[0]}`, toX, tableTop + 25);
+      doc.text(`${booking.total_price}`, amountX, tableTop + 25);
+
+      doc.moveTo(50, tableTop + 60).lineTo(550, tableTop + 60).stroke();
+      doc.font("Helvetica-Bold").text("TOTAL:", toX, tableTop + 70);
+      doc.text(`₹${booking.total_price}`, amountX, tableTop + 70);
+
+      doc.moveDown(3);
+
+      // ===== FOOTER =====
+      doc.fontSize(10).font("Helvetica-Oblique").fillColor("gray");
+      doc.text(
+        "This invoice is system generated by Rental Drives.\n" +
+        "We act as a marketplace connecting renters and hosts.\n" +
+        "Please contact the host for vehicle-related issues.",
+        { align: "center" }
+      );
+
+      doc.end();
+      stream.on("finish", () => resolve(invoicePath));
+      stream.on("error", reject);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 //<---------------------whatsapp function ends here ----------------->
 // --- API Endpoints ---
 
@@ -512,7 +719,11 @@ app.post("/api/payments/verify", async (req, res) => {
 
     // ✅ Send WhatsApp confirmation
     // ✅ Send WhatsApp notifications
-    await notifyBooking(userProfile, hostProfile, vehicle, booking);
+
+    // ✅ Generate invoice PDF first
+    const invoicePath = await generateInvoice(booking, userProfile, hostProfile, vehicle);
+     // ✅ Send WhatsApp notifications
+    await notifyBooking(userProfile, hostProfile, vehicle, booking, invoicePath);
 
     return res.json({ success: true, message: "Payment verified + WhatsApp sent" });
   } catch (err) {
