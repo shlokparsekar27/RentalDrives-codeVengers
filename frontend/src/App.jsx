@@ -18,6 +18,7 @@ import EditVehicle from './pages/EditVehicle';
 import AdminDashboard from './pages/AdminDashboard';
 import HostBookings from "./pages/HostBookings";
 import VehicleReviews from './pages/VehicleReviews';
+import AdminHostVerification from './pages/AdminHostVerification'; // <-- IMPORT a
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
           <Route path="/host/bookings" element={<HostBookings />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/vehicle/:id/reviews" element={<VehicleReviews />} />
+          <Route path="/admin/verify-hosts" element={<AdminHostVerification />} />
         </Routes>
       </main>
       <Footer />

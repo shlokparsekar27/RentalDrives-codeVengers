@@ -418,6 +418,43 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
   }
 });
 
+// ... existing code ...
+// UPDATED: Can now update full_name, address, and phone numbers
+app.put('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    // ADDED: phone_primary and phone_secondary
+    const { full_name, address, phone_primary, phone_secondary } = req.body; 
+
+    const updates = {};
+    if (full_name) updates.full_name = full_name;
+    if (address) updates.address = address;
+    // ADDED: Logic to handle phone numbers
+    if (phone_primary) updates.phone_primary = phone_primary;
+    if (phone_secondary) updates.phone_secondary = phone_secondary;
+
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No update data provided.' });
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Profile not found.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+// ... existing code ...
+
 // ======== VEHICLE ENDPOINTS ========
 
 // GET all vehicles from the live database - UPDATED
@@ -535,6 +572,40 @@ app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
   }
 });
 
+  // NEW: GET a user's public profile by their ID
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name, role, is_verified') // Only select public, safe data
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: GET all approved vehicles for a specific host
+app.get('/api/hosts/:id/vehicles', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('host_id', id)
+      .eq('status', 'approved');
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ======== BOOKING ENDPOINTS (Protected) ========
 
 // backend/index.js
@@ -542,19 +613,20 @@ app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
 // CREATE a new booking - UPDATED WITH CORRECT VALIDATION
 app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
   try {
-    const { vehicle_id, start_date, end_date, total_price } = req.body;
+    // ADDED: dropoff_location to the destructuring
+    const { vehicle_id, start_date, end_date, total_price, dropoff_location } = req.body;
     if (!vehicle_id || !start_date || !end_date || !total_price) {
       return res.status(400).json({ error: 'Missing required booking information.' });
     }
 
-    // --- FIXED: Replaced the failing .or() filter with a correct overlap check ---
+    // --- Overlap check remains the same ---
     const { data: overlappingBookings, error: overlapError } = await supabase
       .from('bookings')
       .select('id')
       .eq('vehicle_id', vehicle_id)
       .eq('status', 'confirmed')
-      .lte('start_date', end_date)   // An existing booking's start is before or on the new booking's end date
-      .gte('end_date', start_date);  // And an existing booking's end is after or on the new booking's start date
+      .lte('start_date', end_date)
+      .gte('end_date', start_date);
 
     if (overlapError) throw overlapError;
 
@@ -565,18 +637,21 @@ app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
     //<--------------------------------------- booking start ------------------------------------------>
 
     //insert booking as pending
+
+    // ADDED: dropoff_location to the insert object
+    const bookingData = {
+        user_id: req.user.sub,
+        vehicle_id,
+        start_date,
+        end_date,
+        total_price,
+        status: 'pending',
+        dropoff_location: dropoff_location || null // Save location or null if not provided
+    };
+
     const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .insert([
-        {
-          user_id: req.user.sub,
-          vehicle_id,
-          start_date,
-          end_date,
-          total_price,
-          status: "pending",
-        },
-      ])
+      .from('bookings')
+      .insert([bookingData])
       .select()
       .single();
 
@@ -976,6 +1051,91 @@ app.delete('/api/admin/reviews/:id', authenticateToken, async (req, res) => {
     if (!data) return res.status(404).json({ error: 'Review not found.' });
 
     res.status(204).send(); // Success, no content to return
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ... at the end of the ADMIN ENDPOINTS section in backend/index.js
+
+// NEW: GET all hosts that have submitted a document but are not yet verified
+app.get('/api/admin/hosts/pending', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'host')
+      .eq('is_verified', false)
+      .not('business_document_url', 'is', null); // Only get hosts who have uploaded something
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: UPDATE a host's profile to set is_verified to true
+app.patch('/api/admin/hosts/:id/verify', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_verified: true })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Host not found.' });
+    
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ... at the end of the ADMIN ENDPOINTS section
+
+// NEW: Generate a temporary, secure URL for an admin to view a private document
+app.get('/api/admin/hosts/:hostId/document-url', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const { hostId } = req.params;
+
+    // First, get the file path from the host's profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_document_url')
+      .eq('id', hostId)
+      .single();
+
+    if (profileError || !profile || !profile.business_document_url) {
+      return res.status(404).json({ error: 'Document URL not found for this host.' });
+    }
+
+    // Extract the file path from the full URL
+    const filePath = new URL(profile.business_document_url).pathname.split('/host-documents/')[1];
+
+    // Create a signed URL that is valid for 5 minutes (300 seconds)
+    const { data, error: urlError } = await supabase.storage
+      .from('host-documents')
+      .createSignedUrl(filePath, 300);
+
+    if (urlError) throw urlError;
+
+    res.status(200).json({ signedUrl: data.signedUrl });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

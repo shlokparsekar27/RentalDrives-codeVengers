@@ -5,25 +5,24 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { createBooking ,openRazorpayCheckout } from '../api/bookings';
-import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaUserCircle } from 'react-icons/fa';
+import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaMapMarkerAlt, FaShippingFast, FaCheckCircle } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
 import TermsPopup from '../Components/TermsPopup';
 
 
 // --- Data Fetching ---
-// UPDATED: This query now only fetches the rating from reviews to keep it fast.
 const fetchVehicleById = async (vehicleId) => {
   const { data, error } = await supabase
     .from('vehicles')
-    .select(`*, profiles ( full_name ), reviews ( rating )`) // Only fetch the rating
+    // UPDATED: Also fetch host's is_verified status
+    .select(`*, profiles ( full_name, address, is_verified )`) 
     .eq('id', vehicleId)
     .single();
   if (error) throw new Error(error.message);
   return data;
 };
 
-// This function to fetch booked dates remains the same.
 const fetchBookedDates = async (vehicleId) => {
   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}/booked-dates`);
   if (!response.ok) {
@@ -34,17 +33,16 @@ const fetchBookedDates = async (vehicleId) => {
 
 
 // --- Helper Components ---
-const FuelInfo = ({ fuelType, className = '' }) => {
-  // This component now only returns the icon with its specific color.
-  // The color class here will override the default blue from SpecItem.
+const FuelInfo = ({ fuelType }) => {
+  // (Component remains the same)
   switch (fuelType) {
     case 'Electric':
-      return <FaBolt className={`text-green-600 ${className}`} size={24} />;
+      return <FaBolt size={24} className="text-green-600" />;
     case 'Diesel':
-      return <FaGasPump className={`text-red-600 ${className}`} size={24} />;
+      return <FaGasPump size={24} className="text-red-600" />;
     case 'Petrol':
     default:
-      return <FaGasPump className={`text-yellow-600 ${className}`} size={24} />;
+      return <FaGasPump size={24} className="text-yellow-600" />;
   }
 };
 
@@ -66,6 +64,8 @@ function VehicleDetail() {
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // NEW: State for drop-off location input
+  const [dropoffLocation, setDropoffLocation] = useState('');
 
   const [showTerms, setShowTerms] = useState(false);
   // const [pendingBooking, setPendingBooking] = useState(null);
@@ -74,8 +74,7 @@ function VehicleDetail() {
     queryKey: ['vehicle', id],
     queryFn: () => fetchVehicleById(id),
   });
-
-  // MOVED a few lines down: Calculate review average and count AFTER vehicle data is fetched.
+  
   const reviewCount = vehicle?.reviews?.length || 0;
   const averageRating = reviewCount > 0
       ? vehicle.reviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount
@@ -94,8 +93,18 @@ function VehicleDetail() {
       const end = new Date(endDate);
       if (end <= start) return 0;
       const diffTime = Math.abs(end - start);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays * vehicle.price_per_day;
+      let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Ensure at least one day is charged
+      if (diffDays === 0) diffDays = 1;
+
+      let total = diffDays * vehicle.price_per_day;
+      
+      // Add service charges if applicable
+      if (vehicle.pickup_available) total += vehicle.pickup_charge;
+      if (vehicle.dropoff_available) total += vehicle.dropoff_charge;
+
+      return total;
     }
     return 0;
   }, [startDate, endDate, vehicle]);
@@ -114,12 +123,17 @@ const bookingMutation = useMutation({
   const handleBooking = async () => {
   if (!user) {
     navigate('/login');
-    return;
+    return; 
   }
 
   if (!startDate || !endDate || totalPrice <= 0) {
     alert("Please select valid dates.");
-    return;
+      return; 
+    }
+    // NEW: Validation for drop-off location if required
+    if (vehicle.dropoff_available && !dropoffLocation.trim()) {
+        alert('Please enter a drop-off location.');
+      return;
   }
   setShowTerms(true);
   };
@@ -139,6 +153,7 @@ const bookingMutation = useMutation({
       startDate: new Date(startDate).toISOString(),
       endDate: new Date(endDate).toISOString(),
       totalPrice,
+        dropoffLocation: vehicle.dropoff_available ? dropoffLocation : null, // Pass location,
     });
   };
 
@@ -175,13 +190,85 @@ const bookingMutation = useMutation({
                 <SpecItem icon={<BsTagFill size={24} />} label="Type" value={vehicle.vehicle_type} />
                 <SpecItem icon={<FuelInfo fuelType={vehicle.fuel_type} />} label="Fuel" value={vehicle.fuel_type} />
             </div>
+
+            {/* --- UPDATED: Pickup & Drop-off Section --- */}
+            <div className="mt-12">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Pickup & Drop-off</h3>
+                <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
+                    {/* Pickup Location */}
+                    <div className="flex items-start">
+                        <FaMapMarkerAlt className="text-gray-500 mr-4 mt-1 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-gray-800">Location</p>
+                            <p className="text-gray-600">{vehicle.profiles?.address || 'Address not provided by host.'}</p>
+                        </div>
+                    </div>
+
+                    {/* Conditional Pickup Option */}
+                    {vehicle.pickup_available && (
+                        <div className="flex items-start pt-4 border-t border-gray-200">
+                            <FaShippingFast className="text-green-600 mr-4 mt-1 flex-shrink-0" />
+                            <div>
+                                <p className="font-semibold text-gray-800">Pickup Service Available</p>
+                                <p className="text-gray-600">
+                                    Charge: ₹{vehicle.pickup_charge}.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Conditional Drop-off Option */}
+                    {vehicle.dropoff_available && (
+                        <div className="flex flex-col pt-4 border-t border-gray-200">
+                           <div className="flex items-start">
+                               <FaShippingFast className="text-blue-600 mr-4 mt-1 flex-shrink-0" />
+                                <div>
+                                    <p className="font-semibold text-gray-800">Drop-off Service Available</p>
+                                    <p className="text-gray-600">
+                                        Charge: ₹{vehicle.dropoff_charge}.
+                                    </p>
+                                </div>
+                           </div>
+                            <div className="mt-4">
+                                <label htmlFor="dropoff-location" className="block text-sm font-medium text-gray-700">Enter Your Drop-off Location</label>
+                                <input 
+                                    type="text" 
+                                    id="dropoff-location" 
+                                    value={dropoffLocation} 
+                                    onChange={(e) => setDropoffLocation(e.target.value)} 
+                                    className="mt-1 w-full p-2 border border-gray-300 rounded-md"
+                                    placeholder="e.g., Dabolim Airport, Goa"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
           </div>
 
           <div className="lg:col-span-2">
             <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
               <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
-              <p className="text-md text-gray-600 mt-1">Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name || 'A verified host'}</span></p>
-
+              
+              {/* --- UPDATED: Host Information Section --- */}
+              <div className="mt-2 text-md text-gray-600">
+                 <div className="flex items-center">
+                    <span>Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name || 'A verified host'}</span></span>
+                    {vehicle.profiles?.is_verified && (
+                        <span className="ml-2 flex items-center text-green-600 font-semibold bg-green-100 px-2 py-0.5 rounded-full text-xs">
+                           <FaCheckCircle className="mr-1" /> Verified Host
+                        </span>
+                    )}
+                 </div>
+                 {vehicle.profiles?.address && (
+                    <div className="flex items-start mt-2">
+                        <FaMapMarkerAlt className="text-gray-400 mr-2 mt-1 flex-shrink-0" />
+                        <span className="text-sm">{vehicle.profiles.address}</span>
+                    </div>
+                 )}
+              </div>
+              
               <div className="mt-4 flex items-center">
                 {reviewCount > 0 ? (
                   <>
@@ -244,6 +331,7 @@ const bookingMutation = useMutation({
           </div>
         </div>
         
+        {/* Availability Section remains the same */}
         <div className="mt-16">
             <h3 className="text-3xl font-bold text-gray-900 mb-6">Availability</h3>
             {isLoadingBookedDates ? (
@@ -265,12 +353,9 @@ const bookingMutation = useMutation({
                 </div>
             )}
         </div>
-
-        {/* REMOVED: The full reviews section is now on a separate page */}
       </div>
     </div>
   );
 }
 
 export default VehicleDetail;
-

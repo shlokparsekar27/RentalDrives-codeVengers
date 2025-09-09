@@ -1,7 +1,8 @@
 // src/api/bookings.js
 import { supabase } from '../supabaseClient';
 
-export const createBooking = async ({ vehicle, startDate, endDate, totalPrice }) => {
+// MODIFIED: Function now accepts and sends dropoff_location
+export const createBooking = async ({ vehicle, user, startDate, endDate, totalPrice, dropoffLocation }) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not logged in");
 
@@ -16,6 +17,7 @@ export const createBooking = async ({ vehicle, startDate, endDate, totalPrice })
       start_date: startDate,
       end_date: endDate,
       total_price: totalPrice,
+      dropoff_location: dropoffLocation, // ADDED
     }),
   });
 

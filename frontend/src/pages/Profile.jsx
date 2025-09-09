@@ -3,10 +3,102 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar, FaEdit, FaUpload, FaCheckCircle, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
-// --- Review Modal Component ---
+// --- Edit Profile Modal Component ---
+function EditProfileModal({ profile, onClose, onSubmit }) {
+    const [fullName, setFullName] = useState(profile?.full_name || '');
+    const [address, setAddress] = useState(profile?.address || '');
+    // NEW: State for phone numbers
+    const [phonePrimary, setPhonePrimary] = useState(profile?.phone_primary || '');
+    const [phoneSecondary, setPhoneSecondary] = useState(profile?.phone_secondary || '');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!fullName.trim()) {
+            alert('Please enter your full name.');
+            return;
+        }
+        // NEW: Pass all fields to the submit handler
+        onSubmit({ 
+            full_name: fullName, 
+            address: address,
+            phone_primary: phonePrimary,
+            phone_secondary: phoneSecondary
+        });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-6">Edit Your Profile</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-4">
+                        <label htmlFor="fullName" className="block text-gray-700 font-semibold mb-2">Full Name</label>
+                        <input
+                            id="fullName"
+                            type="text"
+                            className="w-full p-3 border border-gray-300 rounded-lg"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            required
+                        />
+                    </div>
+                    
+                    {/* Address Textarea */}
+                    <div className="mb-4">
+                        <label htmlFor="address" className="block text-gray-700 font-semibold mb-2">Your Address (for pickup)</label>
+                        <textarea
+                            id="address"
+                            rows="3"
+                            className="w-full p-3 border border-gray-300 rounded-lg"
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            placeholder="e.g., 123 Beach Rd, Panjim, Goa"
+                        />
+                    </div>
+
+                    {/* NEW: Phone Number Inputs */}
+                    <div className="mb-4">
+                        <label htmlFor="phonePrimary" className="block text-gray-700 font-semibold mb-2">Primary Phone</label>
+                        <input
+                            id="phonePrimary"
+                            type="tel"
+                            className="w-full p-3 border border-gray-300 rounded-lg"
+                            value={phonePrimary}
+                            onChange={(e) => setPhonePrimary(e.target.value)}
+                            placeholder="e.g., +91 9876543210"
+                        />
+                    </div>
+                     <div className="mb-6">
+                        <label htmlFor="phoneSecondary" className="block text-gray-700 font-semibold mb-2">Secondary Phone (Optional)</label>
+                        <input
+                            id="phoneSecondary"
+                            type="tel"
+                            className="w-full p-3 border border-gray-300 rounded-lg"
+                            value={phoneSecondary}
+                            onChange={(e) => setPhoneSecondary(e.target.value)}
+                            placeholder="e.g., +91 9876543211"
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-4">
+                        <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
+                            Cancel
+                        </button>
+                        <button type="submit" className="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+
+// --- Review Modal Component (remains the same) ---
 function ReviewModal({ booking, review, onClose, onSubmit }) {
     const [rating, setRating] = useState(review?.rating || 0);
     const [comment, setComment] = useState(review?.comment || '');
@@ -73,6 +165,39 @@ const fetchUserProfile = async (userId) => {
     return response.json();
 };
 
+const updateUserProfile = async (profileData) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(profileData)
+    });
+    if (!response.ok) throw new Error('Failed to update profile');
+    return response.json();
+};
+
+const uploadHostDocument = async ({ file, userId }) => {
+    if (!file) throw new Error("No file selected for upload.");
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+        .from('host-documents')
+        .upload(fileName, file);
+
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: urlData } = supabase.storage
+        .from('host-documents')
+        .getPublicUrl(fileName);
+
+    return updateUserProfile({ business_document_url: urlData.publicUrl });
+};
+
+
 const fetchUserBookings = async (userId) => {
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/my-bookings`, {
@@ -81,8 +206,6 @@ const fetchUserBookings = async (userId) => {
     if (!response.ok) throw new Error('Failed to fetch bookings');
     return response.json();
 };
-
-// REMOVED upgradeToHost and downgradeToTourist functions
 
 const cancelBooking = async (bookingId) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -150,6 +273,8 @@ function Profile() {
     const queryClient = useQueryClient();
     const [isReviewModalOpen, setReviewModalOpen] = useState(false);
     const [currentReviewData, setCurrentReviewData] = useState({ booking: null, review: null });
+    const [isEditModalOpen, setEditModalOpen] = useState(false);
+    const [documentFile, setDocumentFile] = useState(null);
 
     const { data: profile, isLoading: isLoadingProfile } = useQuery({
         enabled: !!user?.id,
@@ -158,12 +283,31 @@ function Profile() {
     });
 
     const { data: bookings, isLoading: isLoadingBookings } = useQuery({
-        enabled: !!user?.id && profile?.role !== 'admin',
+        // FIX: The query for bookings should only run once the profile is loaded
+        enabled: !!user?.id && !!profile && profile.role !== 'admin',
         queryKey: ['bookings', user?.id],
         queryFn: () => fetchUserBookings(user.id),
     });
 
-    // REMOVED upgradeMutation and downgradeMutation
+    const updateProfileMutation = useMutation({
+        mutationFn: updateUserProfile,
+        onSuccess: () => {
+            alert('Profile updated successfully!');
+            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+            setEditModalOpen(false);
+        },
+        onError: (error) => alert(`Error: ${error.message}`),
+    });
+    
+    const documentUploadMutation = useMutation({
+        mutationFn: uploadHostDocument,
+        onSuccess: () => {
+            alert("Document uploaded successfully! It is now pending review.");
+            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+            setDocumentFile(null);
+        },
+        onError: (error) => alert(`Error: ${error.message}`),
+    });
     
     const cancelBookingMutation = useMutation({
         mutationFn: cancelBooking,
@@ -235,7 +379,14 @@ function Profile() {
         }
     };
 
-    if (isLoadingProfile || isLoadingBookings) {
+    const handleDocumentUpload = () => {
+        if (documentFile) {
+            documentUploadMutation.mutate({ file: documentFile, userId: user.id });
+        }
+    };
+
+    // FIX: Show a loading state until the profile is fully loaded to prevent flickering
+    if (isLoadingProfile) {
         return <div className="text-center p-10 font-bold text-xl">Loading Profile...</div>;
     }
 
@@ -249,24 +400,84 @@ function Profile() {
                     onSubmit={handleReviewSubmit}
                 />
             )}
+            {isEditModalOpen && (
+                <EditProfileModal
+                    profile={profile}
+                    onClose={() => setEditModalOpen(false)}
+                    onSubmit={(data) => updateProfileMutation.mutate(data)}
+                />
+            )}
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <h1 className="text-4xl font-extrabold text-gray-900 mb-8">Your Profile</h1>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-1 space-y-8">
                         <div className="bg-white p-6 rounded-xl shadow-md">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Account Details</h2>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-2xl font-bold text-gray-800">Account Details</h2>
+                                <button onClick={() => setEditModalOpen(true)} className="text-gray-500 hover:text-blue-600">
+                                    <FaEdit size={20} />
+                                </button>
+                            </div>
                             <div className="space-y-4">
                                 <div className="flex items-center"><FaUser className="mr-3 text-gray-500" /> <span className="text-gray-700">{profile?.full_name}</span></div>
                                 <div className="flex items-center"><FaEnvelope className="mr-3 text-gray-500" /> <span className="text-gray-700">{user?.email}</span></div>
                                 <div className="flex items-center"><FaUserTag className="mr-3 text-gray-500" /> <span className="capitalize font-semibold text-blue-600">{profile?.role}</span></div>
+                                
+                                {/* UPDATED: Display Address and Phone Numbers */}
+                                {profile?.address && (
+                                    <div className="flex items-start"><FaMapMarkerAlt className="mr-3 mt-1 text-gray-500 flex-shrink-0" /> <span className="text-gray-700">{profile.address}</span></div>
+                                )}
+                                <div className="flex items-center">
+                                    <FaPhone className="mr-3 text-gray-500" /> 
+                                    <span className="text-gray-700">{profile?.phone_primary || 'N/A'}</span>
+                                </div>
+                                 <div className="flex items-center">
+                                    <FaPhone className="mr-3 text-gray-500" /> 
+                                    <span className="text-gray-700">{profile?.phone_secondary || 'N/A'}</span>
+                                </div>
                             </div>
                         </div>
-                        {/* REMOVED the entire Role Management card div */}
+
+                        {profile?.role === 'host' && (
+                            <div className="bg-white p-6 rounded-xl shadow-md">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-4">Host Verification</h2>
+                                {profile?.is_verified ? (
+                                    <div className="flex items-center text-green-600">
+                                        <FaCheckCircle className="mr-3" />
+                                        <span className="font-semibold">Verified Host</span>
+                                    </div>
+                                ) : profile?.business_document_url ? (
+                                    <div className="text-center">
+                                        <p className="text-yellow-600 font-semibold mb-2">Document Submitted</p>
+                                        <p className="text-sm text-gray-500">Your document is pending review by our team.</p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="text-gray-600 mb-4">Upload your business registration or license to get a "Verified Host" badge.</p>
+                                        <input 
+                                            type="file" 
+                                            onChange={(e) => setDocumentFile(e.target.files[0])}
+                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                            accept="image/*,.pdf"
+                                        />
+                                        <button 
+                                            onClick={handleDocumentUpload} 
+                                            disabled={!documentFile || documentUploadMutation.isPending}
+                                            className="w-full mt-4 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                                        >
+                                            {documentUploadMutation.isPending ? 'Uploading...' : 'Upload Document'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <div className="lg:col-span-2">
                         <div className="bg-white p-6 rounded-xl shadow-md">
                             <h2 className="text-2xl font-bold text-gray-800 mb-6">My Bookings</h2>
-                            {bookings && bookings.length > 0 ? (
+                            {isLoadingBookings ? (
+                               <p className="text-center text-gray-500 py-8">Loading bookings...</p>
+                            ) : bookings && bookings.length > 0 ? (
                                 <ul className="space-y-6">
                                     {bookings.map(booking => {
                                         const existingReview = booking.vehicles.reviews?.find(r => r.booking_id === booking.id);
