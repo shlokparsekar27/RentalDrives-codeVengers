@@ -179,7 +179,7 @@ const hostMessage = `📢 New Booking!
 
     // Send WhatsApp message to user only
     await sendWhatsAppMessage(
-      userData.phone_number,
+      userData.phone_primary,
       userMessage,
       "user",
       invoicePath,
@@ -187,7 +187,7 @@ const hostMessage = `📢 New Booking!
     );
 
       await sendWhatsAppMessage(
-      hostData.phone_number,
+      hostData.phone_primary,
       hostMessage,
       "host" // 🚫 no invoice attached for host
     );
@@ -275,14 +275,14 @@ async function generateInvoice(booking, userData, hostData, vehicle) {
       doc.fontSize(14).font("Helvetica-Bold").text("Billed To:");
       doc.fontSize(12).font("Helvetica");
       doc.text(`${userData.full_name}`);
-      doc.text(`Phone: ${userData.phone_number}`);
+      doc.text(`Phone: ${userData.phone_primary}`);
       doc.moveDown(1);
 
       // ===== HOST =====
       doc.fontSize(14).font("Helvetica-Bold").text("Host:");
       doc.fontSize(12).font("Helvetica");
       doc.text(`${hostData.full_name}`);
-      doc.text(`Phone: ${hostData.phone_number}`);
+      doc.text(`Phone: ${hostData.phone_primary}`);
       doc.moveDown(1);
 
       // ===== BOOKING SUMMARY (Table Style) =====
@@ -784,8 +784,8 @@ app.post("/api/payments/verify", async (req, res) => {
 
 
     const vehicle = booking.vehicles;
-    const userPhone = booking?.profiles?.phone_number;
-    const hostPhone = booking?.vehicles?.profiles?.phone_number;
+    const userPhone = booking?.profiles?.phone_primary;
+    const hostPhone = booking?.vehicles?.profiles?.phone_primary;
     const userProfile = booking.profiles;
     const hostProfile = booking.vehicles?.profiles;
 
