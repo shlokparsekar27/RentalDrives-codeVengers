@@ -19,6 +19,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import HostBookings from "./pages/HostBookings";
 import VehicleReviews from './pages/VehicleReviews';
 import AdminHostVerification from './pages/AdminHostVerification'; // <-- IMPORT a
+import BookingSummary from "./pages/BookingSummary";
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/vehicle/:id/reviews" element={<VehicleReviews />} />
           <Route path="/admin/verify-hosts" element={<AdminHostVerification />} />
+          <Route path="/booking-summary" element={<BookingSummary />} />
         </Routes>
       </main>
       <Footer />
