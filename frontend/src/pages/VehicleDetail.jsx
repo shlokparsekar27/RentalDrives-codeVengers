@@ -1,7 +1,7 @@
 // src/pages/VehicleDetail.jsx
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { createBooking ,openRazorpayCheckout } from '../api/bookings';
@@ -15,7 +15,6 @@ import TermsPopup from '../Components/TermsPopup';
 const fetchVehicleById = async (vehicleId) => {
   const { data, error } = await supabase
     .from('vehicles')
-    // UPDATED: Also fetch host's is_verified status
     .select(`*, profiles ( full_name, address, is_verified )`) 
     .eq('id', vehicleId)
     .single();
@@ -34,7 +33,6 @@ const fetchBookedDates = async (vehicleId) => {
 
 // --- Helper Components ---
 const FuelInfo = ({ fuelType }) => {
-  // (Component remains the same)
   switch (fuelType) {
     case 'Electric':
       return <FaBolt size={24} className="text-green-600" />;
@@ -64,7 +62,6 @@ function VehicleDetail() {
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  // NEW: State for drop-off location input
   const [dropoffLocation, setDropoffLocation] = useState('');
 
   const [showTerms, setShowTerms] = useState(false);
@@ -95,12 +92,10 @@ function VehicleDetail() {
       const diffTime = Math.abs(end - start);
       let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      // Ensure at least one day is charged
       if (diffDays === 0) diffDays = 1;
 
       let total = diffDays * vehicle.price_per_day;
       
-      // Add service charges if applicable
       if (vehicle.pickup_available) total += vehicle.pickup_charge;
       if (vehicle.dropoff_available) total += vehicle.dropoff_charge;
 
@@ -130,7 +125,6 @@ const bookingMutation = useMutation({
     alert("Please select valid dates.");
       return; 
     }
-    // NEW: Validation for drop-off location if required
     if (vehicle.dropoff_available && !dropoffLocation.trim()) {
         alert('Please enter a drop-off location.');
       return;
@@ -191,20 +185,17 @@ const bookingMutation = useMutation({
                 <SpecItem icon={<FuelInfo fuelType={vehicle.fuel_type} />} label="Fuel" value={vehicle.fuel_type} />
             </div>
 
-            {/* --- UPDATED: Pickup & Drop-off Section --- */}
             <div className="mt-12">
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">Pickup & Drop-off</h3>
                 <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-                    {/* Pickup Location */}
                     <div className="flex items-start">
                         <FaMapMarkerAlt className="text-gray-500 mr-4 mt-1 flex-shrink-0" />
                         <div>
-                            <p className="font-semibold text-gray-800">Location</p>
+                            <p className="font-semibold text-gray-800">Default Pickup Location</p>
                             <p className="text-gray-600">{vehicle.profiles?.address || 'Address not provided by host.'}</p>
                         </div>
                     </div>
 
-                    {/* Conditional Pickup Option */}
                     {vehicle.pickup_available && (
                         <div className="flex items-start pt-4 border-t border-gray-200">
                             <FaShippingFast className="text-green-600 mr-4 mt-1 flex-shrink-0" />
@@ -217,7 +208,6 @@ const bookingMutation = useMutation({
                         </div>
                     )}
 
-                    {/* Conditional Drop-off Option */}
                     {vehicle.dropoff_available && (
                         <div className="flex flex-col pt-4 border-t border-gray-200">
                            <div className="flex items-start">
@@ -251,7 +241,6 @@ const bookingMutation = useMutation({
             <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
               <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
               
-              {/* --- UPDATED: Host Information Section --- */}
               <div className="mt-2 text-md text-gray-600">
                  <div className="flex items-center">
                     <span>Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name || 'A verified host'}</span></span>
@@ -331,7 +320,6 @@ const bookingMutation = useMutation({
           </div>
         </div>
         
-        {/* Availability Section remains the same */}
         <div className="mt-16">
             <h3 className="text-3xl font-bold text-gray-900 mb-6">Availability</h3>
             {isLoadingBookedDates ? (
@@ -359,3 +347,4 @@ const bookingMutation = useMutation({
 }
 
 export default VehicleDetail;
+
