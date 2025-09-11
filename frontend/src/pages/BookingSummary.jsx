@@ -2,7 +2,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-import { createBooking } from '../api/bookings';
+import { createBooking ,openRazorpayCheckout } from '../api/bookings';
 import { FaMapMarkerAlt, FaCalendarAlt, FaCar, FaMoneyBillWave } from 'react-icons/fa';
 
 function BookingSummary() {
@@ -16,8 +16,8 @@ function BookingSummary() {
 
     const bookingMutation = useMutation({
         mutationFn: createBooking,
-        onSuccess: () => {
-            alert('Booking successful!');
+        onSuccess: (data) => {
+            
             
             // --- UPDATED: Invalidate all relevant queries ---
             // 1. Refresh the booked dates for this specific vehicle
@@ -31,27 +31,30 @@ function BookingSummary() {
                  queryClient.invalidateQueries({ queryKey: ['myVehicleBookings', vehicle.host_id] });
             }
             
-            navigate('/profile');
+          openRazorpayCheckout({ data, vehicle, user, navigate });
         },
         onError: (error) => {
             alert(`Booking failed: ${error.message}`);
-        }
+        },
     });
+     const handleConfirmBooking = () => {
+  if (!user) {
+    navigate('/login');
+    return;
+  }
 
-    const handleConfirmBooking = () => {
-        if (!user) {
-            navigate('/login');
-            return;
-        }
-        bookingMutation.mutate({
-            vehicle,
-            user,
-            startDate: new Date(startDate).toISOString(),
-            endDate: new Date(endDate).toISOString(),
-            totalPrice,
-            dropoffLocation
-        });
-    };
+
+  bookingMutation.mutate({
+    vehicle,
+    user,
+    startDate: new Date(startDate).toISOString(),
+    endDate: new Date(endDate).toISOString(),
+    totalPrice,
+    dropoffLocation,
+  });
+};
+
+   
 
     // If for any reason the page is loaded directly without state, redirect
     if (!vehicle) {
@@ -149,13 +152,16 @@ function BookingSummary() {
                             <button onClick={() => navigate(-1)} className="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-all">
                                 Cancel
                             </button>
-                            <button 
-                                onClick={handleConfirmBooking} 
-                                disabled={bookingMutation.isPending}
-                                className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-all disabled:bg-gray-400"
-                            >
-                                {bookingMutation.isPending ? 'Confirming...' : 'Confirm & Book'}
-                            </button>
+                              <button
+                                        onClick={handleConfirmBooking}
+                                        disabled={bookingMutation.isPending || !startDate || !endDate || totalPrice <= 0}
+                                        className="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400"
+                                      >
+                                        {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
+                                      </button>
+                          
+                
+                        
                         </div>
                     </div>
                 </div>
