@@ -4,9 +4,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { createBooking ,openRazorpayCheckout } from '../api/bookings';
 import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaMapMarkerAlt, FaShippingFast, FaCheckCircle } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
+import TermsPopup from '../Components/TermsPopup';
 
 
 // --- Data Fetching ---
@@ -62,6 +64,9 @@ function VehicleDetail() {
   const [endDate, setEndDate] = useState('');
   const [dropoffLocation, setDropoffLocation] = useState('');
 
+  const [showTerms, setShowTerms] = useState(false);
+  // const [pendingBooking, setPendingBooking] = useState(null);
+
   const { data: vehicle, isLoading, isError, error } = useQuery({
     queryKey: ['vehicle', id],
     queryFn: () => fetchVehicleById(id),
@@ -99,30 +104,55 @@ function VehicleDetail() {
     return 0;
   }, [startDate, endDate, vehicle]);
 
-  const handleBooking = () => {
-    if (!user) {
-      navigate('/login');
-      return; 
-    } 
-    if (!startDate || !endDate || totalPrice <= 0) {
-      alert('Please select a valid date range.');
+   
+const bookingMutation = useMutation({
+  mutationFn: createBooking,
+  onSuccess: (data) => {
+    openRazorpayCheckout({ data, vehicle, user, navigate });
+  },
+  onError: (err) => {
+    alert(`Booking failed: ${err.message}`);
+  },
+});
+
+  const handleBooking = async () => {
+  if (!user) {
+    navigate('/login');
+    return; 
+  }
+
+  if (!startDate || !endDate || totalPrice <= 0) {
+    alert("Please select valid dates.");
       return; 
     }
     if (vehicle.dropoff_available && !dropoffLocation.trim()) {
         alert('Please enter a drop-off location.');
-        return;
-    }
-
-    navigate('/booking-summary', {
-        state: {
-            vehicle,
-            startDate,
-            endDate,
-            totalPrice,
-            dropoffLocation
-        }
+      return;
+  }
+  setShowTerms(true);
+  };
+/*  setPendingBooking({
+      vehicle,
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      totalPrice,
+    });
+    setShowTerms(true);
+  };
+  */
+    const confirmBooking = () => {
+    setShowTerms(false);
+    bookingMutation.mutate({
+      vehicle,
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      totalPrice,
+        dropoffLocation: vehicle.dropoff_available ? dropoffLocation : null, // Pass location,
     });
   };
+
+ 
+    
 
   if (isLoading) {
     return <div className="text-center p-10 font-bold text-xl">Loading Vehicle Details...</div>;
@@ -269,13 +299,23 @@ function VehicleDetail() {
                 </div>
               )}
 
-              <button
-                onClick={handleBooking}
-                disabled={!startDate || !endDate || totalPrice <= 0}
-                className="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400"
-              >
-                Review Booking
-              </button>
+             <button
+              onClick={handleBooking}
+              disabled={bookingMutation.isPending || !startDate || !endDate || totalPrice <= 0}
+              className="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400"
+            >
+              {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
+            </button>
+
+             {/* ✅ Show popup if required */}
+{showTerms && (
+  <TermsPopup
+    onAccept={confirmBooking}
+    onDecline={() => setShowTerms(false)} 
+  />
+)}
+      
+         
             </div>
           </div>
         </div>
