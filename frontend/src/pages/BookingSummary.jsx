@@ -11,22 +11,17 @@ function BookingSummary() {
     const queryClient = useQueryClient();
     const { user } = useAuth();
 
-    // Safely destructure state from the location object
-    const { vehicle, startDate, endDate, totalPrice, dropoffLocation } = location.state || {};
+    // UPDATED: Destructure pickupLocation as well
+    const { vehicle, startDate, endDate, totalPrice, pickupLocation, dropoffLocation } = location.state || {};
 
     const bookingMutation = useMutation({
         mutationFn: createBooking,
         onSuccess: () => {
             alert('Booking successful!');
             
-            // --- UPDATED: Invalidate all relevant queries ---
-            // 1. Refresh the booked dates for this specific vehicle
             queryClient.invalidateQueries({ queryKey: ['bookedDates', vehicle.id] });
-            
-            // 2. Refresh the current user's list of bookings (for their profile page)
             queryClient.invalidateQueries({ queryKey: ['bookings', user.id] });
 
-            // 3. Refresh the host's list of received bookings
             if (vehicle.host_id) {
                  queryClient.invalidateQueries({ queryKey: ['myVehicleBookings', vehicle.host_id] });
             }
@@ -49,11 +44,12 @@ function BookingSummary() {
             startDate: new Date(startDate).toISOString(),
             endDate: new Date(endDate).toISOString(),
             totalPrice,
+            // Pass the custom locations to the backend
+            pickupLocation,
             dropoffLocation
         });
     };
 
-    // If for any reason the page is loaded directly without state, redirect
     if (!vehicle) {
         return (
             <div className="text-center p-10">
@@ -66,7 +62,6 @@ function BookingSummary() {
         );
     }
     
-    // Calculate number of days for display
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
@@ -99,18 +94,18 @@ function BookingSummary() {
                                 <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
                                 <div>
                                     <p className="font-semibold">Pickup Location:</p>
-                                    <p>{vehicle.profiles?.address}</p>
+                                    {/* UPDATED: Show custom pickup or default */}
+                                    <p>{pickupLocation || vehicle.profiles?.address}</p>
                                 </div>
                             </div>
-                            {dropoffLocation && (
-                                <div className="flex items-start">
-                                    <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-semibold">Drop-off Location:</p>
-                                        <p>{dropoffLocation}</p>
-                                    </div>
+                            {/* UPDATED: Show custom dropoff or default */}
+                            <div className="flex items-start">
+                                <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
+                                <div>
+                                    <p className="font-semibold">Drop-off Location:</p>
+                                    <p>{dropoffLocation || vehicle.profiles?.address}</p>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                     
@@ -125,15 +120,17 @@ function BookingSummary() {
                                 <span className="text-gray-600">Rental Cost ({diffDays} {diffDays > 1 ? 'days' : 'day'})</span>
                                 <span className="font-medium">₹{rentalCost.toLocaleString()}</span>
                             </div>
-                            {vehicle.pickup_charge > 0 && (
+                            {/* UPDATED: Conditionally render pickup fee */}
+                            {pickupLocation && vehicle.pickup_charge > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Pickup Service Fee</span>
+                                    <span className="text-gray-600">Custom Pickup Fee</span>
                                     <span className="font-medium">₹{vehicle.pickup_charge.toLocaleString()}</span>
                                 </div>
                             )}
-                             {vehicle.dropoff_charge > 0 && (
+                             {/* UPDATED: Conditionally render dropoff fee */}
+                             {dropoffLocation && vehicle.dropoff_charge > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Drop-off Service Fee</span>
+                                    <span className="text-gray-600">Custom Drop-off Fee</span>
                                     <span className="font-medium">₹{vehicle.dropoff_charge.toLocaleString()}</span>
                                 </div>
                             )}
@@ -165,4 +162,3 @@ function BookingSummary() {
 }
 
 export default BookingSummary;
-

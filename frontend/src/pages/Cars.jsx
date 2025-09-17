@@ -3,10 +3,8 @@ import { useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-// Import the new icon for the host
 import { FaGasPump, FaUsers, FaBolt, FaUserCircle } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
-
 
 // --- Data Fetching Functions ---
 const fetchVehicles = async () => {
@@ -57,7 +55,11 @@ function Cars() {
   });
 
   const filteredVehicles = vehicles?.filter(vehicle => {
-    const matchesSearch = `${vehicle.make} ${vehicle.model}`.toLowerCase().includes(searchTerm.toLowerCase());
+    // UPDATED: Search now includes the host's name
+    const matchesSearch = 
+      `${vehicle.make} ${vehicle.model}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (vehicle.profiles?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
     const matchesFuel = fuelFilter ? vehicle.fuel_type === fuelFilter : true;
     const matchesTransmission = transmissionFilter ? vehicle.transmission === transmissionFilter : true;
     return matchesSearch && matchesFuel && matchesTransmission;
@@ -83,7 +85,8 @@ function Cars() {
         <div className="bg-white p-4 rounded-xl shadow-lg mb-10 flex flex-col md:flex-row gap-4 items-center sticky top-24 z-50">
           <input
             type="text"
-            placeholder="Search by make or model (e.g., 'Maruti Swift')"
+            // UPDATED: Placeholder text is more descriptive
+            placeholder="Search by vehicle or host name (e.g., 'Maruti' or 'John Doe')"
             className="w-full md:flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -118,7 +121,6 @@ function Cars() {
                 <div className="p-6 flex flex-col flex-grow">
                   <h3 className="text-2xl font-bold text-gray-900 truncate">{vehicle.make} {vehicle.model}</h3>
                   
-                  {/* FIXED: Added the host's name here */}
                   <div className="flex items-center text-sm text-gray-500 mt-2">
                     <FaUserCircle className="mr-2" />
                     <span>Host : {vehicle.profiles?.full_name || 'A verified host'}</span>

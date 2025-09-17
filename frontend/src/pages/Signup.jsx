@@ -103,9 +103,36 @@ function Signup() {
             <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputBaseClass} minLength="6"/>
           </div>
 
+          {/* NEW: Terms of Service Checkbox */}
+          <div className="flex items-start">
+            <div className="flex items-center h-5">
+              <input
+                id="terms"
+                name="terms"
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <label htmlFor="terms" className="text-gray-500">
+                I agree to the{' '}
+                <Link to="/terms" target="_blank" className="font-medium text-blue-600 hover:underline">
+                  Terms of Service
+                </Link>
+              </label>
+            </div>
+          </div>
+          
           {/* Submit Button */}
           <div>
-            <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700" disabled={mutation.isPending}>
+            <button 
+              type="submit" 
+              className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed" 
+              // UPDATED: Button is disabled if terms are not agreed to
+              disabled={mutation.isPending || !agreedToTerms}
+            >
               {mutation.isPending ? 'Creating Account...' : 'Sign Up'}
             </button>
           </div>
