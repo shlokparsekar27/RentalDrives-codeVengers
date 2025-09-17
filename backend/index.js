@@ -38,7 +38,7 @@ const authenticateToken = (req, res, next) => {
 app.post('/api/auth/signup', async (req, res) => {
   try {
     // UPDATED: Now reads the 'role' from the request body
-    const { email, password, full_name, role } = req.body; 
+    const { email, password, full_name, role } = req.body;
 
     // A small security check to ensure the role is valid
     const userRole = (role === 'host' || role === 'tourist') ? role : 'tourist';
@@ -65,37 +65,37 @@ app.post('/api/auth/signup', async (req, res) => {
 
 // User Login
 app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-        // Step 1: Authenticate the user with Supabase Auth
-        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+    // Step 1: Authenticate the user with Supabase Auth
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-        if (loginError) throw loginError;
+    if (loginError) throw loginError;
 
-        // Step 2: Fetch the user's profile to get our custom role
-        const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', loginData.user.id)
-            .single();
+    // Step 2: Fetch the user's profile to get our custom role
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', loginData.user.id)
+      .single();
 
-        if (profileError) throw profileError;
+    if (profileError) throw profileError;
 
-        // Step 3: Combine the session (with token) and the profile data for the response
-        const response = {
-            session: loginData.session,
-            profile: profileData
-        };
+    // Step 3: Combine the session (with token) and the profile data for the response
+    const response = {
+      session: loginData.session,
+      profile: profileData
+    };
 
-        res.status(200).json(response);
+    res.status(200).json(response);
 
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // GET the profile of the currently logged-in user
@@ -123,7 +123,7 @@ app.put('/api/users/me', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.sub;
     // ADDED: phone_primary and phone_secondary
-    const { full_name, address, phone_primary, phone_secondary } = req.body; 
+    const { full_name, address, phone_primary, phone_secondary } = req.body;
 
     const updates = {};
     if (full_name) updates.full_name = full_name;
@@ -254,24 +254,24 @@ app.put('/api/vehicles/:id', authenticateToken, async (req, res) => {
 
 // DELETE a vehicle (Protected, for owner only)
 app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { data, error } = await supabase
-        .from('vehicles')
-        .delete()
-        .eq('id', id)
-        .eq('host_id', req.user.sub)
-        .select()
-        .single();
-      if (error) throw error;
-      if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to delete it.' });
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('vehicles')
+      .delete()
+      .eq('id', id)
+      .eq('host_id', req.user.sub)
+      .select()
+      .single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to delete it.' });
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-  // NEW: GET a user's public profile by their ID
+// NEW: GET a user's public profile by their ID
 app.get('/api/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -339,13 +339,13 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
 
     // ADDED: dropoff_location to the insert object
     const bookingData = {
-        user_id: req.user.sub,
-        vehicle_id,
-        start_date,
-        end_date,
-        total_price,
-        status: 'confirmed',
-        dropoff_location: dropoff_location || null // Save location or null if not provided
+      user_id: req.user.sub,
+      vehicle_id,
+      start_date,
+      end_date,
+      total_price,
+      status: 'confirmed',
+      dropoff_location: dropoff_location || null // Save location or null if not provided
     };
 
     const { data, error } = await supabase
@@ -363,42 +363,42 @@ app.post('/api/bookings', authenticateToken, async (req, res) => {
 
 // READ all of the current user's bookings
 app.get('/api/bookings/my-bookings', authenticateToken, async (req, res) => {
-    try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(`
           *,
           vehicles ( *, reviews ( * ) )
         `)
-        .eq('user_id', req.user.sub);
-  
-      if (error) throw error;
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+      .eq('user_id', req.user.sub);
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // UPDATE a booking's status to 'cancelled'
 app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { data, error } = await supabase
-        .from('bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', id)
-        .eq('user_id', req.user.sub) // Security: Ensures only the owner can cancel
-        .select()
-        .single();
-  
-      if (error) throw error;
-      if (!data) return res.status(404).json({ error: 'Booking not found or you do not have permission to cancel it.' });
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .eq('user_id', req.user.sub) // Security: Ensures only the owner can cancel
+      .select()
+      .single();
 
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Booking not found or you do not have permission to cancel it.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ======== ADMIN ENDPOINTS (Protected) ========
 
@@ -430,10 +430,13 @@ app.get('/api/admin/vehicles/pending', authenticateToken, async (req, res) => {
     }
 
     // This query now joins with the profiles table to get the host's name
+    // ... inside app.get('/api/admin/vehicles/pending', ...)
     const { data, error } = await supabase
       .from('vehicles')
-      .select(`*, profiles ( full_name )`) 
+      // UPDATED: Added certification_url and is_certified
+      .select(`*, certification_url, is_certified, profiles ( full_name )`)
       .eq('status', 'pending');
+    //...
 
     if (error) throw error;
     res.status(200).json(data);
@@ -608,7 +611,7 @@ app.patch('/api/admin/hosts/:id/verify', authenticateToken, async (req, res) => 
 
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Host not found.' });
-    
+
     res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -653,72 +656,130 @@ app.get('/api/admin/hosts/:hostId/document-url', authenticateToken, async (req, 
   }
 });
 
+// NEW: Generate a temporary, secure URL for a vehicle certification
+app.get('/api/admin/vehicles/:vehicleId/certification-url', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const { vehicleId } = req.params;
+
+    const { data: vehicle, error: vehicleError } = await supabase
+      .from('vehicles')
+      .select('certification_url')
+      .eq('id', vehicleId)
+      .single();
+
+    if (vehicleError || !vehicle || !vehicle.certification_url) {
+      return res.status(404).json({ error: 'Certification document not found for this vehicle.' });
+    }
+
+    const filePath = new URL(vehicle.certification_url).pathname.split('/vehicle-certifications/')[1];
+    
+    // Create a signed URL valid for 5 minutes
+    const { data, error: urlError } = await supabase.storage
+      .from('vehicle-certifications')
+      .createSignedUrl(filePath, 300);
+
+    if (urlError) throw urlError;
+
+    res.status(200).json({ signedUrl: data.signedUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: Mark a vehicle as certified
+app.patch('/api/admin/vehicles/:id/certify', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update({ is_certified: true })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Vehicle not found.' });
+    
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ======== HOST ENDPOINTS (Protected) ========
 
 // backend/index.js
 
 // GET all vehicles for the currently logged-in host
 app.get('/api/hosts/my-vehicles', authenticateToken, async (req, res) => {
-    try {
-      if (req.user.user_metadata.role !== 'host') {
-        return res.status(403).json({ error: 'Access denied. Host role required.' });
-      }
-  
-      // Corrected line:
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('host_id', req.user.sub);
-  
-      if (error) throw error;
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+  try {
+    if (req.user.user_metadata.role !== 'host') {
+      return res.status(403).json({ error: 'Access denied. Host role required.' });
     }
-  });
+
+    // Corrected line:
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('host_id', req.user.sub);
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // backend/index.js
 
 // GET all bookings made on a host's vehicles
 app.get('/api/hosts/my-bookings', authenticateToken, async (req, res) => {
-    try {
-        if (req.user.user_metadata.role !== 'host') {
-            return res.status(403).json({ error: 'Access denied. Host role required.' });
-        }
-        const hostId = req.user.sub;
+  try {
+    if (req.user.user_metadata.role !== 'host') {
+      return res.status(403).json({ error: 'Access denied. Host role required.' });
+    }
+    const hostId = req.user.sub;
 
-        // Step 1: Find all vehicles that belong to the current host
-        const { data: hostVehicles, error: vehiclesError } = await supabase
-            .from('vehicles')
-            .select('id')
-            .eq('host_id', hostId);
+    // Step 1: Find all vehicles that belong to the current host
+    const { data: hostVehicles, error: vehiclesError } = await supabase
+      .from('vehicles')
+      .select('id')
+      .eq('host_id', hostId);
 
-        if (vehiclesError) throw vehiclesError;
+    if (vehiclesError) throw vehiclesError;
 
-        if (!hostVehicles || hostVehicles.length === 0) {
-            return res.status(200).json([]);
-        }
+    if (!hostVehicles || hostVehicles.length === 0) {
+      return res.status(200).json([]);
+    }
 
-        const vehicleIds = hostVehicles.map(v => v.id);
+    const vehicleIds = hostVehicles.map(v => v.id);
 
-        // Step 2: Find all bookings that match the host's vehicle IDs
-        const { data: bookings, error: bookingsError } = await supabase
-            .from('bookings')
-            .select(`
+    // Step 2: Find all bookings that match the host's vehicle IDs
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select(`
                 *,
-                vehicles ( make, model ),
+                vehicles ( make, model, vehicle_type ),
                 profiles ( full_name )
             `)
-            .in('vehicle_id', vehicleIds);
+      .in('vehicle_id', vehicleIds)
+      .order('created_at', { ascending: false }); // <-- ADD THIS LINE to sort
 
-        if (bookingsError) throw bookingsError;
+    if (bookingsError) throw bookingsError;
 
-        res.status(200).json(bookings);
+    res.status(200).json(bookings);
 
-    } catch (error) {
-        console.error('Error fetching host bookings:', error);
-        res.status(500).json({ error: error.message });
-    }
+  } catch (error) {
+    console.error('Error fetching host bookings:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ======== REVIEW ENDPOINTS (Protected) ========
@@ -756,45 +817,45 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
 
 // UPDATE a review
 app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { rating, comment } = req.body;
-      const { data, error } = await supabase
-        .from('reviews')
-        .update({ rating, comment })
-        .eq('id', id)
-        .eq('user_id', req.user.sub) // Security: Ensures only the owner can update
-        .select()
-        .single();
-  
-      if (error) throw error;
-      if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to edit it.' });
+  try {
+    const { id } = req.params;
+    const { rating, comment } = req.body;
+    const { data, error } = await supabase
+      .from('reviews')
+      .update({ rating, comment })
+      .eq('id', id)
+      .eq('user_id', req.user.sub) // Security: Ensures only the owner can update
+      .select()
+      .single();
 
-      res.status(200).json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to edit it.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // DELETE a review
 app.delete('/api/reviews/:id', authenticateToken, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { data, error } = await supabase
-            .from('reviews')
-            .delete()
-            .eq('id', id)
-            .eq('user_id', req.user.sub) // Security: Ensures only the owner can delete
-            .select()
-            .single();
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.sub) // Security: Ensures only the owner can delete
+      .select()
+      .single();
 
-        if (error) throw error;
-        if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to delete it.' });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Review not found or you do not have permission to delete it.' });
 
-        res.status(204).send();
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // --- Server Start ---

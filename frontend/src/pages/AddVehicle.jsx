@@ -3,50 +3,43 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { FaUpload } from 'react-icons/fa';
+import { FaUpload, FaFileAlt } from 'react-icons/fa';
 
-const createVehicle = async ({ formData, imageFile }) => {
-    let imageUrls = [];
+const createVehicle = async ({ formData, imageFile, certificationFile }) => {
+    // 1. Upload Vehicle Image
+    const imageExt = imageFile.name.split('.').pop();
+    const imageFileName = `${Date.now()}.${imageExt}`;
+    const { error: imageUploadError } = await supabase.storage
+        .from('vehicle-images')
+        .upload(imageFileName, imageFile);
+    if (imageUploadError) throw new Error(`Image Upload Failed: ${imageUploadError.message}`);
+    const { data: imageUrlData } = supabase.storage.from('vehicle-images').getPublicUrl(imageFileName);
 
-    if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${fileName}`;
+    // 2. Upload Certification Document
+    const certExt = certificationFile.name.split('.').pop();
+    const certFileName = `cert-${Date.now()}.${certExt}`;
+    const { error: certUploadError } = await supabase.storage
+        .from('vehicle-certifications')
+        .upload(certFileName, certificationFile);
+    if (certUploadError) throw new Error(`Certification Upload Failed: ${certUploadError.message}`);
+    const { data: certUrlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(certFileName);
 
-        const { error: uploadError } = await supabase.storage
-            .from('vehicle-images')
-            .upload(filePath, imageFile);
-
-        if (uploadError) {
-            throw new Error(`Image Upload Failed: ${uploadError.message}`);
-        }
-
-        const { data: urlData } = supabase.storage
-            .from('vehicle-images')
-            .getPublicUrl(filePath);
-        
-        imageUrls.push(urlData.publicUrl);
-    }
-
+    // 3. Prepare data for the API
     const vehicleData = {
         ...formData,
-        image_urls: imageUrls,
+        image_urls: [imageUrlData.publicUrl],
+        certification_url: certUrlData.publicUrl,
     };
-
+    
+    // 4. Call the backend API to create the vehicle record
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify(vehicleData),
     });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create vehicle');
-    }
+    if (!response.ok) throw new Error((await response.json()).error || 'Failed to create vehicle');
     return response.json();
 };
 
@@ -57,14 +50,12 @@ function AddVehicle() {
         make: '', model: '', year: '', license_plate: '',
         price_per_day: '', vehicle_type: 'Car', transmission: 'Manual',
         fuel_type: 'Petrol', seating_capacity: '',
-        // UPDATED: State for separate pickup and drop-off options and charges
-        pickup_available: false,
-        dropoff_available: false,
-        pickup_charge: 0,
-        dropoff_charge: 0,
+        pickup_available: false, dropoff_available: false,
+        pickup_charge: 0, dropoff_charge: 0,
     });
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
+    const [certificationFile, setCertificationFile] = useState(null); // New state for cert
 
     const mutation = useMutation({
         mutationFn: createVehicle,
@@ -73,17 +64,12 @@ function AddVehicle() {
             queryClient.invalidateQueries({ queryKey: ['myVehicles'] });
             navigate('/host/dashboard');
         },
-        onError: (error) => {
-            alert(`Error: ${error.message}`);
-        }
+        onError: (error) => alert(`Error: ${error.message}`),
     });
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prevData => ({
-            ...prevData,
-            [name]: type === 'checkbox' ? checked : value
-        }));
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
     const handleImageChange = (e) => {
@@ -94,13 +80,19 @@ function AddVehicle() {
         }
     };
 
+    const handleCertificationChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setCertificationFile(e.target.files[0]);
+        }
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!imageFile) {
-            alert('Please upload an image for the vehicle.');
+        if (!imageFile || !certificationFile) {
+            alert('Please upload both a vehicle image and a certification document.');
             return;
         }
-        mutation.mutate({ formData, imageFile });
+        mutation.mutate({ formData, imageFile, certificationFile });
     };
     
     const labelClass = "block text-sm font-medium text-gray-700 mb-1";
@@ -111,31 +103,35 @@ function AddVehicle() {
             <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-lg">
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-extrabold text-gray-900">List a New Vehicle</h2>
-                    <p className="mt-2 text-gray-600">Fill in the details and upload an image of your vehicle.</p>
+                    <p className="mt-2 text-gray-600">Fill in the details and upload documents for your vehicle.</p>
                 </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Vehicle Image Upload */}
                     <div>
                         <label className={labelClass}>Vehicle Image</label>
-                        <div className="mt-1 flex items-center justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                             <div className="space-y-1 text-center">
-                                {imagePreview ? (
-                                    <img src={imagePreview} alt="Vehicle preview" className="mx-auto h-48 w-auto rounded-lg" />
-                                ) : (
-                                    <FaUpload className="mx-auto h-12 w-12 text-gray-400" />
-                                )}
-                                <div className="flex text-sm text-gray-600">
-                                    <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                                        <span>Upload a file</span>
-                                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/*" required />
-                                    </label>
-                                    <p className="pl-1">or drag and drop</p>
-                                </div>
-                                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                {imagePreview ? (<img src={imagePreview} alt="Preview" className="mx-auto h-48 w-auto rounded-lg" />) : (<FaUpload className="mx-auto h-12 w-12 text-gray-400" />)}
+                                <div className="flex text-sm text-gray-600"><label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/*" required /></label><p className="pl-1">or drag and drop</p></div>
+                                <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Certification Upload */}
+                    <div>
+                         <label className={labelClass}>Vehicle Certification (RC Book/Permit)</label>
+                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                            <div className="space-y-1 text-center">
+                                <FaFileAlt className={`mx-auto h-12 w-12 ${certificationFile ? 'text-green-500' : 'text-gray-400'}`} />
+                                <div className="flex text-sm text-gray-600"><label htmlFor="cert-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload document</span><input id="cert-upload" name="cert-upload" type="file" className="sr-only" onChange={handleCertificationChange} accept="image/*,.pdf" required /></label></div>
+                                <p className="text-xs text-gray-500">{certificationFile ? `Selected: ${certificationFile.name}` : 'PNG, JPG, PDF up to 10MB'}</p>
                             </div>
                         </div>
                     </div>
                     
+                    {/* Vehicle Details Form */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label htmlFor="make" className={labelClass}>Make</label>
@@ -186,68 +182,32 @@ function AddVehicle() {
                         </select>
                     </div>
 
-                    {/* --- UPDATED: Delivery Options Section --- */}
+                    {/* Delivery Options Section */}
                     <div className="space-y-4 rounded-lg bg-gray-50 p-4 border">
                         <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                name="pickup_available"
-                                id="pickup_available"
-                                checked={formData.pickup_available}
-                                onChange={handleChange}
-                                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="pickup_available" className="ml-3 block font-medium text-gray-800">
-                                Offer vehicle pickup?
-                            </label>
+                            <input type="checkbox" name="pickup_available" id="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                            <label htmlFor="pickup_available" className="ml-3 block font-medium text-gray-800">Offer vehicle pickup?</label>
                         </div>
-                        {/* This input only appears if pickup is checked */}
                         {formData.pickup_available && (
                             <div className="pl-8">
                                 <label htmlFor="pickup_charge" className={labelClass}>Pickup Service Charge (₹)</label>
-                                <input 
-                                    type="number" 
-                                    name="pickup_charge" 
-                                    id="pickup_charge" 
-                                    value={formData.pickup_charge} 
-                                    onChange={handleChange} 
-                                    className={inputClass} 
-                                    placeholder="e.g., 300" 
-                                />
+                                <input type="number" name="pickup_charge" id="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
                             </div>
                         )}
                         <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                name="dropoff_available"
-                                id="dropoff_available"
-                                checked={formData.dropoff_available}
-                                onChange={handleChange}
-                                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="dropoff_available" className="ml-3 block font-medium text-gray-800">
-                                Offer vehicle drop-off?
-                            </label>
+                            <input type="checkbox" name="dropoff_available" id="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                            <label htmlFor="dropoff_available" className="ml-3 block font-medium text-gray-800">Offer vehicle drop-off?</label>
                         </div>
-                        {/* This input only appears if dropoff is checked */}
                         {formData.dropoff_available && (
                             <div className="pl-8">
                                 <label htmlFor="dropoff_charge" className={labelClass}>Drop-off Service Charge (₹)</label>
-                                <input 
-                                    type="number" 
-                                    name="dropoff_charge" 
-                                    id="dropoff_charge" 
-                                    value={formData.dropoff_charge} 
-                                    onChange={handleChange} 
-                                    className={inputClass} 
-                                    placeholder="e.g., 300" 
-                                />
+                                <input type="number" name="dropoff_charge" id="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
                             </div>
                         )}
                     </div>
 
                     <div>
-                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400" disabled={mutation.isPending}>
+                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700" disabled={mutation.isPending}>
                             {mutation.isPending ? 'Submitting...' : 'Submit for Approval'}
                         </button>
                     </div>

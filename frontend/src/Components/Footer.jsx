@@ -26,6 +26,8 @@ function Footer() {
             <h3 className="font-bold text-white text-lg mb-4 tracking-wider">Help & Support</h3>
             <ul className="space-y-2">
               <li><Link to="/about" className="hover:text-blue-400 transition-colors">About Us</Link></li>
+              <li><Link to="/faq" className="hover:text-blue-400 transition-colors">FAQ</Link></li>
+              <li><Link to="/terms" className="hover:text-blue-400">Terms of Service</Link></li> 
               <li><Link to="/contact" className="hover:text-blue-400 transition-colors">Contact Us</Link></li>
             </ul>
           </div>
