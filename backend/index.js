@@ -541,17 +541,18 @@ app.put('/api/vehicles/:id', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
-        // If a new certification (RC or Insurance) is uploaded, reset status
-        if (updates.rc_document_url || updates.insurance_document_url) {
-            updates.status = 'pending';
-            updates.is_certified = false;
-        }
+        // --- CORRECTED LOGIC ---
+        // Always reset status to 'pending' on any update by a host.
+        // This ensures all changes are re-verified by an admin.
+        updates.status = 'pending';
+        updates.is_certified = false;
+        // --- END CORRECTION ---
 
         const { data, error } = await supabase
             .from('vehicles')
             .update(updates)
             .eq('id', id)
-            .eq('host_id', req.user.sub)
+            .eq('host_id', req.user.sub) // Ensure only the owner can edit
             .select()
             .single();
 
