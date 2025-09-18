@@ -30,6 +30,8 @@ export default function TermsPopup({ onAccept, onDecline }) {
           <p><strong>4. Liability:</strong> We are not liable for accidents, breakdowns, fines, or disputes between host and user.</p>
           <p><strong>5. Payments & Refunds:</strong> Refunds depend on host’s policy. Marketplace fees are non-refundable.</p>
           <p><strong>6. Usage:</strong> Vehicle must not be used for unlawful purposes. Any fines are the user’s responsibility.</p>
+          {/* --- RECOMMENDED ADDITION --- */}
+          <p className="font-bold">By continuing, you acknowledge that RentalDrives is a platform, and you agree to use this service at your own risk.</p>
         </div>
 
         {/* Checkbox inside popup */}
