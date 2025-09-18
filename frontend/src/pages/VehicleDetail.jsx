@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaMapMarkerAlt, FaShippingFast, FaCheckCircle, FaExclamationCircle, FaShieldAlt } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
-
+import TermsPopup from '../Components/TermsPopup';
 
 // --- Data Fetching ---
 const fetchVehicleById = async (vehicleId) => {
@@ -71,6 +71,8 @@ function VehicleDetail() {
   const [pickupLocation, setPickupLocation] = useState('');
   const [useCustomDropoff, setUseCustomDropoff] = useState(false);
   const [dropoffLocation, setDropoffLocation] = useState('');
+
+  const [showTerms, setShowTerms] = useState(false);
 
   const { data: vehicle, isLoading, isError, error } = useQuery({
     queryKey: ['vehicle', id],
@@ -156,16 +158,20 @@ function VehicleDetail() {
       alert('Please enter a custom drop-off location.');
       return;
     }
+    setShowTerms(true);
+  };
 
-    navigate('/booking-summary', {
-      state: {
-        vehicle,
-        startDate,
-        endDate,
-        totalPrice,
-        pickupLocation: useCustomPickup ? pickupLocation : null,
-        dropoffLocation: useCustomDropoff ? dropoffLocation : null
-      }
+  const confirmBooking = () => {
+    setShowTerms(false);
+    navigate("/booking-summary", {
+    state: {
+      vehicle,
+      startDate,
+      endDate,
+      totalPrice,
+      pickupLocation: useCustomPickup ? pickupLocation : null,
+      dropoffLocation: useCustomDropoff ? dropoffLocation : null
+    },
     });
   };
 
@@ -293,6 +299,14 @@ function VehicleDetail() {
               >
                 Review Booking
               </button>
+
+              {showTerms && (
+              <TermsPopup
+                onAccept={confirmBooking}
+                onDecline={() => setShowTerms(false)} 
+              />
+            )}
+
             </div>
           </div>
         </div>
