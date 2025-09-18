@@ -5,7 +5,8 @@ import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { FaUpload, FaFileAlt } from 'react-icons/fa';
 
-const createVehicle = async ({ formData, imageFile, certificationFile }) => {
+// --- UPDATED: createVehicle now handles three file uploads ---
+const createVehicle = async ({ formData, imageFile, rcFile, insuranceFile }) => {
     // 1. Upload Vehicle Image
     const imageExt = imageFile.name.split('.').pop();
     const imageFileName = `${Date.now()}.${imageExt}`;
@@ -15,23 +16,35 @@ const createVehicle = async ({ formData, imageFile, certificationFile }) => {
     if (imageUploadError) throw new Error(`Image Upload Failed: ${imageUploadError.message}`);
     const { data: imageUrlData } = supabase.storage.from('vehicle-images').getPublicUrl(imageFileName);
 
-    // 2. Upload Certification Document
-    const certExt = certificationFile.name.split('.').pop();
-    const certFileName = `cert-${Date.now()}.${certExt}`;
-    const { error: certUploadError } = await supabase.storage
-        .from('vehicle-certifications')
-        .upload(certFileName, certificationFile);
-    if (certUploadError) throw new Error(`Certification Upload Failed: ${certUploadError.message}`);
-    const { data: certUrlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(certFileName);
+    // 2. Upload RC Document
+    const rcExt = rcFile.name.split('.').pop();
+    const rcFileName = `rc-${Date.now()}.${rcExt}`;
+    const { error: rcUploadError } = await supabase.storage
+        .from('vehicle-certifications') // Using the same bucket for simplicity
+        .upload(rcFileName, rcFile);
+    if (rcUploadError) throw new Error(`RC Upload Failed: ${rcUploadError.message}`);
+    const { data: rcUrlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(rcFileName);
 
-    // 3. Prepare data for the API
+    // 3. Upload Insurance Document
+    const insuranceExt = insuranceFile.name.split('.').pop();
+    const insuranceFileName = `ins-${Date.now()}.${insuranceExt}`;
+    const { error: insuranceUploadError } = await supabase.storage
+        .from('vehicle-certifications') // Using the same bucket
+        .upload(insuranceFileName, insuranceFile);
+    if (insuranceUploadError) throw new Error(`Insurance Upload Failed: ${insuranceUploadError.message}`);
+    const { data: insuranceUrlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(insuranceFileName);
+
+
+    // 4. Prepare data for the API
     const vehicleData = {
         ...formData,
         image_urls: [imageUrlData.publicUrl],
-        certification_url: certUrlData.publicUrl,
+        rc_document_url: rcUrlData.publicUrl, // NEW
+        insurance_document_url: insuranceUrlData.publicUrl, // NEW
+        certification_url: rcUrlData.publicUrl, // Keep this for backward compatibility or general use
     };
     
-    // 4. Call the backend API to create the vehicle record
+    // 5. Call the backend API to create the vehicle record
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles`, {
         method: 'POST',
@@ -55,7 +68,8 @@ function AddVehicle() {
     });
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
-    const [certificationFile, setCertificationFile] = useState(null); // New state for cert
+    const [rcFile, setRcFile] = useState(null); // NEW state for RC
+    const [insuranceFile, setInsuranceFile] = useState(null); // NEW state for Insurance
 
     const mutation = useMutation({
         mutationFn: createVehicle,
@@ -80,19 +94,26 @@ function AddVehicle() {
         }
     };
 
-    const handleCertificationChange = (e) => {
+    const handleRcChange = (e) => {
         if (e.target.files && e.target.files[0]) {
-            setCertificationFile(e.target.files[0]);
+            setRcFile(e.target.files[0]);
+        }
+    };
+    
+    const handleInsuranceChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setInsuranceFile(e.target.files[0]);
         }
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!imageFile || !certificationFile) {
-            alert('Please upload both a vehicle image and a certification document.');
+        // UPDATED: Check for all three files
+        if (!imageFile || !rcFile || !insuranceFile) {
+            alert('Please upload a vehicle image, RC document, and insurance document.');
             return;
         }
-        mutation.mutate({ formData, imageFile, certificationFile });
+        mutation.mutate({ formData, imageFile, rcFile, insuranceFile });
     };
     
     const labelClass = "block text-sm font-medium text-gray-700 mb-1";
@@ -109,7 +130,7 @@ function AddVehicle() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Vehicle Image Upload */}
                     <div>
-                        <label className={labelClass}>Vehicle Image</label>
+                        <label className={labelClass}>Vehicle Image (Include all sides & interior)</label>
                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                             <div className="space-y-1 text-center">
                                 {imagePreview ? (<img src={imagePreview} alt="Preview" className="mx-auto h-48 w-auto rounded-lg" />) : (<FaUpload className="mx-auto h-12 w-12 text-gray-400" />)}
@@ -119,14 +140,26 @@ function AddVehicle() {
                         </div>
                     </div>
 
-                    {/* Certification Upload */}
+                    {/* --- NEW: RC Document Upload --- */}
                     <div>
-                         <label className={labelClass}>Vehicle Certification (RC Book/Permit)</label>
+                         <label className={labelClass}>Vehicle RC (Registration Certificate)</label>
                          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                             <div className="space-y-1 text-center">
-                                <FaFileAlt className={`mx-auto h-12 w-12 ${certificationFile ? 'text-green-500' : 'text-gray-400'}`} />
-                                <div className="flex text-sm text-gray-600"><label htmlFor="cert-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload document</span><input id="cert-upload" name="cert-upload" type="file" className="sr-only" onChange={handleCertificationChange} accept="image/*,.pdf" required /></label></div>
-                                <p className="text-xs text-gray-500">{certificationFile ? `Selected: ${certificationFile.name}` : 'PNG, JPG, PDF up to 10MB'}</p>
+                                <FaFileAlt className={`mx-auto h-12 w-12 ${rcFile ? 'text-green-500' : 'text-gray-400'}`} />
+                                <div className="flex text-sm text-gray-600"><label htmlFor="rc-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload RC document</span><input id="rc-upload" name="rc-upload" type="file" className="sr-only" onChange={handleRcChange} accept="image/*,.pdf" required /></label></div>
+                                <p className="text-xs text-gray-500">{rcFile ? `Selected: ${rcFile.name}` : 'PNG, JPG, PDF up to 10MB'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* --- NEW: Insurance Document Upload --- */}
+                    <div>
+                         <label className={labelClass}>Vehicle Insurance Document</label>
+                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                            <div className="space-y-1 text-center">
+                                <FaFileAlt className={`mx-auto h-12 w-12 ${insuranceFile ? 'text-green-500' : 'text-gray-400'}`} />
+                                <div className="flex text-sm text-gray-600"><label htmlFor="insurance-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload insurance</span><input id="insurance-upload" name="insurance-upload" type="file" className="sr-only" onChange={handleInsuranceChange} accept="image/*,.pdf" required /></label></div>
+                                <p className="text-xs text-gray-500">{insuranceFile ? `Selected: ${insuranceFile.name}` : 'PNG, JPG, PDF up to 10MB'}</p>
                             </div>
                         </div>
                     </div>
@@ -218,4 +251,3 @@ function AddVehicle() {
 }
 
 export default AddVehicle;
-

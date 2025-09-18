@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaMapMarkerAlt, FaShippingFast, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaMapMarkerAlt, FaShippingFast, FaCheckCircle, FaExclamationCircle, FaShieldAlt } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
 
@@ -15,6 +15,7 @@ const fetchVehicleById = async (vehicleId) => {
     .from('vehicles')
     .select(`
       *, 
+      is_certified, 
       profiles ( full_name, address, is_verified ),
       reviews ( *, profiles ( full_name ) )
     `)
@@ -66,7 +67,6 @@ function VehicleDetail() {
   const [endDate, setEndDate] = useState('');
   const [dateConflictError, setDateConflictError] = useState('');
 
-  // NEW: State for custom pickup and drop-off
   const [useCustomPickup, setUseCustomPickup] = useState(false);
   const [pickupLocation, setPickupLocation] = useState('');
   const [useCustomDropoff, setUseCustomDropoff] = useState(false);
@@ -109,7 +109,6 @@ function VehicleDetail() {
     ? vehicle.reviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount
     : 0;
 
-  // UPDATED: Total price calculation now depends on the new checkboxes
   const totalPrice = useMemo(() => {
     if (startDate && endDate && vehicle) {
       const start = new Date(startDate);
@@ -124,7 +123,6 @@ function VehicleDetail() {
 
       let total = diffDays * vehicle.price_per_day;
 
-      // Only add charges if the user has opted in
       if (useCustomPickup && vehicle.pickup_available) {
         total += vehicle.pickup_charge;
       }
@@ -150,7 +148,6 @@ function VehicleDetail() {
       alert(dateConflictError);
       return;
     }
-    // NEW: Validation for custom location inputs
     if (useCustomPickup && !pickupLocation.trim()) {
       alert('Please enter a custom pickup location.');
       return;
@@ -166,7 +163,6 @@ function VehicleDetail() {
         startDate,
         endDate,
         totalPrice,
-        // Pass the locations only if they are being used
         pickupLocation: useCustomPickup ? pickupLocation : null,
         dropoffLocation: useCustomDropoff ? dropoffLocation : null
       }
@@ -195,11 +191,9 @@ function VehicleDetail() {
               <SpecItem icon={<FuelInfo fuelType={vehicle.fuel_type} />} label="Fuel" value={vehicle.fuel_type} />
             </div>
 
-            {/* UPDATED: Pickup & Drop-off Section */}
             <div className="mt-12">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Pickup & Drop-off</h3>
               <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-                {/* Default Location */}
                 <div className="flex items-start">
                   <FaMapMarkerAlt className="text-gray-500 mr-4 mt-1 flex-shrink-0" />
                   <div>
@@ -208,7 +202,6 @@ function VehicleDetail() {
                   </div>
                 </div>
 
-                {/* Custom Pickup Option */}
                 {vehicle.pickup_available && (
                   <div className="pt-4 border-t border-gray-200">
                     <div className="flex items-center">
@@ -224,7 +217,6 @@ function VehicleDetail() {
                   </div>
                 )}
 
-                {/* Custom Drop-off Option */}
                 {vehicle.dropoff_available && (
                   <div className="pt-4 border-t border-gray-200">
                     <div className="flex items-center">
@@ -245,7 +237,15 @@ function VehicleDetail() {
 
           <div className="lg:col-span-2">
             <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
-              <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
+                <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
+                    {/* --- NEW: Certified Badge --- */}
+                    {vehicle.is_certified && (
+                        <span className="flex items-center text-blue-600 font-semibold bg-blue-100 px-2.5 py-1 rounded-full text-sm">
+                            <FaShieldAlt className="mr-1.5" /> Certified
+                        </span>
+                    )}
+                </div>
               <div className="mt-2 text-md text-gray-600">
                 <div className="flex items-center">
                   <span>Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name}</span></span>
