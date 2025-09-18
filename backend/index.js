@@ -118,19 +118,23 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
 });
 
 // ... existing code ...
-// UPDATED: Can now update full_name, address, and phone numbers
+// --- 1. UPDATE the existing user profile update endpoint ---
+// Find: app.put('/api/users/me', ...)
+// Add 'license_document_url' to the list of fields that can be updated.
+
 app.put('/api/users/me', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.sub;
-    // ADDED: phone_primary and phone_secondary
-    const { full_name, address, phone_primary, phone_secondary } = req.body;
+    // ADD license_document_url to this line
+    const { full_name, address, phone_primary, phone_secondary, license_document_url } = req.body;
 
     const updates = {};
     if (full_name) updates.full_name = full_name;
     if (address) updates.address = address;
-    // ADDED: Logic to handle phone numbers
     if (phone_primary) updates.phone_primary = phone_primary;
     if (phone_secondary) updates.phone_secondary = phone_secondary;
+    // ADD this line
+    if (license_document_url) updates.license_document_url = license_document_url;
 
 
     if (Object.keys(updates).length === 0) {
@@ -232,25 +236,35 @@ app.post('/api/vehicles', authenticateToken, async (req, res) => {
   }
 });
 
-// UPDATE a vehicle (Protected, for owner only)
+// UPDATE a vehicle
 app.put('/api/vehicles/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-    const { data, error } = await supabase
-      .from('vehicles')
-      .update(updates)
-      .eq('id', id)
-      .eq('host_id', req.user.sub)
-      .select()
-      .single();
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to update it.' });
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        // If a new certification (RC or Insurance) is uploaded, reset status
+        if (updates.rc_document_url || updates.insurance_document_url) {
+            updates.status = 'pending';
+            updates.is_certified = false;
+        }
+
+        const { data, error } = await supabase
+            .from('vehicles')
+            .update(updates)
+            .eq('id', id)
+            .eq('host_id', req.user.sub)
+            .select()
+            .single();
+
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to update it.' });
+        
+        res.status(200).json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
+
 
 // DELETE a vehicle (Protected, for owner only)
 app.delete('/api/vehicles/:id', authenticateToken, async (req, res) => {
@@ -713,6 +727,124 @@ app.patch('/api/admin/vehicles/:id/certify', authenticateToken, async (req, res)
   }
 });
 
+// GET secure URL for a vehicle document (RC or Insurance)
+app.get('/api/admin/vehicles/:vehicleId/document-url', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.user_metadata.role !== 'admin') {
+            return res.status(403).json({ error: 'Access denied.' });
+        }
+        const { vehicleId } = req.params;
+        const { type } = req.query; // Expecting ?type=rc or ?type=insurance
+
+        if (!type || (type !== 'rc' && type !== 'insurance')) {
+            return res.status(400).json({ error: 'A document type of "rc" or "insurance" is required.' });
+        }
+
+        const documentColumn = type === 'rc' ? 'rc_document_url' : 'insurance_document_url';
+
+        const { data: vehicle, error: vehicleError } = await supabase
+            .from('vehicles')
+            .select(documentColumn)
+            .eq('id', vehicleId)
+            .single();
+
+        if (vehicleError || !vehicle || !vehicle[documentColumn]) {
+            return res.status(404).json({ error: `${type.toUpperCase()} document not found for this vehicle.` });
+        }
+
+        const filePath = new URL(vehicle[documentColumn]).pathname.split('/vehicle-certifications/')[1];
+        
+        const { data, error } = await supabase.storage
+            .from('vehicle-certifications')
+            .createSignedUrl(filePath, 300); // Valid for 5 minutes
+
+        if (error) throw error;
+        res.status(200).json({ signedUrl: data.signedUrl });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// NEW: GET all tourists that have submitted a license but are not yet verified
+app.get('/api/admin/tourists/pending-license', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'tourist')
+      .eq('is_license_verified', false)
+      .not('license_document_url', 'is', null); // Only get tourists who have uploaded a license
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: UPDATE a tourist's profile to set is_license_verified to true
+app.patch('/api/admin/tourists/:id/verify-license', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_license_verified: true })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Tourist not found.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// NEW: Generate a temporary, secure URL for an admin to view a tourist's license
+app.get('/api/admin/tourists/:touristId/license-url', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.user_metadata.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const { touristId } = req.params;
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('license_document_url')
+      .eq('id', touristId)
+      .single();
+
+    if (profileError || !profile || !profile.license_document_url) {
+      return res.status(404).json({ error: 'License document not found for this tourist.' });
+    }
+
+    const filePath = new URL(profile.license_document_url).pathname.split('/tourist-licenses/')[1];
+    
+    const { data, error: urlError } = await supabase.storage
+      .from('tourist-licenses')
+      .createSignedUrl(filePath, 300); // URL is valid for 5 minutes
+
+    if (urlError) throw urlError;
+
+    res.status(200).json({ signedUrl: data.signedUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ======== HOST ENDPOINTS (Protected) ========
 
 // backend/index.js
@@ -778,6 +910,60 @@ app.get('/api/hosts/my-bookings', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching host bookings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+//
+//
+// NEW: A more robust endpoint to get specific vehicle documents for a host
+app.get('/api/hosts/my-vehicles/:vehicleId/certification-url', authenticateToken, async (req, res) => {
+  try {
+    // 1. Role check is good, but can be combined with the vehicle ownership check.
+    const { vehicleId } = req.params;
+    const hostId = req.user.sub;
+    
+    // 2. GET THE DOCUMENT TYPE FROM THE QUERY STRING
+    const { type } = req.query; // This is the new line that reads "?type=rc" or "?type=insurance"
+
+    // 3. VALIDATE THE TYPE
+    if (!type || (type !== 'rc' && type !== 'insurance')) {
+      return res.status(400).json({ error: 'A valid document type query parameter (?type=rc or ?type=insurance) is required.' });
+    }
+
+    // 4. CHOOSE THE CORRECT DATABASE COLUMN TO READ
+    const documentColumn = type === 'rc' ? 'rc_document_url' : 'insurance_document_url';
+
+    // 5. SECURITY CHECK & DYNAMICALLY SELECT THE CORRECT COLUMN
+    const { data: vehicle, error: vehicleError } = await supabase
+        .from('vehicles')
+        .select(`${documentColumn}, host_id`) // <-- CHANGED: Selects the correct column dynamically
+        .eq('id', vehicleId)
+        .eq('host_id', hostId) // <-- CHANGED: More efficient security check
+        .single();
+
+    if (vehicleError || !vehicle) {
+        return res.status(404).json({ error: 'Vehicle not found or you do not have permission.' });
+    }
+    
+    // 6. GET THE URL FROM THE CORRECT PROPERTY
+    const documentUrl = vehicle[documentColumn]; // <-- CHANGED: Accesses the correct property
+
+    if (!documentUrl) {
+        return res.status(404).json({ error: 'Document not found for this vehicle.' });
+    }
+
+    // 7. Generate the signed URL (this part is the same and correct)
+    const filePath = new URL(documentUrl).pathname.split('/vehicle-certifications/')[1];
+    const { data, error: urlError } = await supabase.storage
+        .from('vehicle-certifications')
+        .createSignedUrl(filePath, 300);
+
+    if (urlError) throw urlError;
+
+    res.status(200).json({ signedUrl: data.signedUrl });
+
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

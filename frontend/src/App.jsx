@@ -19,6 +19,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import HostBookings from "./pages/HostBookings";
 import VehicleReviews from './pages/VehicleReviews';
 import AdminHostVerification from './pages/AdminHostVerification'; 
+import AdminLicenseVerification from './pages/AdminLicenseVerification';
 import BookingSummary from "./pages/BookingSummary";
 import FAQ from "./pages/FAQ";
 import TermsOfService from "./pages/TermsofService";
@@ -46,6 +47,7 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/vehicle/:id/reviews" element={<VehicleReviews />} />
           <Route path="/admin/verify-hosts" element={<AdminHostVerification />} />
+          <Route path="/admin/verify-licenses" element={<AdminLicenseVerification />} />
           <Route path="/booking-summary" element={<BookingSummary />} />
           <Route path="/faq" element={<FAQ/>} /> 
           <Route path="/terms" element={<TermsOfService />} /> 

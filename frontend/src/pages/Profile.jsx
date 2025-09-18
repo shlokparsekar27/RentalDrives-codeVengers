@@ -3,14 +3,13 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar, FaEdit, FaUpload, FaCheckCircle, FaMapMarkerAlt, FaPhone } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar, FaEdit, FaUpload, FaCheckCircle, FaMapMarkerAlt, FaPhone, FaIdCard } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 // --- Edit Profile Modal Component ---
 function EditProfileModal({ profile, onClose, onSubmit }) {
     const [fullName, setFullName] = useState(profile?.full_name || '');
     const [address, setAddress] = useState(profile?.address || '');
-    // NEW: State for phone numbers
     const [phonePrimary, setPhonePrimary] = useState(profile?.phone_primary || '');
     const [phoneSecondary, setPhoneSecondary] = useState(profile?.phone_secondary || '');
 
@@ -20,9 +19,8 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
             alert('Please enter your full name.');
             return;
         }
-        // NEW: Pass all fields to the submit handler
-        onSubmit({ 
-            full_name: fullName, 
+        onSubmit({
+            full_name: fullName,
             address: address,
             phone_primary: phonePrimary,
             phone_secondary: phoneSecondary
@@ -45,8 +43,6 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
                             required
                         />
                     </div>
-                    
-                    {/* Address Textarea */}
                     <div className="mb-4">
                         <label htmlFor="address" className="block text-gray-700 font-semibold mb-2">Your Address (for pickup)</label>
                         <textarea
@@ -58,8 +54,6 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
                             placeholder="e.g., 123 Beach Rd, Panjim, Goa"
                         />
                     </div>
-
-                    {/* NEW: Phone Number Inputs */}
                     <div className="mb-4">
                         <label htmlFor="phonePrimary" className="block text-gray-700 font-semibold mb-2">Primary Phone</label>
                         <input
@@ -71,7 +65,7 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
                             placeholder="e.g., +91 9876543210"
                         />
                     </div>
-                     <div className="mb-6">
+                    <div className="mb-6">
                         <label htmlFor="phoneSecondary" className="block text-gray-700 font-semibold mb-2">Secondary Phone (Optional)</label>
                         <input
                             id="phoneSecondary"
@@ -82,7 +76,6 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
                             placeholder="e.g., +91 9876543211"
                         />
                     </div>
-
                     <div className="flex justify-end gap-4">
                         <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
                             Cancel
@@ -96,7 +89,6 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
         </div>
     );
 }
-
 
 // --- Review Modal Component (remains the same) ---
 function ReviewModal({ booking, review, onClose, onSubmit }) {
@@ -197,6 +189,25 @@ const uploadHostDocument = async ({ file, userId }) => {
     return updateUserProfile({ business_document_url: urlData.publicUrl });
 };
 
+const uploadLicenseDocument = async ({ file, userId }) => {
+    if (!file) throw new Error("No file selected for upload.");
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}-license-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('tourist-licenses')
+        .upload(fileName, file);
+
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: urlData } = supabase.storage
+        .from('tourist-licenses')
+        .getPublicUrl(fileName);
+
+    return updateUserProfile({ license_document_url: urlData.publicUrl });
+};
+
 
 const fetchUserBookings = async (userId) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -275,6 +286,7 @@ function Profile() {
     const [currentReviewData, setCurrentReviewData] = useState({ booking: null, review: null });
     const [isEditModalOpen, setEditModalOpen] = useState(false);
     const [documentFile, setDocumentFile] = useState(null);
+    const [licenseFile, setLicenseFile] = useState(null);
 
     const { data: profile, isLoading: isLoadingProfile } = useQuery({
         enabled: !!user?.id,
@@ -283,7 +295,6 @@ function Profile() {
     });
 
     const { data: bookings, isLoading: isLoadingBookings } = useQuery({
-        // FIX: The query for bookings should only run once the profile is loaded
         enabled: !!user?.id && !!profile && profile.role !== 'admin',
         queryKey: ['bookings', user?.id],
         queryFn: () => fetchUserBookings(user.id),
@@ -298,7 +309,7 @@ function Profile() {
         },
         onError: (error) => alert(`Error: ${error.message}`),
     });
-    
+
     const documentUploadMutation = useMutation({
         mutationFn: uploadHostDocument,
         onSuccess: () => {
@@ -308,7 +319,17 @@ function Profile() {
         },
         onError: (error) => alert(`Error: ${error.message}`),
     });
-    
+
+    const licenseUploadMutation = useMutation({
+        mutationFn: uploadLicenseDocument,
+        onSuccess: () => {
+            alert("License uploaded successfully! It is now pending review.");
+            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
+            setLicenseFile(null);
+        },
+        onError: (error) => alert(`Error: ${error.message}`),
+    });
+
     const cancelBookingMutation = useMutation({
         mutationFn: cancelBooking,
         onSuccess: () => {
@@ -385,7 +406,12 @@ function Profile() {
         }
     };
 
-    // FIX: Show a loading state until the profile is fully loaded to prevent flickering
+    const handleLicenseUpload = () => {
+        if (licenseFile) {
+            licenseUploadMutation.mutate({ file: licenseFile, userId: user.id });
+        }
+    };
+
     if (isLoadingProfile) {
         return <div className="text-center p-10 font-bold text-xl">Loading Profile...</div>;
     }
@@ -422,22 +448,21 @@ function Profile() {
                                 <div className="flex items-center"><FaUser className="mr-3 text-gray-500" /> <span className="text-gray-700">{profile?.full_name}</span></div>
                                 <div className="flex items-center"><FaEnvelope className="mr-3 text-gray-500" /> <span className="text-gray-700">{user?.email}</span></div>
                                 <div className="flex items-center"><FaUserTag className="mr-3 text-gray-500" /> <span className="capitalize font-semibold text-blue-600">{profile?.role}</span></div>
-                                
-                                {/* UPDATED: Display Address and Phone Numbers */}
                                 {profile?.address && (
                                     <div className="flex items-start"><FaMapMarkerAlt className="mr-3 mt-1 text-gray-500 flex-shrink-0" /> <span className="text-gray-700">{profile.address}</span></div>
                                 )}
                                 <div className="flex items-center">
-                                    <FaPhone className="mr-3 text-gray-500" /> 
+                                    <FaPhone className="mr-3 text-gray-500" />
                                     <span className="text-gray-700">{profile?.phone_primary || 'N/A'}</span>
                                 </div>
-                                 <div className="flex items-center">
-                                    <FaPhone className="mr-3 text-gray-500" /> 
+                                <div className="flex items-center">
+                                    <FaPhone className="mr-3 text-gray-500" />
                                     <span className="text-gray-700">{profile?.phone_secondary || 'N/A'}</span>
                                 </div>
                             </div>
                         </div>
 
+                        {/* CORRECTED LOGIC: Host verification block */}
                         {profile?.role === 'host' && (
                             <div className="bg-white p-6 rounded-xl shadow-md">
                                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Host Verification</h2>
@@ -454,18 +479,53 @@ function Profile() {
                                 ) : (
                                     <div>
                                         <p className="text-gray-600 mb-4">Upload your business registration or license to get a "Verified Host" badge.</p>
-                                        <input 
-                                            type="file" 
+                                        <input
+                                            type="file"
                                             onChange={(e) => setDocumentFile(e.target.files[0])}
                                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                             accept="image/*,.pdf"
                                         />
-                                        <button 
-                                            onClick={handleDocumentUpload} 
+                                        <button
+                                            onClick={handleDocumentUpload}
                                             disabled={!documentFile || documentUploadMutation.isPending}
                                             className="w-full mt-4 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
                                         >
                                             {documentUploadMutation.isPending ? 'Uploading...' : 'Upload Document'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* CORRECTED LOGIC: Tourist verification block (Moved outside of the host block) */}
+                        {profile?.role === 'tourist' && (
+                            <div className="bg-white p-6 rounded-xl shadow-md">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-4">Driver's License Verification</h2>
+                                {profile?.is_license_verified ? (
+                                    <div className="flex items-center text-green-600">
+                                        <FaCheckCircle className="mr-3" />
+                                        <span className="font-semibold">License Verified</span>
+                                    </div>
+                                ) : profile?.license_document_url ? (
+                                    <div className="text-center">
+                                        <p className="text-yellow-600 font-semibold mb-2">License Submitted</p>
+                                        <p className="text-sm text-gray-500">Your license is pending review by our team.</p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="text-gray-600 mb-4">Upload your driver's license to get verified. This is required to book vehicles.</p>
+                                        <input
+                                            type="file"
+                                            onChange={(e) => setLicenseFile(e.target.files[0])}
+                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                            accept="image/*,.pdf"
+                                        />
+                                        <button
+                                            onClick={handleLicenseUpload}
+                                            disabled={!licenseFile || licenseUploadMutation.isPending}
+                                            className="w-full mt-4 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                                        >
+                                            {licenseUploadMutation.isPending ? 'Uploading...' : 'Upload License'}
                                         </button>
                                     </div>
                                 )}
@@ -476,7 +536,7 @@ function Profile() {
                         <div className="bg-white p-6 rounded-xl shadow-md">
                             <h2 className="text-2xl font-bold text-gray-800 mb-6">My Bookings</h2>
                             {isLoadingBookings ? (
-                               <p className="text-center text-gray-500 py-8">Loading bookings...</p>
+                                <p className="text-center text-gray-500 py-8">Loading bookings...</p>
                             ) : bookings && bookings.length > 0 ? (
                                 <ul className="space-y-6">
                                     {bookings.map(booking => {
@@ -495,7 +555,7 @@ function Profile() {
                                                     )}
                                                 </div>
                                                 <div className="flex flex-shrink-0 gap-2 self-center sm:self-auto">
-                                                    {booking.status === 'confirmed' && ( <button onClick={() => handleCancelBooking(booking.id)} disabled={cancelBookingMutation.isPending} className="bg-red-500 text-white text-xs font-semibold py-1 px-3 rounded-full hover:bg-red-600 transition-colors disabled:bg-gray-400">Cancel</button> )}
+                                                    {booking.status === 'confirmed' && (<button onClick={() => handleCancelBooking(booking.id)} disabled={cancelBookingMutation.isPending} className="bg-red-500 text-white text-xs font-semibold py-1 px-3 rounded-full hover:bg-red-600 transition-colors disabled:bg-gray-400">Cancel</button>)}
                                                     {booking.status !== 'cancelled' && (
                                                         existingReview ? (
                                                             <>
@@ -523,4 +583,3 @@ function Profile() {
 }
 
 export default Profile;
-
