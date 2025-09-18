@@ -513,7 +513,12 @@ function Profile() {
                                     </div>
                                 ) : (
                                     <div>
-                                        <p className="text-gray-600 mb-4">Upload your driver's license to get verified. This is required to book vehicles.</p>
+                                        <p className="text-gray-600 mb-4">
+                                            Upload your driver’s license to complete verification. <br />
+                                            <span className="text-sm text-gray-500">
+                                                (You can also show your license at the pickup location)
+                                            </span>
+                                        </p>
                                         <input
                                             type="file"
                                             onChange={(e) => setLicenseFile(e.target.files[0])}
