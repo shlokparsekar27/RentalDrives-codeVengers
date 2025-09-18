@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { createBooking, openRazorpayCheckout } from '../api/bookings';
-import { FaMapMarkerAlt, FaCalendarAlt, FaCar, FaMoneyBillWave } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCalendarAlt, FaCar, FaMoneyBillWave, FaCheckCircle, FaShieldAlt } from 'react-icons/fa';
 
 function BookingSummary() {
     const location = useLocation();
@@ -12,7 +12,7 @@ function BookingSummary() {
     const { user } = useAuth();
 
     // Safely destructure state from the location object
-    const { vehicle, startDate, endDate, totalPrice, dropoffLocation } = location.state || {};
+    const { vehicle, startDate, endDate, totalPrice, pickupLocation, dropoffLocation } = location.state || {};
 
     const bookingMutation = useMutation({
         mutationFn: createBooking,
@@ -50,6 +50,7 @@ function BookingSummary() {
     startDate: new Date(startDate).toISOString(),
     endDate: new Date(endDate).toISOString(),
     totalPrice,
+    pickupLocation, // Pass pickupLocation to the mutation
     dropoffLocation,
   });
 };
@@ -90,8 +91,22 @@ function BookingSummary() {
                             alt={`${vehicle.make} ${vehicle.model}`}
                             className="w-full h-56 object-cover rounded-lg mb-6"
                         />
-                        <h2 className="text-3xl font-bold text-gray-800">{vehicle.make} {vehicle.model}</h2>
-                        <p className="text-gray-500 mt-1">Hosted by {vehicle.profiles?.full_name}</p>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-3xl font-bold text-gray-800">{vehicle.make} {vehicle.model}</h2>
+                            {vehicle.is_certified && (
+                                <span className="flex items-center text-blue-600 font-semibold bg-blue-100 px-2.5 py-1 rounded-full text-sm">
+                                    <FaShieldAlt className="mr-1.5" /> Certified
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center mt-1">
+                            <p className="text-gray-500">Hosted by {vehicle.profiles?.full_name}</p>
+                            {vehicle.profiles?.is_verified && (
+                                <span className="ml-2 flex items-center text-green-600 font-semibold bg-green-100 px-2 py-0.5 rounded-full text-xs">
+                                    <FaCheckCircle className="mr-1" /> Verified
+                                </span>
+                            )}
+                        </div>
 
                         <div className="mt-6 space-y-4 text-gray-700">
                             <div className="flex items-center">
@@ -102,18 +117,16 @@ function BookingSummary() {
                                 <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
                                 <div>
                                     <p className="font-semibold">Pickup Location:</p>
-                                    <p>{vehicle.profiles?.address}</p>
+                                    <p>{pickupLocation || vehicle.profiles?.address}</p>
                                 </div>
                             </div>
-                            {dropoffLocation && (
-                                <div className="flex items-start">
-                                    <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-semibold">Drop-off Location:</p>
-                                        <p>{dropoffLocation}</p>
-                                    </div>
+                            <div className="flex items-start">
+                                <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
+                                <div>
+                                    <p className="font-semibold">Drop-off Location:</p>
+                                    <p>{dropoffLocation || vehicle.profiles?.address}</p>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                     
@@ -128,15 +141,15 @@ function BookingSummary() {
                                 <span className="text-gray-600">Rental Cost ({diffDays} {diffDays > 1 ? 'days' : 'day'})</span>
                                 <span className="font-medium">₹{rentalCost.toLocaleString()}</span>
                             </div>
-                            {vehicle.pickup_charge > 0 && (
+                            {pickupLocation && vehicle.pickup_charge > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Pickup Service Fee</span>
+                                    <span className="text-gray-600">Custom Pickup Fee</span>
                                     <span className="font-medium">₹{vehicle.pickup_charge.toLocaleString()}</span>
                                 </div>
                             )}
-                             {vehicle.dropoff_charge > 0 && (
+                             {dropoffLocation && vehicle.dropoff_charge > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Drop-off Service Fee</span>
+                                    <span className="text-gray-600">Custom Drop-off Fee</span>
                                     <span className="font-medium">₹{vehicle.dropoff_charge.toLocaleString()}</span>
                                 </div>
                             )}
@@ -152,16 +165,13 @@ function BookingSummary() {
                             <button onClick={() => navigate(-1)} className="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-all">
                                 Cancel
                             </button>
-                              <button
-                                        onClick={handleConfirmBooking}
-                                        disabled={bookingMutation.isPending || !startDate || !endDate || totalPrice <= 0}
-                                        className="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400"
-                                      >
-                                        {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
-                                      </button>
-                          
-                
-                        
+                            <button
+                                onClick={handleConfirmBooking}
+                                disabled={bookingMutation.isPending || !startDate || !endDate || totalPrice <= 0}
+                                className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-all disabled:bg-gray-400"
+                            >
+                                {bookingMutation.isPending ? 'Processing...' : 'Proceed to Pay'}
+                            </button>
                         </div>
                     </div>
                 </div>
