@@ -2,7 +2,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-import { createBooking } from '../api/bookings';
+import { createBooking, openRazorpayCheckout } from '../api/bookings';
 import { FaMapMarkerAlt, FaCalendarAlt, FaCar, FaMoneyBillWave } from 'react-icons/fa';
 
 function BookingSummary() {
@@ -11,45 +11,52 @@ function BookingSummary() {
     const queryClient = useQueryClient();
     const { user } = useAuth();
 
-    // UPDATED: Destructure pickupLocation as well
-    const { vehicle, startDate, endDate, totalPrice, pickupLocation, dropoffLocation } = location.state || {};
+    // Safely destructure state from the location object
+    const { vehicle, startDate, endDate, totalPrice, dropoffLocation } = location.state || {};
 
     const bookingMutation = useMutation({
         mutationFn: createBooking,
-        onSuccess: () => {
-            alert('Booking successful!');
+        onSuccess: (data) => {
             
+            
+            // --- UPDATED: Invalidate all relevant queries ---
+            // 1. Refresh the booked dates for this specific vehicle
             queryClient.invalidateQueries({ queryKey: ['bookedDates', vehicle.id] });
+            
+            // 2. Refresh the current user's list of bookings (for their profile page)
             queryClient.invalidateQueries({ queryKey: ['bookings', user.id] });
 
+            // 3. Refresh the host's list of received bookings
             if (vehicle.host_id) {
                  queryClient.invalidateQueries({ queryKey: ['myVehicleBookings', vehicle.host_id] });
             }
             
-            navigate('/profile');
+          openRazorpayCheckout({ data, vehicle, user, navigate });
         },
         onError: (error) => {
             alert(`Booking failed: ${error.message}`);
-        }
+        },
     });
+     const handleConfirmBooking = () => {
+  if (!user) {
+    navigate('/login');
+    return;
+  }
 
-    const handleConfirmBooking = () => {
-        if (!user) {
-            navigate('/login');
-            return;
-        }
-        bookingMutation.mutate({
-            vehicle,
-            user,
-            startDate: new Date(startDate).toISOString(),
-            endDate: new Date(endDate).toISOString(),
-            totalPrice,
-            // Pass the custom locations to the backend
-            pickupLocation,
-            dropoffLocation
-        });
-    };
 
+  bookingMutation.mutate({
+    vehicle,
+    user,
+    startDate: new Date(startDate).toISOString(),
+    endDate: new Date(endDate).toISOString(),
+    totalPrice,
+    dropoffLocation,
+  });
+};
+
+   
+
+    // If for any reason the page is loaded directly without state, redirect
     if (!vehicle) {
         return (
             <div className="text-center p-10">
@@ -62,6 +69,7 @@ function BookingSummary() {
         );
     }
     
+    // Calculate number of days for display
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
@@ -94,18 +102,18 @@ function BookingSummary() {
                                 <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
                                 <div>
                                     <p className="font-semibold">Pickup Location:</p>
-                                    {/* UPDATED: Show custom pickup or default */}
-                                    <p>{pickupLocation || vehicle.profiles?.address}</p>
+                                    <p>{vehicle.profiles?.address}</p>
                                 </div>
                             </div>
-                            {/* UPDATED: Show custom dropoff or default */}
-                            <div className="flex items-start">
-                                <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
-                                <div>
-                                    <p className="font-semibold">Drop-off Location:</p>
-                                    <p>{dropoffLocation || vehicle.profiles?.address}</p>
+                            {dropoffLocation && (
+                                <div className="flex items-start">
+                                    <FaMapMarkerAlt className="mr-3 mt-1 text-blue-500 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-semibold">Drop-off Location:</p>
+                                        <p>{dropoffLocation}</p>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                     
@@ -120,17 +128,15 @@ function BookingSummary() {
                                 <span className="text-gray-600">Rental Cost ({diffDays} {diffDays > 1 ? 'days' : 'day'})</span>
                                 <span className="font-medium">₹{rentalCost.toLocaleString()}</span>
                             </div>
-                            {/* UPDATED: Conditionally render pickup fee */}
-                            {pickupLocation && vehicle.pickup_charge > 0 && (
+                            {vehicle.pickup_charge > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Custom Pickup Fee</span>
+                                    <span className="text-gray-600">Pickup Service Fee</span>
                                     <span className="font-medium">₹{vehicle.pickup_charge.toLocaleString()}</span>
                                 </div>
                             )}
-                             {/* UPDATED: Conditionally render dropoff fee */}
-                             {dropoffLocation && vehicle.dropoff_charge > 0 && (
+                             {vehicle.dropoff_charge > 0 && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Custom Drop-off Fee</span>
+                                    <span className="text-gray-600">Drop-off Service Fee</span>
                                     <span className="font-medium">₹{vehicle.dropoff_charge.toLocaleString()}</span>
                                 </div>
                             )}
@@ -146,13 +152,16 @@ function BookingSummary() {
                             <button onClick={() => navigate(-1)} className="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-all">
                                 Cancel
                             </button>
-                            <button 
-                                onClick={handleConfirmBooking} 
-                                disabled={bookingMutation.isPending}
-                                className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-all disabled:bg-gray-400"
-                            >
-                                {bookingMutation.isPending ? 'Confirming...' : 'Confirm & Book'}
-                            </button>
+                              <button
+                                        onClick={handleConfirmBooking}
+                                        disabled={bookingMutation.isPending || !startDate || !endDate || totalPrice <= 0}
+                                        className="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400"
+                                      >
+                                        {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
+                                      </button>
+                          
+                
+                        
                         </div>
                     </div>
                 </div>
