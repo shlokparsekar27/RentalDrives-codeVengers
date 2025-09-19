@@ -867,24 +867,97 @@ app.get('/api/bookings/my-bookings', authenticateToken, async (req, res) => {
   }
 });
 
-// UPDATE a booking's status to 'cancelled'
+// --- Cancel Booking + Refund ---
+// PATCH Cancel Booking
 app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from('bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', id)
-      .eq('user_id', req.user.sub) // Security: Ensures only the owner can cancel
-      .select()
+
+    // Fetch booking with payment info
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("*, payments(*)")
+      .eq("id", id)
+      .eq("user_id", req.user.sub)
       .single();
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Booking not found or you do not have permission to cancel it.' });
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found or unauthorized" });
+    }
 
-    res.status(200).json(data);
+    if (booking.status === "cancelled") {
+      return res.status(400).json({ error: "Booking already cancelled" });
+    }
+
+    // Cancellation policy
+    const now = new Date();
+    const startTime = new Date(booking.start_date);
+    const hoursBeforeStart = (startTime - now) / (1000 * 60 * 60);
+
+    let refundPercent = 0;
+    if (hoursBeforeStart > 24) refundPercent = 1;
+    else if (hoursBeforeStart >= 6) refundPercent = 0.5;
+    else refundPercent = 0;
+
+    const refundAmount = Math.floor(booking.total_price * refundPercent);
+
+    // Update booking to cancelled
+    await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
+
+    // No refund case
+    if (refundAmount === 0) {
+      await supabase.from("payments")
+        .update({
+          refund_status: "failed",
+          refund_reason: "No refund eligible (within 6 hours)"
+        })
+        .eq("booking_id", id);
+
+      return res.json({ success: true, message: "Booking cancelled (no refund eligible)" });
+    }
+
+    // Refund initiated
+    const payment = booking.payments?.[0];
+    if (!payment || !payment.razorpay_payment_id) {
+      return res.status(400).json({ error: "Payment not found for refund" });
+    }
+
+    // Call Razorpay Refund API
+    const response = await fetch(
+      `https://api.razorpay.com/v1/payments/${payment.razorpay_payment_id}/refund`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization":
+            "Basic " +
+            Buffer.from(
+              `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`
+            ).toString("base64"),
+        },
+        body: JSON.stringify({ amount: refundAmount * 100 }),
+      }
+    );
+
+    const refundData = await response.json();
+
+    // Mark as INITIATED
+    await supabase.from("payments").update({
+      refund_status: "initiated",
+      refund_amount: refundAmount,
+      refund_id: refundData?.id || null,
+      refunded_at: null,
+    }).eq("booking_id", id);
+
+    return res.json({
+      success: true,
+      message: `Booking cancelled, refund of ₹${refundAmount} initiated`,
+      refund: { status: "initiated", ...refundData }
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("❌ Cancel API error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
