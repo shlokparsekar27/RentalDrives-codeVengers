@@ -14,7 +14,9 @@ import fetch from "node-fetch";
 
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://rental-drives-code-vengers.vercel.app' 
+}));
 app.use(express.json());
 
 const razorpay = new Razorpay({
