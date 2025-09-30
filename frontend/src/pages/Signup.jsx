@@ -33,7 +33,7 @@ function Signup() {
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('tourist');
   const navigate = useNavigate();
-
+ //  const [agreedToTerms, setAgreedToTerms] = useState(false);// last error fixed//remove if not need //got error saying agreedtoterms not defined //use if u too get it
   const mutation = useMutation({
     mutationFn: signUpUser,
     onSuccess: () => {

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar, FaEdit, FaUpload, FaCheckCircle, FaMapMarkerAlt, FaPhone, FaIdCard } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link ,useNavigate } from 'react-router-dom';
 
 // --- Edit Profile Modal Component ---
 function EditProfileModal({ profile, onClose, onSubmit }) {
@@ -287,6 +287,7 @@ function Profile() {
     const [isEditModalOpen, setEditModalOpen] = useState(false);
     const [documentFile, setDocumentFile] = useState(null);
     const [licenseFile, setLicenseFile] = useState(null);
+      const navigate = useNavigate();
 
     const { data: profile, isLoading: isLoadingProfile } = useQuery({
         enabled: !!user?.id,
@@ -551,6 +552,8 @@ function Profile() {
                                                 <img src={booking.vehicles.image_urls?.[0] || 'https://via.placeholder.com/150'} alt="Vehicle" className="w-32 h-20 object-cover rounded-md flex-shrink-0" />
                                                 <div className="flex-grow text-center sm:text-left">
                                                     <Link to={`/vehicle/${booking.vehicle_id}`} className="font-bold text-lg text-gray-800 hover:text-blue-600">{booking.vehicles.make} {booking.vehicles.model}</Link>
+                                                    {/* NEW LINK: Booking Details */}
+                                                    <Link to={`/booking/${booking.id}`} className="text-blue-600 text-sm hover:underline mt-1 block">View Booking Details</Link>
                                                     <p className={`text-sm font-semibold mt-1 capitalize ${getStatusClasses(booking.status)} inline-block px-2 py-0.5 rounded-full`}>{booking.status}</p>
                                                     {existingReview && (
                                                         <div className="flex items-center mt-2 justify-center sm:justify-start">

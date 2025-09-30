@@ -11,11 +11,15 @@ import PDFDocument from "pdfkit";
 import fs from "fs";
 import FormData from "form-data";
 import fetch from "node-fetch";
+import invoiceRoutes from "./routes/invoice.js";
+
 
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use("/api/invoice", invoiceRoutes);
+
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -956,14 +960,24 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
 
     const refundData = await response.json();
 
-    // Mark as INITIATED
+   /* // Mark as INITIATED
     await supabase.from("payments").update({
       refund_status: "initiated",
       refund_amount: refundAmount,
       refund_id: refundData?.id || null,
       refunded_at: null,
     }).eq("booking_id", id);
+*/
+    // ✅ MVP → Directly mark refund as completed
+    await supabase.from("payments").update({
+      refund_status: "completed",
+      refund_amount: refundAmount,
+      refund_id: refundData?.id || null,
+      initiated_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    }).eq("booking_id", id);
 
+    
     return res.json({
       success: true,
       message: `Booking cancelled, refund of ₹${refundAmount} initiated`,
@@ -974,6 +988,50 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
     console.error("❌ Cancel API error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+app.post("/api/bookings/:id/refund-processed", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await supabase.from("payments").update({
+      refund_status: "processed",
+      refunded_at: new Date().toISOString(),
+    }).eq("booking_id", id);
+
+    res.json({ success: true, message: "Refund marked as processed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update refund status" });
+  }
+});
+// POST /api/bookings/:id/refund-completed
+app.post("/api/bookings/:id/refund-completed", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Update payment as completed
+    await supabase.from("payments").update({
+      refund_status: "completed",
+      refunded_at: new Date().toISOString(), // timestamp for completion
+    }).eq("booking_id", id);
+
+    res.json({ success: true, message: "Refund marked as completed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update refund status" });
+  }
+});
+app.get('/api/booking/:id', async (req, res) => {
+  const { id } = req.params;
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(`*, vehicles(*), profiles(*)`)
+    .eq('id', id)
+    .single();
+
+
+  if (error) return res.status(404).json({ error: "Booking not found" });
+  res.json(data);
 });
 
 // ======== ADMIN ENDPOINTS (Protected) ========
