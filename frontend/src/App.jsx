@@ -23,6 +23,7 @@ import AdminLicenseVerification from './pages/AdminLicenseVerification';
 import BookingSummary from "./pages/BookingSummary";
 import FAQ from "./pages/FAQ";
 import TermsOfService from "./pages/TermsofService";
+import BookingDetails from "./pages/BookingDetails";
 
 function App() {
   return (
@@ -51,6 +52,7 @@ function App() {
           <Route path="/booking-summary" element={<BookingSummary />} />
           <Route path="/faq" element={<FAQ/>} /> 
           <Route path="/terms" element={<TermsOfService />} /> 
+           <Route path="/booking/:id" element={<BookingDetails />} />
         </Routes>
       </main>
       <Footer />
