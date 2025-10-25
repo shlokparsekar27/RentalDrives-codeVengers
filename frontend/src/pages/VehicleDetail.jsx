@@ -139,7 +139,7 @@ function VehicleDetail() {
 
   const handleBooking = () => {
     if (!user) {
-      navigate('/login');
+      navigate('/PhoneAuth');
       return;
     }
     if (!startDate || !endDate || totalPrice <= 0) {

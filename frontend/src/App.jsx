@@ -6,6 +6,8 @@ import Bikes from "./pages/Bikes";
 import Scooters from "./pages/Scooters";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import PhoneAuth from "./pages/PhoneAuth";
+import VerifyOtp from "./pages/VerifyOtp";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Navbar from "./Components/Navbar";
@@ -37,6 +39,8 @@ function App() {
           <Route path="/scooters" element={<Scooters />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path='/PhoneAuth' element={<PhoneAuth />} />
+          <Route path="/VerifyOtp" element={<VerifyOtp />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/profile" element={<Profile />} />

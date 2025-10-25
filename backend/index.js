@@ -7,7 +7,6 @@ import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import PDFDocument from "pdfkit";
 import fs from "fs";
 import FormData from "form-data";
 import fetch from "node-fetch";
@@ -39,17 +38,20 @@ if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is not defined in your .env file!");
 }
 
+// ================== AUTH TOKEN MIDDLEWARE ==================
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (token == null) return res.sendStatus(401);
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
+  if (!token) return res.status(401).json({ error: 'Missing token' });
 
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // make sure JWT_SECRET is in .env
+    req.user = decoded; // attach user info to request
+    next();
+  } catch (err) {
+    res.status(403).json({ error: 'Invalid token' });
+  }
+};
 
 //<--------------- Function to send WhatsApp messages---------->s
 async function sendWhatsAppMessage(to, message, recipientType = "user" ,filePath , bookingId) {
@@ -337,6 +339,7 @@ async function generateInvoice(booking, userData, hostData, vehicle) {
 
 // ======== AUTHENTICATION ENDPOINTS ========
 
+/*  use for login/signup style 
 // User Signup
 app.post('/api/auth/signup', async (req, res) => {
   try {
@@ -419,6 +422,75 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+*/
+// ================== AUTH FLOW (PHONE + OTP) ==================
+
+// ---------------- SEND OTP ----------------
+// ================== SEND OTP ==================
+app.post('/api/auth/send-otp', async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) return res.status(400).json({ error: "Phone number is required" });
+    if (!phone.startsWith("+")) return res.status(400).json({ error: "Phone must include country code (+91...)" });
+
+    const { data, error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) {
+      console.error("Send OTP error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(200).json({ message: "OTP sent successfully", data });
+  } catch (err) {
+    console.error("Send OTP unexpected error:", err);
+    res.status(500).json({ error: "Unexpected server error" });
+  }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { phone, token } = req.body;
+
+    if (!phone || !token) return res.status(400).json({ error: "Phone and OTP are required" });
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms'
+    });
+
+    if (error) {
+      console.error("Verify OTP error:", error);
+      return res.status(400).json({ error: "Invalid OTP or expired" });
+    }
+
+    res.status(200).json({ message: "Signup complete", user: data.user });
+  } catch (err) {
+    console.error("Verify OTP unexpected error:", err);
+    res.status(500).json({ error: "Unexpected server error" });
+  }
+});
+
+
+// ---------------- GET CURRENT USER PROFILE ----------------
+app.get("/api/users/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: "Profile not found." });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // ... existing code ...
 // --- 1. UPDATE the existing user profile update endpoint ---

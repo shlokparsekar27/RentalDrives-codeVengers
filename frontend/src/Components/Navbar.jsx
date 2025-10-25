@@ -26,7 +26,7 @@ function Navbar() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
+    navigate('/PhoneAuth');
   };
 
   // --- Dynamically build the navigation items based on the new structure ---
@@ -92,7 +92,7 @@ function Navbar() {
               </>
             ) : (
               <>
-                <NavLink to="/login" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                <NavLink to="/signup" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
                   Login
                 </NavLink>
                 <NavLink to="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
@@ -153,7 +153,7 @@ function Navbar() {
                 </div>
               ) : (
                 <div className="space-y-1">
-                    <NavLink to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Login</NavLink>
+                    <NavLink to="/signup" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Login</NavLink>
                     <NavLink to="/signup" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Sign Up</NavLink>
                 </div>
               )}

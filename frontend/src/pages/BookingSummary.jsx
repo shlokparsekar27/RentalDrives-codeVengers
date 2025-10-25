@@ -39,7 +39,7 @@ function BookingSummary() {
     });
      const handleConfirmBooking = () => {
   if (!user) {
-    navigate('/login');
+    navigate('/PhoneAuth');
     return;
   }
 
