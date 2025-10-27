@@ -464,7 +464,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       return res.status(400).json({ error: "Invalid OTP or expired" });
     }
 
-    res.status(200).json({ message: "Signup complete", user: data.user });
+    res.status(200).json({ message: "Signup complete", user: data.user , session: data.session });
   } catch (err) {
     console.error("Verify OTP unexpected error:", err);
     res.status(500).json({ error: "Unexpected server error" });

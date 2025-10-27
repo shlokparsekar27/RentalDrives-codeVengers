@@ -26,7 +26,7 @@ function Navbar() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/PhoneAuth');
+    navigate('/Signup');
   };
 
   // --- Dynamically build the navigation items based on the new structure ---

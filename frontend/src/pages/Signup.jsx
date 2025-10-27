@@ -29,6 +29,8 @@ function Signup() {
 
       alert("OTP sent successfully!");
       navigate("/VerifyOtp", { state: { phone, fullName, role } });
+      console.log("From Signup:", { phone, fullName, role });
+
 
     } catch (error) {
       alert(error.message);
