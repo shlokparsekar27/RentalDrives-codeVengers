@@ -7,6 +7,7 @@ import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import PDFDocument from "pdfkit";
 import fs from "fs";
 import FormData from "form-data";
 import fetch from "node-fetch";
@@ -32,6 +33,7 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -46,12 +48,23 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET); // make sure JWT_SECRET is in .env
-    req.user = decoded; // attach user info to request
+    req.user = decoded;
+    req.userToken = token; // attach user info to request<new line for rls>
     next();
   } catch (err) {
     res.status(403).json({ error: 'Invalid token' });
   }
 };
+//<---new code for rls error >
+function getUserSupabase(req) {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${req.userToken}`,
+      },
+    },
+  });
+}
 
 //<--------------- Function to send WhatsApp messages---------->s
 async function sendWhatsAppMessage(to, message, recipientType = "user" ,filePath , bookingId) {
@@ -150,13 +163,14 @@ if (!uploadRes.ok || !uploadData.id) {
     console.error(`❌ WhatsApp error for ${recipientType}:`, err);
     return false;
   }
+  
 }
 
-async function notifyBooking(userData, hostData, vehicle, booking, invoicePath) {
+async function notifyBooking(userData, hostData, vehicle, booking, invoicePath ) {
   try {
     // Generate hybrid invoice number: INV-YYYY-XXXX
-    const year = new Date().getFullYear();
-    const invoiceNumber = `INV-${year}-${booking.id.slice(0, 4)}`; // first 4 chars of UUID as sequence
+   // const year = new Date().getFullYear();
+    let invoiceNumber = booking.invoice_no;
 
     // Extract only the date part
     const startDate = booking.start_date.split("T")[0];
@@ -174,20 +188,15 @@ const hostMessage = `📢 New Booking!
  Vehicle: ${vehicle.make} ${vehicle.model} 
  From: ${startDate} To: ${endDate};`;
 
-    // Check if invoice exists
-    if (!fs.existsSync(invoicePath)) {
-      console.error("❌ Invoice PDF not found at:", invoicePath);
-      return false;
-    }
 
-    // Send WhatsApp message to user only
-    await sendWhatsAppMessage(
-      userData.phone_primary,
-      userMessage,
-      "user",
-      invoicePath,
-      invoiceNumber
-    );
+// Send WhatsApp message to user only
+   await sendWhatsAppMessage(
+  userData.phone_primary,
+  userMessage,
+  "user",
+  invoicePath,
+  invoiceNumber
+);
 
       await sendWhatsAppMessage(
       hostData.phone_primary,
@@ -212,7 +221,7 @@ const hostMessage = `📢 New Booking!
 }
 
 
-// <--------------- Function to generate invoice PDF ----------->
+// <--------------- Function to generate invoice PDF  ----------->
 
 async function generateInvoice(booking, userData, hostData, vehicle) {
   return new Promise(async (resolve, reject) => {
@@ -323,15 +332,40 @@ async function generateInvoice(booking, userData, hostData, vehicle) {
         "Please contact the host for vehicle-related issues.",
         { align: "center" }
       );
-
       doc.end();
-      stream.on("finish", () => resolve(invoicePath));
-      stream.on("error", reject);
+
+      stream.on("finish", async () => { //// creates and saves invoice url to supabase 
+  try {
+    const fileBuffer = fs.readFileSync(invoicePath);
+    const fileName = `invoice-${invoiceNo}.pdf`;
+
+    const { data, error } = await supabase.storage
+      .from("invoices")
+      .upload(fileName, fileBuffer, {
+        contentType: "application/pdf",
+        upsert: true, // allows overwrite
+      });
+
+    if (error) {
+      console.error("❌ Error uploading invoice to Supabase:", error);
+      return reject(error);
+    }
+
+    
+
+    resolve({ invoiceNo, invoicePath });
+  } catch (uploadErr) {
+    reject(uploadErr);
+  }
+});
+    stream.on("error", reject);
     } catch (err) {
       reject(err);
     }
   });
 }
+    
+
 
 //<---------------------whatsapp function ends here ----------------->
 
@@ -447,29 +481,81 @@ app.post('/api/auth/send-otp', async (req, res) => {
   }
 });
 
-app.post('/api/auth/verify-otp', async (req, res) => {
+// ✅ verify-otp route (production-ready)
+app.post("/api/auth/verify-otp", async (req, res) => {
   try {
-    const { phone, token } = req.body;
+    const { phone, token, full_name, role } = req.body;
 
-    if (!phone || !token) return res.status(400).json({ error: "Phone and OTP are required" });
+    if (!phone || !token)
+      return res.status(400).json({ error: "Phone and OTP are required" });
 
+    // 1️⃣ Verify OTP
     const { data, error } = await supabase.auth.verifyOtp({
       phone,
       token,
-      type: 'sms'
+      type: "sms",
     });
 
-    if (error) {
-      console.error("Verify OTP error:", error);
-      return res.status(400).json({ error: "Invalid OTP or expired" });
+    if (error) return res.status(400).json({ error: "Invalid or expired OTP" });
+
+    const user = data.user;
+
+    // 2️⃣ Update metadata in Auth (using Admin client)
+    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        full_name,
+        role,
+      },
+    });
+    if (metaError) throw metaError;
+
+    // 3️⃣ Check for existing profile
+    const { data: existingProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id,role,full_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError && profileError.code !== "PGRST116")
+      return res.status(500).json({ error: "Failed to check profile" });
+
+    // 4️⃣ Create or Update Profile
+    if (!existingProfile) {
+      const { error: insertError } = await supabase.from("profiles").insert([
+        {
+          id: user.id,
+          full_name: full_name || "",
+          role: role === "host" ? "host" : "tourist",
+          phone_primary: phone.startsWith("+") ? phone.slice(1) : phone,
+        },
+      ]);
+      if (insertError) throw insertError;
+    } else {
+      const updates = {};
+      if (!existingProfile.full_name && full_name) updates.full_name = full_name;
+      if (role && existingProfile.role !== role) updates.role = role;
+
+      if (Object.keys(updates).length > 0) {
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update(updates)
+          .eq("id", user.id);
+        if (updateError) throw updateError;
+      }
     }
 
-    res.status(200).json({ message: "Signup complete", user: data.user , session: data.session });
+    // ✅ Success
+    res.status(200).json({
+      message: "Signup complete",
+      user,
+      session: data.session,
+    });
   } catch (err) {
     console.error("Verify OTP unexpected error:", err);
     res.status(500).json({ error: "Unexpected server error" });
   }
 });
+
 
 
 // ---------------- GET CURRENT USER PROFILE ----------------
@@ -702,6 +788,7 @@ app.get('/api/hosts/:id/vehicles', async (req, res) => {
 // CREATE a new booking - UPDATED WITH CORRECT VALIDATION
 app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
   try {
+    const supabase = getUserSupabase(req);
     // ADDED: dropoff_location to the destructuring
     const { vehicle_id, start_date, end_date, total_price, dropoff_location } = req.body;
     if (!vehicle_id || !start_date || !end_date || !total_price) {
@@ -765,6 +852,7 @@ app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
           status: "pending",
           payment_gateway: "razorpay",
           razorpay_order_id: order.id,
+           user_id: req.user.sub,// ADD user_id for RLS
         },
       ])
       .select()
@@ -886,9 +974,9 @@ app.post("/api/payments/verify", async (req, res) => {
     // ✅ Send WhatsApp notifications
 
     // ✅ Generate invoice PDF first
-    const invoicePath = await generateInvoice(booking, userProfile, hostProfile, vehicle);
+    const { invoiceNo, invoicePath } = await generateInvoice(booking, userProfile, hostProfile, vehicle);
      // ✅ Send WhatsApp notifications
-    await notifyBooking(userProfile, hostProfile, vehicle, booking, invoicePath);
+   await notifyBooking(userProfile, hostProfile, vehicle, { ...booking, invoice_no: invoiceNo }, invoicePath);
 
     return res.json({ success: true, message: "Payment verified + WhatsApp sent" });
   } catch (err) {
@@ -1032,23 +1120,16 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
 
     const refundData = await response.json();
 
-   /* // Mark as INITIATED
-    await supabase.from("payments").update({
+   // Mark as INITIATED
+   await supabase.from("payments").update({
       refund_status: "initiated",
       refund_amount: refundAmount,
       refund_id: refundData?.id || null,
-      refunded_at: null,
-    }).eq("booking_id", id);
-*/
-    // ✅ MVP → Directly mark refund as completed
-    await supabase.from("payments").update({
-      refund_status: "completed",
-      refund_amount: refundAmount,
-      refund_id: refundData?.id || null,
       initiated_at: new Date().toISOString(),
-      completed_at: new Date().toISOString(),
+      completed_at: null,
     }).eq("booking_id", id);
 
+  
     
     return res.json({
       success: true,
@@ -1061,7 +1142,7 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-app.post("/api/bookings/:id/refund-processed", async (req, res) => {
+/*app.post("/api/bookings/:id/refund-processed", async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1093,11 +1174,12 @@ app.post("/api/bookings/:id/refund-completed", async (req, res) => {
     res.status(500).json({ error: "Failed to update refund status" });
   }
 });
+*/
 app.get('/api/booking/:id', async (req, res) => {
   const { id } = req.params;
   const { data, error } = await supabase
     .from('bookings')
-    .select(`*, vehicles(*), profiles(*)`)
+    .select(`*, vehicles(*), profiles(*), payments(*)`)
     .eq('id', id)
     .single();
 
@@ -1105,6 +1187,69 @@ app.get('/api/booking/:id', async (req, res) => {
   if (error) return res.status(404).json({ error: "Booking not found" });
   res.json(data);
 });
+
+// ------------------ Razorpay Webhook for refund status ------------------
+
+app.post("/api/webhooks/razorpay", async (req, res) => {
+  try {
+    const payload = JSON.stringify(req.body);
+    const signature = req.headers["x-razorpay-signature"];
+
+    // Verify webhook signature
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .update(payload)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      console.error("❌ Invalid webhook signature");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    const event = req.body.event;
+    const entity = req.body.payload?.refund?.entity;
+
+    if (!entity) {
+      console.warn("⚠️ No refund entity in webhook payload");
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const refundId = entity.id;
+    const paymentId = entity.payment_id;
+    const refundStatus = entity.status; // created | processed | failed
+    const refundAmount = entity.amount / 100; // convert paise → ₹
+    const refundReason = entity.notes?.reason || "N/A";
+    const refundTime = entity.created_at
+      ? new Date(entity.created_at * 1000).toISOString()
+      : new Date().toISOString();
+
+    console.log(`🔔 Razorpay webhook: ${event} for ${refundId} (${refundStatus})`);
+
+    // ---------------- Update payments table ----------------
+    const { error } = await supabase
+      .from("payments")
+      .update({
+        refund_status: refundStatus,
+        refund_id: refundId,
+        refund_amount: refundAmount,
+        refund_reason: refundReason,
+        refunded_at: refundTime,
+      })
+      .eq("razorpay_payment_id", paymentId);
+
+    if (error) {
+      console.error("❌ Supabase update failed:", error);
+      return res.status(500).json({ error: "Failed to update Supabase" });
+    }
+
+    console.log(`✅ Refund ${refundId} updated → ${refundStatus}`);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("❌ Webhook error:", err);
+    return res.status(500).json({ error: "Webhook handler failed" });
+  }
+});
+
 
 // ======== ADMIN ENDPOINTS (Protected) ========
 

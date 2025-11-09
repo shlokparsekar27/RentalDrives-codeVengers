@@ -35,30 +35,10 @@ function VerifyOtp() {
       });
       if (error) throw error;
 
-      // 3️⃣ Fetch user profile (or create it if missing)
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", data.user.id)
-        .single();
+      // 🔄 Force refresh session to get updated metadata
+         await supabase.auth.refreshSession();
 
-    if (!existingProfile) {
-  const { error: insertError } = await supabase.from("profiles").insert([
-    {
-      id: data.user.id,
-      full_name: fullName || "",
-      role: role || "tourist",
-      phone_primary: phone || "",
-    },
-  ]);
 
-  if (insertError) {
-    console.error("Profile insert error:", insertError);
-    alert("Failed to save full name in profile. Please try again.");
-  } else {
-    console.log("✅ Profile inserted successfully with full_name:", fullName);
-  }
-}
 
 
       // 4️⃣ Fetch profile using your existing endpoint
