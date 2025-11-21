@@ -842,21 +842,21 @@ app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
     });
 
     // 3 Insert payment record (pending)
-    const { data: payment, error: paymentError } = await supabase
-      .from("payments")
-      .insert([
-        {
-          booking_id: booking.id,
-          amount: total_price,
-          currency: "INR",
-          status: "pending",
-          payment_gateway: "razorpay",
-          razorpay_order_id: order.id,
-           user_id: req.user.sub,// ADD user_id for RLS
-        },
-      ])
-      .select()
-      .single();
+   const { error: paymentError } = await supabase
+  .from("payments")
+  .insert(
+    {
+      booking_id: booking.id,
+      amount: total_price,
+      currency: "INR",
+      status: "pending",
+      payment_gateway: "razorpay",
+      razorpay_order_id: order.id,
+      user_id: req.user.sub,
+    },
+    { returning: "minimal" } // ⬅ FIXES THE RLS ERROR
+  );
+
 
       if (paymentError) throw paymentError;
 
