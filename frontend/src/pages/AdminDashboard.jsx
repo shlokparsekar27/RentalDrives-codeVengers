@@ -142,7 +142,7 @@ function AdminDashboard() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                         <div>
                             <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="neutral" className="bg-slate-800 text-slate-400 border-slate-700 font-mono text-[10px]">ADMIN_ACCESS_LEVEL_1</Badge>
+                                <Badge variant="neutral" className="bg-slate-800 text-slate-400 border-slate-700 font-mono text-[10px]">ACCESS: ADMINISTRATOR</Badge>
                                 <div className="flex gap-1">
                                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                                     <span className="text-[10px] uppercase text-green-500 font-bold tracking-wider">System Operational</span>
@@ -176,79 +176,79 @@ function AdminDashboard() {
 
                     <div className="p-6 bg-slate-50 dark:bg-slate-950/50 h-full">
                         {pendingVehicles && pendingVehicles.length > 0 ? (
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                {pendingVehicles.map((vehicle) => (
-                                    <div key={vehicle.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all flex flex-col md:flex-row">
-
-                                        {/* Image Section */}
-                                        <div className="w-full md:w-48 h-48 md:h-auto relative bg-slate-100 dark:bg-slate-800 flex-shrink-0">
-                                            <img
-                                                src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
-                                                alt={`${vehicle.make} ${vehicle.model}`}
-                                                className="w-full h-full object-cover"
-                                            />
-                                            <div className="absolute inset-0 bg-black/10"></div>
-                                        </div>
-
-                                        {/* Content Section */}
-                                        <div className="p-5 flex-grow flex flex-col">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div>
-                                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white font-display uppercase tracking-tight">{vehicle.make} {vehicle.model}</h3>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 uppercase">{vehicle.vehicle_type}</span>
-                                                        <span className="text-xs text-slate-400">•</span>
-                                                        <span className="text-xs text-slate-500 dark:text-slate-400">Host: {vehicle.profiles?.full_name}</span>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                            <th className="p-4 pl-6">Vehicle</th>
+                                            <th className="p-4">Host Details</th>
+                                            <th className="p-4">Documents</th>
+                                            <th className="p-4 text-right">Rate</th>
+                                            <th className="p-4 pr-6 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {pendingVehicles.map((vehicle) => (
+                                            <tr key={vehicle.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="p-4 pl-6">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-16 h-12 rounded-lg bg-slate-200 dark:bg-slate-800 overflow-hidden relative">
+                                                            <img
+                                                                src={vehicle.image_urls?.[0]}
+                                                                alt={vehicle.model}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-bold text-slate-900 dark:text-white text-sm">{vehicle.make} {vehicle.model}</div>
+                                                            <Badge variant="neutral" className="mt-1 text-[9px] border-none bg-slate-100 dark:bg-slate-800">{vehicle.vehicle_type}</Badge>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">₹{vehicle.price_per_day}</div>
-                                                </div>
-                                            </div>
-
-                                            {/* Doc Links */}
-                                            <div className="flex gap-4 mb-5 text-xs font-medium border-t border-b border-slate-100 dark:border-slate-800 py-3">
-                                                <button onClick={() => handleViewDocument(vehicle.id, 'rc')} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1.5 hover:underline">
-                                                    <FaFileContract /> View RC Book <FaExternalLinkAlt size={10} />
-                                                </button>
-                                                <span className="content-['|'] text-slate-300"></span>
-                                                <button onClick={() => handleViewDocument(vehicle.id, 'insurance')} className="text-purple-600 dark:text-purple-400 hover:text-purple-800 flex items-center gap-1.5 hover:underline">
-                                                    <FaShieldAlt /> View Insurance <FaExternalLinkAlt size={10} />
-                                                </button>
-                                            </div>
-
-                                            {/* Action Buttons */}
-                                            <div className="mt-auto grid grid-cols-2 gap-3">
-                                                <Button
-                                                    onClick={() => handleUpdateStatus(vehicle.id, 'approved')}
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    className="justify-center text-green-700 bg-green-50 hover:bg-green-100 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30"
-                                                    disabled={statusMutation.isPending}
-                                                >
-                                                    <FaCheck className="mr-1.5" /> Approve
-                                                </Button>
-                                                <Button
-                                                    onClick={() => handleUpdateStatus(vehicle.id, 'rejected')}
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    className="justify-center text-red-700 bg-red-50 hover:bg-red-100 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30"
-                                                    disabled={statusMutation.isPending}
-                                                >
-                                                    <FaTimes className="mr-1.5" /> Reject
-                                                </Button>
-                                                <Button
-                                                    onClick={() => handleApproveAndCertify(vehicle.id)}
-                                                    size="sm"
-                                                    className="col-span-2 justify-center bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
-                                                    disabled={statusMutation.isPending || certifyMutation.isPending}
-                                                >
-                                                    <FaShieldAlt className="mr-1.5 opacity-80" /> Approve & Certify (Premium)
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="text-sm font-medium text-slate-900 dark:text-white">{vehicle.profiles?.full_name}</div>
+                                                    <div className="text-xs text-slate-500">ID: {vehicle.host_id.slice(0, 8)}...</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => handleViewDocument(vehicle.id, 'rc')} className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                                                            RC <FaExternalLinkAlt size={8} />
+                                                        </button>
+                                                        <span className="text-slate-300">|</span>
+                                                        <button onClick={() => handleViewDocument(vehicle.id, 'insurance')} className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                                                            INS <FaExternalLinkAlt size={8} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <div className="font-mono font-bold text-slate-900 dark:text-white">₹{vehicle.price_per_day}</div>
+                                                </td>
+                                                <td className="p-4 pr-6 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button
+                                                            onClick={() => handleUpdateStatus(vehicle.id, 'approved')}
+                                                            size="sm"
+                                                            variant="secondary"
+                                                            className="h-8 px-3 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30"
+                                                            disabled={statusMutation.isPending}
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => handleUpdateStatus(vehicle.id, 'rejected')}
+                                                            size="sm"
+                                                            variant="secondary"
+                                                            className="h-8 px-3 text-red-700 bg-red-50 hover:bg-red-100 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30"
+                                                            disabled={statusMutation.isPending}
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center py-20 opacity-60">

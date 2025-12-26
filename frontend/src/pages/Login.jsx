@@ -82,14 +82,14 @@ function Login() {
             <p className="text-slate-500 dark:text-slate-400">Please verify your identity to continue.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-4">
 
-              {/* Email Field with Floating Label feel */}
-              <div className="group">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1 transition-colors group-focus-within:text-blue-500">Email Address</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 transition-colors group-focus-within:text-blue-500">
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 dark:group-focus-within:text-white transition-colors">
                     <FaEnvelope />
                   </div>
                   <input
@@ -97,17 +97,17 @@ function Login() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm"
-                    placeholder="name@example.com"
+                    className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-600 transition-all shadow-sm"
+                    placeholder="name@company.com"
                   />
                 </div>
               </div>
 
-              {/* Password Field */}
-              <div className="group">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-1 transition-colors group-focus-within:text-blue-500">Password</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 transition-colors group-focus-within:text-blue-500">
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Password</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 dark:group-focus-within:text-white transition-colors">
                     <FaLock />
                   </div>
                   <input
@@ -115,28 +115,26 @@ function Login() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 pr-4 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm"
+                    className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-600 transition-all shadow-sm"
                     placeholder="••••••••"
                   />
                 </div>
               </div>
+
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative flex items-center">
-                  <input type="checkbox" className="peer sr-only" />
-                  <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-colors"></div>
-                </div>
-                <span className="text-sm font-medium text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">Remember device</span>
+                <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer" />
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Remember device</span>
               </label>
-              <a href="#" className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors">Forgot Password?</a>
+              <a href="#" className="text-sm font-bold text-slate-900 dark:text-white hover:underline">Forgot Password?</a>
             </div>
 
             <Button
               type="submit"
               size="lg"
-              className="w-full justify-center py-4 text-lg shadow-xl shadow-blue-500/20 hover:shadow-blue-500/40 active:scale-95 transition-all"
+              className="w-full justify-center py-3 text-base shadow-lg hover:shadow-xl active:scale-95 transition-all"
               isLoading={mutation.isPending}
             >
               {mutation.isPending ? 'Verifying...' : 'Sign In Securely'} <FaArrowRight className="ml-2" />

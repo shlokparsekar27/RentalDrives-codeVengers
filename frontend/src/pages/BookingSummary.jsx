@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { createBooking, openRazorpayCheckout } from '../api/bookings';
-import { FaMapMarkerAlt, FaCalendarAlt, FaShieldAlt, FaLock, FaCreditCard, FaCheck, FaArrowLeft, FaReceipt } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCalendarAlt, FaShieldAlt, FaLock, FaCreditCard, FaCheck, FaArrowLeft, FaReceipt, FaCcVisa, FaCcMastercard, FaCcAmex } from 'react-icons/fa';
 import Button from '../Components/ui/Button';
 import Card from '../Components/ui/Card';
 import Badge from '../Components/ui/Badge';
@@ -185,10 +185,8 @@ function BookingSummary() {
                                             </div>
                                         )}
 
-                                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/10 p-2 rounded border border-green-100 dark:border-green-900/20">
-                                            <span className="font-bold text-xs uppercase tracking-wide">Discount Applied</span>
-                                            <span className="font-mono font-bold">-₹0.00</span>
-                                        </div>
+                                        {/* Discount Row - Hidden if 0 for cleaner look */}
+                                        {/* <div className="flex justify-between text-sm text-green-600 ...">...</div> */}
 
                                         <div className="my-6 border-t border-dashed border-slate-300 dark:border-slate-700"></div>
 
@@ -210,11 +208,10 @@ function BookingSummary() {
                                         </Button>
                                     </div>
 
-                                    <div className="mt-6 flex justify-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-                                        {/* Simple placeholders for card brands */}
-                                        <div className="h-6 w-10 bg-slate-200 dark:bg-slate-700 rounded"></div>
-                                        <div className="h-6 w-10 bg-slate-200 dark:bg-slate-700 rounded"></div>
-                                        <div className="h-6 w-10 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                    <div className="mt-6 flex justify-center gap-4 text-slate-300 dark:text-slate-600 text-2xl transition-all duration-500 hover:text-slate-400 dark:hover:text-slate-500">
+                                        <FaCcVisa />
+                                        <FaCcMastercard />
+                                        <FaCcAmex />
                                     </div>
                                     <p className="text-center text-[10px] text-slate-400 mt-2 uppercase tracking-wide">Encrypted Transaction</p>
                                 </div>

@@ -359,6 +359,33 @@ function VehicleDetail() {
         </div>
       </div>
 
+      {/* 
+        📱 Mobile Sticky Bottom Bar (Fixed) 
+      */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 pb-6 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] animate-slide-in-up">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-bold text-slate-900 dark:text-white font-display">₹{vehicle.price_per_day}</span>
+              <span className="text-xs text-slate-500 font-medium">/ night</span>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-bold mt-0.5">
+              <FaStar className="text-amber-500" /> 4.8
+            </div>
+          </div>
+          <Button
+            onClick={() => {
+              // Smooth scroll to desktop calendar or open a modal (for now, scroll to top/calendar area)
+              document.querySelector('.lg\\:col-span-4')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            size="lg"
+            className="flex-1 shadow-lg shadow-blue-600/20"
+          >
+            Check Availability
+          </Button>
+        </div>
+      </div>
+
       {showTerms && <TermsPopup onAccept={confirmBooking} onDecline={() => setShowTerms(false)} />}
     </div>
   );

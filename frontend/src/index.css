@@ -18,18 +18,19 @@
   --color-brand-secondary: #334155;
   --color-brand-accent: #3B82F6;
 
-  /* Custom Easings */
+  /* Custom Easings for Professional Feel */
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
   --ease-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-out-circ: cubic-bezier(0.075, 0.82, 0.165, 1);
 
   /* Animation Keyframes defined below are mapped here */
-  --animate-fade-in-up: fadeInUp 0.8s var(--ease-expo) forwards;
-  --animate-fade-in: fadeIn 0.6s ease-out forwards;
+  --animate-fade-in-up: fadeInUp 0.6s var(--ease-out-circ) forwards;
+  --animate-fade-in: fadeIn 0.4s ease-out forwards;
   --animate-slide-in-right: slideInRight 0.5s var(--ease-expo) forwards;
   --animate-pulse-slow: pulseSlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-blob: blob 7s infinite;
-  --animate-shimmer: shimmer 2s linear infinite;
-  --animate-scale-in: scaleIn 0.4s var(--ease-spring) forwards;
+  --animate-blob: blob 10s infinite;
+  --animate-shimmer: shimmer 2.5s linear infinite;
+  --animate-scale-in: scaleIn 0.3s var(--ease-spring) forwards;
 }
 
 /* ------------------------------
@@ -59,8 +60,9 @@ h6 {
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
-    filter: blur(4px);
+    transform: translateY(15px);
+    /* Reduced movement for subtlety */
+    filter: blur(2px);
   }
 
   to {
@@ -83,7 +85,7 @@ h6 {
 @keyframes scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.98);
   }
 
   to {
@@ -98,11 +100,11 @@ h6 {
   }
 
   33% {
-    transform: translate(30px, -50px) scale(1.1);
+    transform: translate(30px, -30px) scale(1.05);
   }
 
   66% {
-    transform: translate(-20px, 20px) scale(0.9);
+    transform: translate(-20px, 20px) scale(0.95);
   }
 
   100% {
@@ -124,13 +126,19 @@ h6 {
    ✨ High-End Utilities
 --------------------------------*/
 
-/* Glassmorphism */
+/* Glassmorphism - Refined */
 .glass {
-  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl dark:bg-slate-900/60 dark:border-white/5;
+  @apply bg-white/80 backdrop-blur-xl border border-white/40 shadow-xl dark:bg-slate-900/70 dark:border-white/5;
 }
 
+/* Card Interaction - Professional "Lift" */
 .glass-card {
-  @apply bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 ease-out;
+  @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-slate-300 dark:hover:border-slate-700 hover:-translate-y-1 transition-all duration-300 ease-out;
+}
+
+/* Panel - Non-interactive background container */
+.glass-panel {
+  @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg rounded-2xl;
 }
 
 /* Text Gradients */
@@ -142,6 +150,11 @@ h6 {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400;
 }
 
+/* Typography Helpers */
+.text-balance {
+  text-wrap: balance;
+}
+
 /* Scrollbar Polish */
 ::-webkit-scrollbar {
   width: 6px;
@@ -149,41 +162,42 @@ h6 {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-100 dark:bg-slate-900;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600 transition-colors;
+  @apply bg-slate-300 dark:bg-slate-800 rounded-full hover:bg-slate-400 dark:hover:bg-slate-700 transition-colors;
 }
 
-/* Stagger Utilities */
+/* Stagger Utilities - Tighter timing */
 .stagger-1 {
-  animation-delay: 100ms;
+  animation-delay: 50ms;
 }
 
 .stagger-2 {
-  animation-delay: 200ms;
+  animation-delay: 100ms;
 }
 
 .stagger-3 {
-  animation-delay: 300ms;
+  animation-delay: 150ms;
 }
 
 .stagger-4 {
-  animation-delay: 400ms;
+  animation-delay: 200ms;
 }
 
 .stagger-5 {
-  animation-delay: 500ms;
+  animation-delay: 250ms;
 }
 
 /* Micro-Interactions */
 .hover-lift {
-  @apply transition-transform duration-300 hover:-translate-y-1;
+  @apply transition-transform duration-300 hover:-translate-y-0.5;
+  /* Subtler lift */
 }
 
 .active-press {
-  @apply active:scale-95 transition-transform duration-100;
+  @apply active:scale-[0.98] transition-transform duration-100;
 }
 
 /* Layout Helpers */

@@ -76,20 +76,22 @@ function Navbar() {
             </span>
           </NavLink>
 
-          {/* Desktop Menu - Floating Pills */}
-          <div className="hidden md:flex items-center gap-1 p-1.5 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-md rounded-full border border-slate-200/50 dark:border-slate-700/50 shadow-sm mx-4">
+          {/* Desktop Menu - Professional Nav */}
+          <div className="hidden md:flex items-center gap-1 mx-6">
             {navItems.map((item) => (
               <NavLink
                 key={item.label}
                 to={item.to}
                 className={({ isActive }) =>
-                  `px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 relative overflow-hidden group ${isActive
-                    ? 'bg-white text-slate-900 shadow-md dark:bg-slate-800 dark:text-white dark:shadow-black/50'
-                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50'
-                  }`
+                  `px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${isActive
+                    ? 'text-slate-900 dark:text-white bg-white/10 backdrop-blur-md shadow-sm'
+                    : `text-slate-300 hover:text-white hover:bg-white/5`
+                  } ${scrolled && !isActive ? '!text-slate-600 dark:!text-slate-400 hover:!bg-slate-100 dark:hover:!bg-slate-800' : ''}
+                  ${scrolled && isActive ? '!bg-slate-100 !text-slate-900 dark:!bg-slate-800 dark:!text-white' : ''}
+                  `
                 }
               >
-                <span className="relative z-10">{item.label}</span>
+                {item.label}
               </NavLink>
             ))}
           </div>

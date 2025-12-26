@@ -162,8 +162,8 @@ function About() {
         <div className="mb-32">
           <div className="text-center mb-16 animate-fade-in-up stagger-4">
             <Badge variant="outline" className="mb-4 text-xs font-bold tracking-widest uppercase">The Architects</Badge>
-            <h2 className="text-3xl md:text-5xl font-display font-bold text-slate-900 dark:text-white">Meet the codeVengers</h2>
-            <p className="mt-4 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-lg">
+            <h2 className="text-3xl md:text-5xl font-display font-bold text-slate-900 dark:text-white tracking-tight">Meet the codeVengers</h2>
+            <p className="mt-4 text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed">
               A dedicated team of engineers and visionaries from Goa College of Engineering, united by code.
             </p>
           </div>

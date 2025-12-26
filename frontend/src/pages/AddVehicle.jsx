@@ -105,16 +105,29 @@ function AddVehicle() {
     const UploadBox = ({ label, file, onChange, icon: Icon, preview }) => (
         <div className="group">
             <label className={labelClass}>{label}</label>
-            <label className={`relative flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-xl cursor-pointer transition-all ${file ? 'border-green-500 bg-green-50 dark:bg-green-900/10' : 'border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-white dark:bg-slate-900'}`}>
+            <label className={`relative flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 ${file
+                ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10'
+                : 'border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                }`}>
                 {preview ? (
-                    <div className="absolute inset-0 p-2"><img src={preview} alt="Preview" className="w-full h-full object-cover rounded-lg" /></div>
-                ) : (
-                    <div className="text-center p-4">
-                        <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-3 ${file ? 'bg-green-100 text-green-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors'}`}>
-                            {file ? <FaCheckCircle size={20} /> : <Icon size={20} />}
+                    <div className="absolute inset-0 p-2 overflow-hidden">
+                        <img src={preview} alt="Preview" className="w-full h-full object-cover rounded-lg shadow-sm" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs font-bold bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Change Photo</span>
                         </div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-white">{file ? file.name : 'Click to Upload'}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">{file ? 'File selected' : 'PNG, JPG, PDF'}</p>
+                    </div>
+                ) : (
+                    <div className="text-center p-6 space-y-3">
+                        <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${file
+                            ? 'bg-emerald-100 text-emerald-600 scale-110'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-500 group-hover:scale-110'
+                            }`}>
+                            {file ? <FaCheckCircle size={24} /> : <Icon size={24} />}
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{file ? 'File Attached' : 'Click to Upload'}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{file ? file.name : 'SVG, PNG, JPG or PDF'}</p>
+                        </div>
                     </div>
                 )}
                 <input type="file" className="hidden" onChange={onChange} accept="image/*,.pdf" />
@@ -126,14 +139,16 @@ function AddVehicle() {
         <div className="bg-slate-50 dark:bg-slate-950 min-h-screen pb-24 font-sans transition-colors duration-300">
 
             {/* Header */}
-            <div className="bg-slate-900 dark:bg-black pt-20 pb-24 border-b border-slate-800">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-slate-900 dark:bg-black pt-20 pb-28 border-b border-slate-800 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+                <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:32px_32px] pointer-events-none"></div>
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                     <div className="max-w-4xl mx-auto">
-                        <Link to="/host/dashboard" className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-white mb-6 transition-colors">
-                            <FaArrowLeft className="mr-2" /> Cancel & Return
+                        <Link to="/host/dashboard" className="inline-flex items-center text-xs font-bold text-slate-400 hover:text-white mb-6 transition-colors tracking-widest uppercase">
+                            <FaArrowLeft className="mr-2" /> Return to Fleet
                         </Link>
-                        <h1 className="text-3xl md:text-4xl font-display font-bold text-white">Add New Asset</h1>
-                        <p className="text-slate-400 mt-2 text-lg">Register a new vehicle to your fleet. All fields are required for verification.</p>
+                        <h1 className="text-3xl md:text-5xl font-display font-bold text-white tracking-tight">Add New Asset</h1>
+                        <p className="text-slate-400 mt-2 text-lg max-w-2xl font-light">Register a new vehicle to your fleet. All fields are required for verification.</p>
                     </div>
                 </div>
             </div>

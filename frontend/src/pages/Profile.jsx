@@ -21,21 +21,23 @@ function EditProfileModal({ profile, onClose, onSubmit }) {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex justify-center items-center z-50 p-4">
-            <div className="bg-white dark:bg-slate-950 p-8 rounded-2xl shadow-2xl w-full max-w-md animate-enter border border-slate-200 dark:border-slate-800">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold font-display text-slate-900 dark:text-white">Edit Profile</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-500"><FaTimesWrapper /></button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex justify-center items-center z-50 p-4 transition-all">
+            <div className="bg-white dark:bg-slate-950 p-8 rounded-2xl shadow-2xl w-full max-w-md animate-scale-in border border-white/20 dark:border-slate-800">
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl font-bold font-display text-slate-900 dark:text-white tracking-tight">Update Profile</h2>
+                    <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                        <FaTimesWrapper />
+                    </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-6">
                     <InputGroup label="Full Name" value={fullName} onChange={setFullName} placeholder="e.g. John Doe" />
                     <InputGroup label="Primary Phone" value={phonePrimary} onChange={setPhonePrimary} placeholder="+91 98765 43210" type="tel" />
                     <InputGroup label="Secondary Phone (Opt)" value={phoneSecondary} onChange={setPhoneSecondary} placeholder="+91..." type="tel" />
                     <TextAreaGroup label="Address" value={address} onChange={setAddress} placeholder="Enter your full address" />
 
-                    <div className="flex gap-3 pt-4">
-                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
-                        <Button type="submit" variant="primary" className="flex-1">Save Profile</Button>
+                    <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1 justify-center">Cancel</Button>
+                        <Button type="submit" variant="primary" className="flex-1 justify-center shadow-lg shadow-blue-500/20">Save Changes</Button>
                     </div>
                 </form>
             </div>
