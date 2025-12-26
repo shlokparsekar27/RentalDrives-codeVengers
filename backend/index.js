@@ -11,6 +11,8 @@ import PDFDocument from "pdfkit";
 import fs from "fs";
 import FormData from "form-data";
 import fetch from "node-fetch";
+import invoiceRoutes from "./routes/invoice.js";
+
 
 
 const app = express();
@@ -18,6 +20,8 @@ app.use(cors({
   origin: 'https://rental-drives-code-vengers.vercel.app' 
 }));
 app.use(express.json());
+app.use("/api/invoice", invoiceRoutes);
+
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -31,23 +35,38 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is not defined in your .env file!");
 }
 
+// ================== AUTH TOKEN MIDDLEWARE ==================
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (token == null) return res.sendStatus(401);
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
+  if (!token) return res.status(401).json({ error: 'Missing token' });
 
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // make sure JWT_SECRET is in .env
+    req.user = decoded;
+    req.userToken = token; // attach user info to request<new line for rls>
+    next();
+  } catch (err) {
+    res.status(403).json({ error: 'Invalid token' });
+  }
+};
+//<---new code for rls error >
+function getUserSupabase(req) {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${req.userToken}`,
+      },
+    },
+  });
+}
 
 //<--------------- Function to send WhatsApp messages---------->s
 async function sendWhatsAppMessage(to, message, recipientType = "user" ,filePath , bookingId) {
@@ -146,13 +165,14 @@ if (!uploadRes.ok || !uploadData.id) {
     console.error(`❌ WhatsApp error for ${recipientType}:`, err);
     return false;
   }
+  
 }
 
-async function notifyBooking(userData, hostData, vehicle, booking, invoicePath) {
+async function notifyBooking(userData, hostData, vehicle, booking, invoicePath ) {
   try {
     // Generate hybrid invoice number: INV-YYYY-XXXX
-    const year = new Date().getFullYear();
-    const invoiceNumber = `INV-${year}-${booking.id.slice(0, 4)}`; // first 4 chars of UUID as sequence
+   // const year = new Date().getFullYear();
+    let invoiceNumber = booking.invoice_no;
 
     // Extract only the date part
     const startDate = booking.start_date.split("T")[0];
@@ -170,20 +190,15 @@ const hostMessage = `📢 New Booking!
  Vehicle: ${vehicle.make} ${vehicle.model} 
  From: ${startDate} To: ${endDate};`;
 
-    // Check if invoice exists
-    if (!fs.existsSync(invoicePath)) {
-      console.error("❌ Invoice PDF not found at:", invoicePath);
-      return false;
-    }
 
-    // Send WhatsApp message to user only
-    await sendWhatsAppMessage(
-      userData.phone_primary,
-      userMessage,
-      "user",
-      invoicePath,
-      invoiceNumber
-    );
+// Send WhatsApp message to user only
+   await sendWhatsAppMessage(
+  userData.phone_primary,
+  userMessage,
+  "user",
+  invoicePath,
+  invoiceNumber
+);
 
       await sendWhatsAppMessage(
       hostData.phone_primary,
@@ -208,7 +223,7 @@ const hostMessage = `📢 New Booking!
 }
 
 
-// <--------------- Function to generate invoice PDF ----------->
+// <--------------- Function to generate invoice PDF  ----------->
 
 async function generateInvoice(booking, userData, hostData, vehicle) {
   return new Promise(async (resolve, reject) => {
@@ -319,15 +334,40 @@ async function generateInvoice(booking, userData, hostData, vehicle) {
         "Please contact the host for vehicle-related issues.",
         { align: "center" }
       );
-
       doc.end();
-      stream.on("finish", () => resolve(invoicePath));
-      stream.on("error", reject);
+
+      stream.on("finish", async () => { //// creates and saves invoice url to supabase 
+  try {
+    const fileBuffer = fs.readFileSync(invoicePath);
+    const fileName = `invoice-${invoiceNo}.pdf`;
+
+    const { data, error } = await supabase.storage
+      .from("invoices")
+      .upload(fileName, fileBuffer, {
+        contentType: "application/pdf",
+        upsert: true, // allows overwrite
+      });
+
+    if (error) {
+      console.error("❌ Error uploading invoice to Supabase:", error);
+      return reject(error);
+    }
+
+    
+
+    resolve({ invoiceNo, invoicePath });
+  } catch (uploadErr) {
+    reject(uploadErr);
+  }
+});
+    stream.on("error", reject);
     } catch (err) {
       reject(err);
     }
   });
 }
+    
+
 
 //<---------------------whatsapp function ends here ----------------->
 
@@ -335,6 +375,7 @@ async function generateInvoice(booking, userData, hostData, vehicle) {
 
 // ======== AUTHENTICATION ENDPOINTS ========
 
+/*  use for login/signup style 
 // User Signup
 app.post('/api/auth/signup', async (req, res) => {
   try {
@@ -417,6 +458,127 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+*/
+// ================== AUTH FLOW (PHONE + OTP) ==================
+
+// ---------------- SEND OTP ----------------
+// ================== SEND OTP ==================
+app.post('/api/auth/send-otp', async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) return res.status(400).json({ error: "Phone number is required" });
+    if (!phone.startsWith("+")) return res.status(400).json({ error: "Phone must include country code (+91...)" });
+
+    const { data, error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) {
+      console.error("Send OTP error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(200).json({ message: "OTP sent successfully", data });
+  } catch (err) {
+    console.error("Send OTP unexpected error:", err);
+    res.status(500).json({ error: "Unexpected server error" });
+  }
+});
+
+// ✅ verify-otp route (production-ready)
+app.post("/api/auth/verify-otp", async (req, res) => {
+  try {
+    const { phone, token, full_name, role } = req.body;
+
+    if (!phone || !token)
+      return res.status(400).json({ error: "Phone and OTP are required" });
+
+    // 1️⃣ Verify OTP
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: "sms",
+    });
+
+    if (error) return res.status(400).json({ error: "Invalid or expired OTP" });
+
+    const user = data.user;
+
+    // 2️⃣ Update metadata in Auth (using Admin client)
+    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        full_name,
+        role,
+      },
+    });
+    if (metaError) throw metaError;
+
+    // 3️⃣ Check for existing profile
+    const { data: existingProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id,role,full_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError && profileError.code !== "PGRST116")
+      return res.status(500).json({ error: "Failed to check profile" });
+
+    // 4️⃣ Create or Update Profile
+    if (!existingProfile) {
+      const { error: insertError } = await supabase.from("profiles").insert([
+        {
+          id: user.id,
+          full_name: full_name || "",
+          role: role === "host" ? "host" : "tourist",
+          phone_primary: phone.startsWith("+") ? phone.slice(1) : phone,
+        },
+      ]);
+      if (insertError) throw insertError;
+    } else {
+      const updates = {};
+      if (!existingProfile.full_name && full_name) updates.full_name = full_name;
+      if (role && existingProfile.role !== role) updates.role = role;
+
+      if (Object.keys(updates).length > 0) {
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update(updates)
+          .eq("id", user.id);
+        if (updateError) throw updateError;
+      }
+    }
+
+    // ✅ Success
+    res.status(200).json({
+      message: "Signup complete",
+      user,
+      session: data.session,
+    });
+  } catch (err) {
+    console.error("Verify OTP unexpected error:", err);
+    res.status(500).json({ error: "Unexpected server error" });
+  }
+});
+
+
+
+// ---------------- GET CURRENT USER PROFILE ----------------
+app.get("/api/users/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: "Profile not found." });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // ... existing code ...
 // --- 1. UPDATE the existing user profile update endpoint ---
@@ -628,6 +790,7 @@ app.get('/api/hosts/:id/vehicles', async (req, res) => {
 // CREATE a new booking - UPDATED WITH CORRECT VALIDATION
 app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
   try {
+    const supabase = getUserSupabase(req);
     // ADDED: dropoff_location to the destructuring
     const { vehicle_id, start_date, end_date, total_price, dropoff_location } = req.body;
     if (!vehicle_id || !start_date || !end_date || !total_price) {
@@ -681,20 +844,21 @@ app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
     });
 
     // 3 Insert payment record (pending)
-    const { data: payment, error: paymentError } = await supabase
-      .from("payments")
-      .insert([
-        {
-          booking_id: booking.id,
-          amount: total_price,
-          currency: "INR",
-          status: "pending",
-          payment_gateway: "razorpay",
-          razorpay_order_id: order.id,
-        },
-      ])
-      .select()
-      .single();
+   const { error: paymentError } = await supabase
+  .from("payments")
+  .insert(
+    {
+      booking_id: booking.id,
+      amount: total_price,
+      currency: "INR",
+      status: "pending",
+      payment_gateway: "razorpay",
+      razorpay_order_id: order.id,
+      user_id: req.user.sub,
+    },
+    { returning: "minimal" } // ⬅ FIXES THE RLS ERROR
+  );
+
 
       if (paymentError) throw paymentError;
 
@@ -812,9 +976,9 @@ app.post("/api/payments/verify", async (req, res) => {
     // ✅ Send WhatsApp notifications
 
     // ✅ Generate invoice PDF first
-    const invoicePath = await generateInvoice(booking, userProfile, hostProfile, vehicle);
+    const { invoiceNo, invoicePath } = await generateInvoice(booking, userProfile, hostProfile, vehicle);
      // ✅ Send WhatsApp notifications
-    await notifyBooking(userProfile, hostProfile, vehicle, booking, invoicePath);
+   await notifyBooking(userProfile, hostProfile, vehicle, { ...booking, invoice_no: invoiceNo }, invoicePath);
 
     return res.json({ success: true, message: "Payment verified + WhatsApp sent" });
   } catch (err) {
@@ -884,26 +1048,210 @@ app.get('/api/bookings/my-bookings', authenticateToken, async (req, res) => {
   }
 });
 
-// UPDATE a booking's status to 'cancelled'
+// --- Cancel Booking + Refund ---
+// PATCH Cancel Booking
 app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from('bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', id)
-      .eq('user_id', req.user.sub) // Security: Ensures only the owner can cancel
-      .select()
+
+    // Fetch booking with payment info
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("*, payments(*)")
+      .eq("id", id)
+      .eq("user_id", req.user.sub)
       .single();
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Booking not found or you do not have permission to cancel it.' });
+    if (bookingError || !booking) {
+      return res.status(404).json({ error: "Booking not found or unauthorized" });
+    }
 
-    res.status(200).json(data);
+    if (booking.status === "cancelled") {
+      return res.status(400).json({ error: "Booking already cancelled" });
+    }
+
+    // Cancellation policy
+    const now = new Date();
+    const startTime = new Date(booking.start_date);
+    const hoursBeforeStart = (startTime - now) / (1000 * 60 * 60);
+
+    let refundPercent = 0;
+    if (hoursBeforeStart > 24) refundPercent = 1;
+    else if (hoursBeforeStart >= 6) refundPercent = 0.5;
+    else refundPercent = 0;
+
+    const refundAmount = Math.floor(booking.total_price * refundPercent);
+
+    // Update booking to cancelled
+    await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
+
+    // No refund case
+    if (refundAmount === 0) {
+      await supabase.from("payments")
+        .update({
+          refund_status: "failed",
+          refund_reason: "No refund eligible (within 6 hours)"
+        })
+        .eq("booking_id", id);
+
+      return res.json({ success: true, message: "Booking cancelled (no refund eligible)" });
+    }
+
+    // Refund initiated
+    const payment = booking.payments?.[0];
+    if (!payment || !payment.razorpay_payment_id) {
+      return res.status(400).json({ error: "Payment not found for refund" });
+    }
+
+    // Call Razorpay Refund API
+    const response = await fetch(
+      `https://api.razorpay.com/v1/payments/${payment.razorpay_payment_id}/refund`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization":
+            "Basic " +
+            Buffer.from(
+              `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`
+            ).toString("base64"),
+        },
+        body: JSON.stringify({ amount: refundAmount * 100 }),
+      }
+    );
+
+    const refundData = await response.json();
+
+   // Mark as INITIATED
+   await supabase.from("payments").update({
+      refund_status: "initiated",
+      refund_amount: refundAmount,
+      refund_id: refundData?.id || null,
+      initiated_at: new Date().toISOString(),
+      completed_at: null,
+    }).eq("booking_id", id);
+
+  
+    
+    return res.json({
+      success: true,
+      message: `Booking cancelled, refund of ₹${refundAmount} initiated`,
+      refund: { status: "initiated", ...refundData }
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("❌ Cancel API error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
+/*app.post("/api/bookings/:id/refund-processed", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await supabase.from("payments").update({
+      refund_status: "processed",
+      refunded_at: new Date().toISOString(),
+    }).eq("booking_id", id);
+
+    res.json({ success: true, message: "Refund marked as processed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update refund status" });
+  }
+});
+// POST /api/bookings/:id/refund-completed
+app.post("/api/bookings/:id/refund-completed", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Update payment as completed
+    await supabase.from("payments").update({
+      refund_status: "completed",
+      refunded_at: new Date().toISOString(), // timestamp for completion
+    }).eq("booking_id", id);
+
+    res.json({ success: true, message: "Refund marked as completed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update refund status" });
+  }
+});
+*/
+app.get('/api/booking/:id', async (req, res) => {
+  const { id } = req.params;
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(`*, vehicles(*), profiles(*), payments(*)`)
+    .eq('id', id)
+    .single();
+
+
+  if (error) return res.status(404).json({ error: "Booking not found" });
+  res.json(data);
+});
+
+// ------------------ Razorpay Webhook for refund status ------------------
+
+app.post("/api/webhooks/razorpay", async (req, res) => {
+  try {
+    const payload = JSON.stringify(req.body);
+    const signature = req.headers["x-razorpay-signature"];
+
+    // Verify webhook signature
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .update(payload)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      console.error("❌ Invalid webhook signature");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    const event = req.body.event;
+    const entity = req.body.payload?.refund?.entity;
+
+    if (!entity) {
+      console.warn("⚠️ No refund entity in webhook payload");
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const refundId = entity.id;
+    const paymentId = entity.payment_id;
+    const refundStatus = entity.status; // created | processed | failed
+    const refundAmount = entity.amount / 100; // convert paise → ₹
+    const refundReason = entity.notes?.reason || "N/A";
+    const refundTime = entity.created_at
+      ? new Date(entity.created_at * 1000).toISOString()
+      : new Date().toISOString();
+
+    console.log(`🔔 Razorpay webhook: ${event} for ${refundId} (${refundStatus})`);
+
+    // ---------------- Update payments table ----------------
+    const { error } = await supabase
+      .from("payments")
+      .update({
+        refund_status: refundStatus,
+        refund_id: refundId,
+        refund_amount: refundAmount,
+        refund_reason: refundReason,
+        refunded_at: refundTime,
+      })
+      .eq("razorpay_payment_id", paymentId);
+
+    if (error) {
+      console.error("❌ Supabase update failed:", error);
+      return res.status(500).json({ error: "Failed to update Supabase" });
+    }
+
+    console.log(`✅ Refund ${refundId} updated → ${refundStatus}`);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("❌ Webhook error:", err);
+    return res.status(500).json({ error: "Webhook handler failed" });
+  }
+});
+
 
 // ======== ADMIN ENDPOINTS (Protected) ========
 

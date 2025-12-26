@@ -1,4 +1,3 @@
-// src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Cars from "./pages/Cars";
@@ -6,6 +5,8 @@ import Bikes from "./pages/Bikes";
 import Scooters from "./pages/Scooters";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import PhoneAuth from "./pages/PhoneAuth";
+import VerifyOtp from "./pages/VerifyOtp";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Navbar from "./Components/Navbar";
@@ -25,6 +26,7 @@ import FAQ from "./pages/FAQ";
 import TermsOfService from "./pages/TermsofService";
 import MobileBottomNav from "./Components/MobileBottomNav"; // Import the new component
 import ScrollToTop from "./Components/ScrollToTop";
+import BookingDetails from "./pages/BookingDetails";
 
 function App() {
   return (
@@ -39,6 +41,8 @@ function App() {
           <Route path="/scooters" element={<Scooters />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path='/PhoneAuth' element={<PhoneAuth />} />
+          <Route path="/VerifyOtp" element={<VerifyOtp />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/profile" element={<Profile />} />
@@ -54,6 +58,7 @@ function App() {
           <Route path="/booking-summary" element={<BookingSummary />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/booking/:id" element={<BookingDetails />} />
         </Routes>
       </main>
       <Footer />
