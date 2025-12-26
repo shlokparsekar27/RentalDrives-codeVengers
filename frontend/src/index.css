@@ -1,9 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 /* ------------------------------
    🌍 Fonts & Typography
 --------------------------------*/
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 /* Configure dark mode via class strategy */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -11,20 +11,35 @@
 @theme {
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "Outfit", monospace;
+  /* Using Outfit for numbers/prices */
 
   --color-brand-primary: #0F172A;
   --color-brand-secondary: #334155;
-  --color-brand-accent: #2563EB;
+  --color-brand-accent: #3B82F6;
 
-  --animate-fade-in-up: fadeInUp 0.5s ease-out forwards;
+  /* Custom Easings */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-expo: cubic-bezier(0.19, 1, 0.22, 1);
+
+  /* Animation Keyframes defined below are mapped here */
+  --animate-fade-in-up: fadeInUp 0.8s var(--ease-expo) forwards;
+  --animate-fade-in: fadeIn 0.6s ease-out forwards;
+  --animate-slide-in-right: slideInRight 0.5s var(--ease-expo) forwards;
+  --animate-pulse-slow: pulseSlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-blob: blob 7s infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-scale-in: scaleIn 0.4s var(--ease-spring) forwards;
 }
 
 /* ------------------------------
-   🎨 Base Styles
+   🎨 Base Styles & Reset
 --------------------------------*/
 body {
   font-family: var(--font-sans);
-  @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100;
+  @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-500 dark:bg-[#020617] dark:text-slate-100;
+  overflow-x: hidden;
+  /* Prevent horizontal overflow from animations */
 }
 
 h1,
@@ -34,40 +49,148 @@ h4,
 h5,
 h6 {
   font-family: var(--font-display);
-  @apply tracking-tight;
+  @apply tracking-tight text-slate-900 dark:text-white;
 }
 
 /* ------------------------------
-   🔥 Animations
+   🔥 Cinema-Grade Animations
 --------------------------------*/
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
+    filter: blur(4px);
   }
 
   to {
     opacity: 1;
     transform: translateY(0);
+    filter: blur(0);
   }
 }
 
-.animate-enter {
-  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
 }
 
 /* ------------------------------
-   ✨ Utilities
+   ✨ High-End Utilities
 --------------------------------*/
-.glass-panel {
-  @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl dark:bg-slate-900/70 dark:border-white/10;
+
+/* Glassmorphism */
+.glass {
+  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl dark:bg-slate-900/60 dark:border-white/5;
 }
 
-.text-balance {
-  text-wrap: balance;
+.glass-card {
+  @apply bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 ease-out;
 }
 
-/* Smooth scrolling for anchor links */
-html {
-  scroll-behavior: smooth;
+/* Text Gradients */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400;
+}
+
+.text-gradient-blue {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400;
+}
+
+/* Scrollbar Polish */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-100 dark:bg-slate-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600 transition-colors;
+}
+
+/* Stagger Utilities */
+.stagger-1 {
+  animation-delay: 100ms;
+}
+
+.stagger-2 {
+  animation-delay: 200ms;
+}
+
+.stagger-3 {
+  animation-delay: 300ms;
+}
+
+.stagger-4 {
+  animation-delay: 400ms;
+}
+
+.stagger-5 {
+  animation-delay: 500ms;
+}
+
+/* Micro-Interactions */
+.hover-lift {
+  @apply transition-transform duration-300 hover:-translate-y-1;
+}
+
+.active-press {
+  @apply active:scale-95 transition-transform duration-100;
+}
+
+/* Layout Helpers */
+.container-responsive {
+  @apply container mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
 }

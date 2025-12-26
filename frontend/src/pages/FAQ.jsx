@@ -1,6 +1,6 @@
 // src/pages/FAQ.jsx
 import { useState } from 'react';
-import { FaChevronDown, FaChevronUp, FaQuestionCircle } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp, FaQuestionCircle, FaSearch } from 'react-icons/fa';
 
 const faqData = [
     {
@@ -27,22 +27,22 @@ const faqData = [
 
 function AccordionItem({ item, isOpen, onClick }) {
     return (
-        <div className="border-b border-slate-200 dark:border-slate-800 last:border-none group">
+        <div className="border-b border-slate-100 dark:border-slate-800 last:border-none group">
             <button
                 onClick={onClick}
-                className="w-full flex justify-between items-center text-left py-6 px-6 focus:outline-none bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 transition-colors"
+                className="w-full flex justify-between items-center text-left py-8 px-8 focus:outline-none bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300"
             >
-                <h3 className={`text-lg font-bold transition-colors ${isOpen ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>
+                <h3 className={`text-lg md:text-xl font-bold font-display transition-colors duration-300 ${isOpen ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>
                     {item.question}
                 </h3>
-                <span className={`text-slate-400 dark:text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-500' : ''}`}>
-                    <FaChevronDown />
+                <span className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-500 ${isOpen ? 'bg-blue-100 text-blue-600 rotate-180 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+                    <FaChevronDown size={14} />
                 </span>
             </button>
             <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                className={`overflow-hidden transition-all duration-500 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
             >
-                <div className="p-6 pt-0 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 leading-relaxed">
+                <div className="p-8 pt-0 pl-8 text-base text-slate-600 dark:text-slate-400 leading-8 max-w-3xl">
                     {item.answer}
                 </div>
             </div>
@@ -58,26 +58,28 @@ function FAQ() {
     };
 
     return (
-        <div className="bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-300 font-sans pb-24">
+        <div className="bg-slate-50 dark:bg-[#020617] min-h-screen transition-colors duration-500 font-sans pb-24">
 
             {/* Header */}
-            <div className="bg-slate-900 dark:bg-black pt-20 pb-28 border-b border-slate-800 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full blur-[100px] opacity-10 -mr-20 -mt-20"></div>
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-                    <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-400">
-                        <FaQuestionCircle size={32} />
+            <div className="bg-slate-900 dark:bg-black pt-24 pb-32 border-b border-slate-800 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] -mr-20 -mt-20 pointer-events-none animate-blob"></div>
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none animate-blob animation-delay-2000"></div>
+
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center animate-fade-in-up">
+                    <div className="w-20 h-20 bg-slate-800/50 backdrop-blur-md rounded-3xl flex items-center justify-center mx-auto mb-8 text-blue-400 border border-slate-700 shadow-2xl">
+                        <FaQuestionCircle size={40} />
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-display font-bold text-white tracking-tight mb-4">
+                    <h1 className="text-5xl md:text-6xl font-display font-bold text-white tracking-tight mb-6">
                         Frequently Asked Questions
                     </h1>
-                    <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+                    <p className="text-xl text-slate-400 max-w-2xl mx-auto font-light">
                         Everything you need to know about renting or hosting on RentalDrives.
                     </p>
                 </div>
             </div>
 
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
-                <div className="max-w-3xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-20">
+                <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-fade-in-up stagger-1">
                     {faqData.map((item, index) => (
                         <AccordionItem
                             key={index}
@@ -88,9 +90,9 @@ function FAQ() {
                     ))}
                 </div>
 
-                <div className="mt-12 text-center">
-                    <p className="text-slate-600 dark:text-slate-400 mb-4">Still have questions?</p>
-                    <a href="/contact" className="inline-flex items-center justify-center px-6 py-3 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 font-bold hover:bg-white dark:hover:bg-slate-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all">
+                <div className="mt-16 text-center animate-fade-in-up stagger-2">
+                    <p className="text-slate-600 dark:text-slate-400 mb-6 text-lg">Still have questions?</p>
+                    <a href="/contact" className="inline-flex items-center justify-center px-8 py-4 border border-slate-300 dark:border-slate-700 rounded-full text-slate-900 dark:text-white font-bold hover:bg-white dark:hover:bg-slate-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:scale-105 duration-300 bg-white/50 backdrop-blur-sm shadow-lg">
                         Contact Support
                     </a>
                 </div>

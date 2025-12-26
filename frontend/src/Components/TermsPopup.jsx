@@ -1,11 +1,14 @@
 // src/Components/TermsPopup.jsx
 import { useState } from "react";
+import { FaShieldAlt, FaCheck, FaTimes } from 'react-icons/fa';
+import Button from './ui/Button';
 
 export default function TermsPopup({ onAccept, onDecline }) {
   const [open, setOpen] = useState(true);
   const [agreed, setAgreed] = useState(false);
 
   const handleAccept = () => {
+    if (!agreed) return;
     setOpen(false);
     if (onAccept) onAccept();
   };
@@ -18,54 +21,79 @@ export default function TermsPopup({ onAccept, onDecline }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
-        <h2 className="text-xl font-semibold mb-4">Terms & Conditions</h2>
+    <div className="fixed inset-0 flex items-center justify-center z-[100] px-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm transition-opacity"></div>
 
-        {/* Scrollable terms */}
-        <div className="text-sm text-gray-700 space-y-3 max-h-56 overflow-y-auto mb-4">
-          <p><strong>1. Marketplace Role:</strong> We only connect users with hosts. We do not own or manage vehicles.</p>
-          <p><strong>2. User Responsibility:</strong> You must hold a valid driving license and check the vehicle before use.</p>
-          <p><strong>3. Host Responsibility:</strong> Hosts are responsible for condition, insurance, and legality of vehicles.</p>
-          <p><strong>4. Liability:</strong> We are not liable for accidents, breakdowns, fines, or disputes between host and user.</p>
-          <p><strong>5. Payments & Refunds:</strong> Refunds depend on host’s policy. Marketplace fees are non-refundable.</p>
-          <p><strong>6. Usage:</strong> Vehicle must not be used for unlawful purposes. Any fines are the user’s responsibility.</p>
-          {/* --- RECOMMENDED ADDITION --- */}
-          <p className="font-bold">By continuing, you acknowledge that RentalDrives is a platform, and you agree to use this service at your own risk.</p>
+      {/* Modal Content */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg relative z-10 overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="bg-slate-50 dark:bg-slate-950 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <FaShieldAlt />
+          </div>
+          <div>
+            <h2 className="text-lg font-display font-bold text-slate-900 dark:text-white leading-tight">Platform Rules</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Please review before proceeding</p>
+          </div>
         </div>
 
-        {/* Checkbox inside popup */}
-        <div className="flex items-start space-x-2 mb-6">
-          <input
-            type="checkbox"
-            id="agree"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded"
-          />
-          <label htmlFor="agree" className="text-sm text-gray-700">
-            I have read and agree to the Terms & Conditions
+        {/* Scrollable Terms Content */}
+        <div className="p-6 overflow-y-auto custom-scrollbar text-sm space-y-4 text-slate-600 dark:text-slate-300 leading-relaxed">
+          <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 mb-4">
+            <p className="font-bold text-blue-800 dark:text-blue-300 text-xs uppercase tracking-wider mb-2">Key Disclaimer</p>
+            <p className="text-blue-900/80 dark:text-blue-200/80">
+              RentalDrives is a marketplace connecting you with independent hosts. We do not own vehicles and are not liable for road incidents.
+            </p>
+          </div>
+
+          <ul className="space-y-3 list-disc pl-4 marker:text-slate-400">
+            <li><strong>Verification:</strong> You must present a valid original driving license to the host upon pickup.</li>
+            <li><strong>Inspection:</strong> Inspect the vehicle thoroughly before accepting the keys. You are responsible for any new damage.</li>
+            <li><strong>Safety:</strong> Obey all traffic laws. Helmets/Seatbelts are mandatory.</li>
+            <li><strong>Returns:</strong> Return the vehicle on time to avoid penalty charges.</li>
+            <li><strong>Payments:</strong> Marketplace fees are non-refundable once a booking is confirmed by the host.</li>
+          </ul>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-6 pt-2 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 mt-auto">
+
+          {/* Checkbox */}
+          <label className="flex items-start gap-3 mb-6 cursor-pointer group">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded transition-colors peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+              <FaCheck className="absolute top-1 left-1 w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+            </div>
+            <span className="text-sm text-slate-600 dark:text-slate-400 select-none group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">
+              I accept the <span className="underline decoration-slate-300 underline-offset-2">Terms of Service</span> and Host Rules.
+            </span>
           </label>
+
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={handleDecline}
+              className="flex justify-center items-center px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              Decline
+            </button>
+            <Button
+              onClick={handleAccept}
+              disabled={!agreed}
+              className={`justify-center w-full ${!agreed ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Confirm & Continue
+            </Button>
+          </div>
         </div>
 
-        {/* Footer buttons */}
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={handleDecline}
-            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-          >
-            Decline
-          </button>
-          <button
-            onClick={handleAccept}
-            disabled={!agreed}
-            className={`px-4 py-2 rounded-lg text-white ${
-              agreed ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
-            }`}
-          >
-            Accept & Continue
-          </button>
-        </div>
       </div>
     </div>
   );
