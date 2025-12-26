@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { useNavigate, useParams } from 'react-router-dom';
-import { FaFileAlt, FaExternalLinkAlt } from 'react-icons/fa';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { FaFileAlt, FaExternalLinkAlt, FaArrowLeft, FaCheckCircle, FaImages, FaSave } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
 
 // --- API Functions ---
 const fetchVehicleById = async (vehicleId) => {
@@ -12,11 +13,8 @@ const fetchVehicleById = async (vehicleId) => {
     return data;
 };
 
-// --- THIS IS THE CORRECTED FUNCTION ---
-// It now properly accepts 'docType' and uses it in the fetch URL.
 const getCertificationUrlForHost = async (vehicleId, docType) => {
     const { data: { session } } = await supabase.auth.getSession();
-    // The `?type=${docType}` part tells the backend which document to fetch.
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/hosts/my-vehicles/${vehicleId}/certification-url?type=${docType}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
     });
@@ -30,25 +28,24 @@ const getCertificationUrlForHost = async (vehicleId, docType) => {
 
 const updateVehicle = async ({ vehicleId, formData, newRcFile, newInsuranceFile }) => {
     const { data: { session } } = await supabase.auth.getSession();
-    
     let updatedFormData = { ...formData };
 
     if (newRcFile) {
         const rcExt = newRcFile.name.split('.').pop();
         const rcFileName = `rc-${vehicleId}-${Date.now()}.${rcExt}`;
-        const { error: uploadError } = await supabase.storage.from('vehicle-certifications').upload(rcFileName, newRcFile);
-        if (uploadError) throw new Error(`RC upload failed: ${uploadError.message}`);
-        const { data: urlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(rcFileName);
-        updatedFormData.rc_document_url = urlData.publicUrl;
+        const { error } = await supabase.storage.from('vehicle-certifications').upload(rcFileName, newRcFile);
+        if (error) throw new Error(`RC upload failed: ${error.message}`);
+        const { data } = supabase.storage.from('vehicle-certifications').getPublicUrl(rcFileName);
+        updatedFormData.rc_document_url = data.publicUrl;
     }
 
     if (newInsuranceFile) {
         const insExt = newInsuranceFile.name.split('.').pop();
         const insFileName = `ins-${vehicleId}-${Date.now()}.${insExt}`;
-        const { error: uploadError } = await supabase.storage.from('vehicle-certifications').upload(insFileName, newInsuranceFile);
-        if (uploadError) throw new Error(`Insurance upload failed: ${uploadError.message}`);
-        const { data: urlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(insFileName);
-        updatedFormData.insurance_document_url = urlData.publicUrl;
+        const { error } = await supabase.storage.from('vehicle-certifications').upload(insFileName, newInsuranceFile);
+        if (error) throw new Error(`Insurance upload failed: ${error.message}`);
+        const { data } = supabase.storage.from('vehicle-certifications').getPublicUrl(insFileName);
+        updatedFormData.insurance_document_url = data.publicUrl;
     }
 
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}`, {
@@ -64,6 +61,8 @@ function EditVehicle() {
     const { id } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+
+    // Form State
     const [formData, setFormData] = useState(null);
     const [newRcFile, setNewRcFile] = useState(null);
     const [newInsuranceFile, setNewInsuranceFile] = useState(null);
@@ -98,9 +97,9 @@ function EditVehicle() {
     const mutation = useMutation({
         mutationFn: updateVehicle,
         onSuccess: () => {
-            alert('Vehicle updated successfully! It is now pending admin re-approval.');
             queryClient.invalidateQueries({ queryKey: ['myVehicles'] });
             queryClient.invalidateQueries({ queryKey: ['vehicle', id] });
+            alert('Vehicle updated successfully!');
             navigate('/host/dashboard');
         },
         onError: (error) => alert(`Error: ${error.message}`),
@@ -108,30 +107,22 @@ function EditVehicle() {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prevData => ({ ...prevData, [name]: type === 'checkbox' ? checked : value }));
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
-    
-    const handleRcChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setNewRcFile(e.target.files[0]);
-        }
-    };
-    
-    const handleInsuranceChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setNewInsuranceFile(e.target.files[0]);
-        }
+
+    const handleFileChange = (e, setter) => {
+        if (e.target.files && e.target.files[0]) setter(e.target.files[0]);
     };
 
     const handleViewDocument = async (docType) => {
         const newWindow = window.open('', '_blank');
-        newWindow.document.write('Loading document, please wait...');
+        newWindow.document.write('Fetching secure document...');
         try {
-            const secureUrl = await getCertificationUrlForHost(id, docType);
-            newWindow.location.href = secureUrl;
+            const url = await getCertificationUrlForHost(id, docType);
+            newWindow.location.href = url;
         } catch (error) {
             newWindow.close();
-            alert(`Could not load document: ${error.message}`);
+            alert(error.message);
         }
     };
 
@@ -141,113 +132,178 @@ function EditVehicle() {
         mutation.mutate({ vehicleId: id, formData: dataToUpdate, newRcFile, newInsuranceFile });
     };
 
-    const labelClass = "block text-sm font-medium text-gray-700 mb-1";
-    const inputClass = "w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
+    // Styling
+    const sectionTitle = "text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4 border-b border-slate-100 dark:border-slate-800 pb-2";
+    const labelClass = "block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5";
+    const inputClass = "w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white text-slate-900 dark:text-white font-medium transition placeholder-slate-400 disabled:opacity-60 disabled:cursor-not-allowed";
 
-    if (isLoading || !formData) {
-        return <div className="text-center p-10 font-bold text-xl">Loading Vehicle Data...</div>;
-    }
-    if (isError) {
-        return <div className="text-center p-10 text-red-600"><h2>Error loading vehicle data.</h2></div>;
-    }
+    const UploadBox = ({ label, file, onChange, currentUrl, onViewCurrent }) => (
+        <div className="group">
+            <div className="flex justify-between items-end mb-1.5">
+                <label className={labelClass}>{label}</label>
+                {currentUrl && (
+                    <button type="button" onClick={onViewCurrent} className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                        <FaExternalLinkAlt /> View Current
+                    </button>
+                )}
+            </div>
+            <label className={`relative flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${file ? 'border-green-500 bg-green-50 dark:bg-green-900/10' : 'border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-white dark:bg-slate-900'}`}>
+                <div className="text-center p-4">
+                    <div className={`mx-auto w-10 h-10 rounded-full flex items-center justify-center mb-2 ${file ? 'bg-green-100 text-green-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors'}`}>
+                        {file ? <FaCheckCircle size={16} /> : <FaFileAlt size={16} />}
+                    </div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">{file ? file.name : 'Replace Document'}</p>
+                </div>
+                <input type="file" className="hidden" onChange={onChange} accept="image/*,.pdf" />
+            </label>
+        </div>
+    );
+
+    if (isLoading || !formData) return <div className="min-h-screen pt-32 text-center text-slate-500 font-bold bg-slate-50 dark:bg-slate-950">LOADING ASSET CONFIG...</div>;
+    if (isError) return <div className="min-h-screen pt-32 text-center text-red-500 font-bold bg-slate-50 dark:bg-slate-950">Error: Could not load asset.</div>;
 
     return (
-        <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-lg">
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl font-extrabold text-gray-900">Edit Vehicle Details</h2>
-                    <p className="mt-2 text-gray-600">Update the information for your vehicle below.</p>
+        <div className="bg-slate-50 dark:bg-slate-950 min-h-screen pb-24 font-sans transition-colors duration-300">
+
+            {/* Header */}
+            <div className="bg-slate-900 dark:bg-black pt-20 pb-24 border-b border-slate-800">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="max-w-4xl mx-auto">
+                        <Link to="/host/dashboard" className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-white mb-6 transition-colors">
+                            <FaArrowLeft className="mr-2" /> Discard & Return
+                        </Link>
+                        <h1 className="text-3xl md:text-4xl font-display font-bold text-white">Modify Asset: {vehicle.make} {vehicle.model}</h1>
+                        <p className="text-slate-400 mt-2 text-lg">Update details, pricing, or compliance documents.</p>
+                    </div>
                 </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* RC Document Section */}
-                    <div>
-                         <label className={labelClass}>Vehicle RC (Registration Certificate)</label>
-                         {formData.rc_document_url && (
-                            <div className="mb-2">
-                                <button type="button" onClick={() => handleViewDocument('rc')} className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-                                    <FaExternalLinkAlt /> View Current RC
-                                </button>
-                            </div>
-                         )}
-                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                            <div className="space-y-1 text-center">
-                                <FaFileAlt className={`mx-auto h-12 w-12 ${newRcFile ? 'text-green-500' : 'text-gray-400'}`} />
-                                <div className="flex text-sm text-gray-600">
-                                    <label htmlFor="rc-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                        <span>Upload new RC</span>
-                                        <input id="rc-upload" name="rc-upload" type="file" className="sr-only" onChange={handleRcChange} accept="image/*,.pdf" />
-                                    </label>
+            </div>
+
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 -mt-12">
+                <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                        {/* Left Column: Form Fields */}
+                        <div className="lg:col-span-2 space-y-6">
+
+                            {/* 1. Basic Info */}
+                            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-6">
+                                <h3 className={sectionTitle}>Core Identity</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div><label className={labelClass}>Make</label><input name="make" value={formData.make} onChange={handleChange} required className={inputClass} /></div>
+                                    <div><label className={labelClass}>Model</label><input name="model" value={formData.model} onChange={handleChange} required className={inputClass} /></div>
+                                    <div><label className={labelClass}>Year</label><input type="number" name="year" value={formData.year} onChange={handleChange} required className={inputClass} /></div>
+                                    <div>
+                                        <label className={labelClass}>License Plate <span className="text-[10px] text-red-500 ml-1">(LOCKED)</span></label>
+                                        <input name="license_plate" value={formData.license_plate} disabled className={inputClass} />
+                                    </div>
                                 </div>
-                                <p className="text-xs text-gray-500">{newRcFile ? `Selected: ${newRcFile.name}` : 'Replace the current document'}</p>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Insurance Document Section */}
-                    <div>
-                         <label className={labelClass}>Vehicle Insurance Document</label>
-                         {formData.insurance_document_url && (
-                            <div className="mb-2">
-                                <button type="button" onClick={() => handleViewDocument('insurance')} className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-                                    <FaExternalLinkAlt /> View Current Insurance
-                                </button>
-                            </div>
-                         )}
-                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                            <div className="space-y-1 text-center">
-                                <FaFileAlt className={`mx-auto h-12 w-12 ${newInsuranceFile ? 'text-green-500' : 'text-gray-400'}`} />
-                                <div className="flex text-sm text-gray-600">
-                                    <label htmlFor="insurance-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                        <span>Upload new insurance</span>
-                                        <input id="insurance-upload" name="insurance-upload" type="file" className="sr-only" onChange={handleInsuranceChange} accept="image/*,.pdf" />
-                                    </label>
+                            {/* 2. Specs & Pricing */}
+                            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-6">
+                                <h3 className={sectionTitle}>Specifications & Pricing</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                                    <div>
+                                        <label className={labelClass}>Category</label>
+                                        <select name="vehicle_type" value={formData.vehicle_type} onChange={handleChange} className={inputClass}>
+                                            <option value="Car">Car</option>
+                                            <option value="Bike">Bike</option>
+                                            <option value="Scooter">Scooter</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Base Price / Day</label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-3.5 text-slate-400 font-bold">₹</span>
+                                            <input type="number" name="price_per_day" value={formData.price_per_day} onChange={handleChange} required className={`${inputClass} pl-8`} />
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-xs text-gray-500">{newInsuranceFile ? `Selected: ${newInsuranceFile.name}` : 'Replace the current document'}</p>
+                                <div className="grid grid-cols-3 gap-5">
+                                    <div><label className={labelClass}>Seats</label><input type="number" name="seating_capacity" value={formData.seating_capacity} onChange={handleChange} required className={inputClass} /></div>
+                                    <div>
+                                        <label className={labelClass}>Gearbox</label>
+                                        <select name="transmission" value={formData.transmission} onChange={handleChange} className={inputClass}>
+                                            <option value="Manual">Manual</option>
+                                            <option value="Automatic">Automatic</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={labelClass}>Fuel</label>
+                                        <select name="fuel_type" value={formData.fuel_type} onChange={handleChange} className={inputClass}>
+                                            <option value="Petrol">Petrol</option>
+                                            <option value="Diesel">Diesel</option>
+                                            <option value="Electric">Electric</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Other Vehicle Details... */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label htmlFor="make" className={labelClass}>Make</label><input type="text" name="make" id="make" value={formData.make} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="model" className={labelClass}>Model</label><input type="text" name="model" id="model" value={formData.model} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="year" className={labelClass}>Year</label><input type="number" name="year" id="year" value={formData.year} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="license_plate" className={labelClass}>License Plate (Cannot be changed)</label><input type="text" name="license_plate" id="license_plate" value={formData.license_plate} required className={`${inputClass} bg-gray-100 cursor-not-allowed`} disabled /></div>
-                        <div><label htmlFor="price_per_day" className={labelClass}>Price Per Day (₹)</label><input type="number" name="price_per_day" id="price_per_day" value={formData.price_per_day} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="seating_capacity" className={labelClass}>Seating Capacity</label><input type="number" name="seating_capacity" id="seating_capacity" value={formData.seating_capacity} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="vehicle_type" className={labelClass}>Vehicle Type</label><select name="vehicle_type" id="vehicle_type" value={formData.vehicle_type} onChange={handleChange} className={inputClass}><option value="Car">Car</option><option value="Bike">Bike</option><option value="Scooter">Scooter</option></select></div>
-                        <div><label htmlFor="transmission" className={labelClass}>Transmission</label><select name="transmission" id="transmission" value={formData.transmission} onChange={handleChange} className={inputClass}><option value="Manual">Manual</option><option value="Automatic">Automatic</option></select></div>
-                    </div>
-                    <div><label htmlFor="fuel_type" className={labelClass}>Fuel Type</label><select name="fuel_type" id="fuel_type" value={formData.fuel_type} onChange={handleChange} className={inputClass}><option value="Petrol">Petrol</option><option value="Diesel">Diesel</option><option value="Electric">Electric</option></select></div>
-                    
-                    <div className="space-y-4 rounded-lg bg-gray-50 p-4 border">
-                        <div className="flex items-center">
-                            <input type="checkbox" name="pickup_available" id="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                            <label htmlFor="pickup_available" className="ml-3 block font-medium text-gray-800">Offer vehicle pickup?</label>
-                        </div>
-                        {formData.pickup_available && (
-                            <div className="pl-8">
-                                <label htmlFor="pickup_charge" className={labelClass}>Pickup Service Charge (₹)</label>
-                                <input type="number" name="pickup_charge" id="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
+                            {/* 3. Logistics */}
+                            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-6">
+                                <h3 className={sectionTitle}>Logistics</h3>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <input type="checkbox" name="pickup_available" id="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900" />
+                                            <label htmlFor="pickup_available" className="text-sm font-bold text-slate-700 dark:text-slate-300">Enable Pickup Service</label>
+                                        </div>
+                                        {formData.pickup_available && (
+                                            <div className="w-32">
+                                                <input type="number" name="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className={`${inputClass} py-2 text-right`} placeholder="Fee (₹)" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <input type="checkbox" name="dropoff_available" id="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900" />
+                                            <label htmlFor="dropoff_available" className="text-sm font-bold text-slate-700 dark:text-slate-300">Enable Drop-off Service</label>
+                                        </div>
+                                        {formData.dropoff_available && (
+                                            <div className="w-32">
+                                                <input type="number" name="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className={`${inputClass} py-2 text-right`} placeholder="Fee (₹)" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                        <div className="flex items-center">
-                            <input type="checkbox" name="dropoff_available" id="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                            <label htmlFor="dropoff_available" className="ml-3 block font-medium text-gray-800">Offer vehicle drop-off?</label>
                         </div>
-                        {formData.dropoff_available && (
-                            <div className="pl-8">
-                                <label htmlFor="dropoff_charge" className={labelClass}>Drop-off Service Charge (₹)</label>
-                                <input type="number" name="dropoff_charge" id="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
-                            </div>
-                        )}
-                    </div>
 
-                    <div>
-                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700" disabled={mutation.isPending}>
-                            {mutation.isPending ? 'Saving Changes...' : 'Save Changes'}
-                        </button>
+                        {/* Right Column: Documents */}
+                        <div className="lg:col-span-1 space-y-6">
+                            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-6 sticky top-24">
+                                <h3 className={sectionTitle}>Compliance</h3>
+                                <div className="space-y-6">
+                                    <UploadBox
+                                        label="Registration Cert (RC)"
+                                        file={newRcFile}
+                                        onChange={(e) => handleFileChange(e, setNewRcFile)}
+                                        currentUrl={formData.rc_document_url}
+                                        onViewCurrent={() => handleViewDocument('rc')}
+                                    />
+                                    <UploadBox
+                                        label="Insurance Policy"
+                                        file={newInsuranceFile}
+                                        onChange={(e) => handleFileChange(e, setNewInsuranceFile)}
+                                        currentUrl={formData.insurance_document_url}
+                                        onViewCurrent={() => handleViewDocument('insurance')}
+                                    />
+                                </div>
+                                <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+                                    <Button
+                                        type="submit"
+                                        className="w-full justify-center py-4 font-bold text-lg shadow-xl shadow-blue-500/20"
+                                        size="lg"
+                                        disabled={mutation.isPending}
+                                        isLoading={mutation.isPending}
+                                    >
+                                        {mutation.isPending ? 'Saving...' : 'Save Updates'}
+                                    </Button>
+                                    <p className="text-[10px] text-center text-slate-400 mt-3">Changing documents may require re-verification.</p>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </form>
             </div>

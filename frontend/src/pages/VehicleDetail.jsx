@@ -4,9 +4,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaMapMarkerAlt, FaShippingFast, FaCheckCircle, FaExclamationCircle, FaShieldAlt } from 'react-icons/fa';
+import { FaGasPump, FaUsers, FaBolt, FaStar, FaRegStar, FaMapMarkerAlt, FaCheckCircle, FaShieldAlt, FaCalendarAlt, FaUser, FaInfoCircle, FaLock } from 'react-icons/fa';
 import { GiGearStickPattern } from 'react-icons/gi';
 import { BsCalendar, BsTagFill } from 'react-icons/bs';
+import Button from '../Components/ui/Button';
+import Badge from '../Components/ui/Badge';
+import Card from '../Components/ui/Card';
 import TermsPopup from '../Components/TermsPopup';
 
 // --- Data Fetching ---
@@ -16,7 +19,7 @@ const fetchVehicleById = async (vehicleId) => {
     .select(`
       *, 
       is_certified, 
-      profiles ( full_name, address, is_verified ),
+      profiles ( full_name, address, is_verified, role ),
       reviews ( *, profiles ( full_name ) )
     `)
     .eq('id', vehicleId)
@@ -33,30 +36,15 @@ const fetchBookedDates = async (vehicleId) => {
   return response.json();
 };
 
-
-// --- Helper Components ---
-const FuelInfo = ({ fuelType }) => {
-  switch (fuelType) {
-    case 'Electric':
-      return <FaBolt size={24} className="text-green-600" />;
-    case 'Diesel':
-      return <FaGasPump size={24} className="text-red-600" />;
-    case 'Petrol':
-    default:
-      return <FaGasPump size={24} className="text-yellow-600" />;
-  }
-};
-
 const SpecItem = ({ icon, label, value }) => (
-  <div className="bg-gray-100 p-4 rounded-lg flex items-center">
-    <div className="text-blue-600 mr-4">{icon}</div>
+  <div className="flex items-center gap-4 p-4 border border-slate-100 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+    <div className="text-slate-400 dark:text-slate-500 text-xl">{icon}</div>
     <div>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="font-bold text-gray-800">{value}</p>
+      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{label}</p>
+      <p className="font-semibold text-slate-900 dark:text-white text-sm mt-0.5">{value}</p>
     </div>
   </div>
 );
-
 
 function VehicleDetail() {
   const { id } = useParams();
@@ -66,13 +54,13 @@ function VehicleDetail() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [dateConflictError, setDateConflictError] = useState('');
+  const [showTerms, setShowTerms] = useState(false);
 
+  // Custom location state
   const [useCustomPickup, setUseCustomPickup] = useState(false);
   const [pickupLocation, setPickupLocation] = useState('');
   const [useCustomDropoff, setUseCustomDropoff] = useState(false);
   const [dropoffLocation, setDropoffLocation] = useState('');
-
-  const [showTerms, setShowTerms] = useState(false);
 
   const { data: vehicle, isLoading, isError, error } = useQuery({
     queryKey: ['vehicle', id],
@@ -100,227 +88,278 @@ function VehicleDetail() {
         return selectedStart <= bookedEnd && selectedEnd >= bookedStart;
       });
 
-      setDateConflictError(isConflict ? 'The selected dates are unavailable. Please choose a different range.' : '');
+      setDateConflictError(isConflict ? 'Unavailable for selected dates.' : '');
     } else {
       setDateConflictError('');
     }
   }, [startDate, endDate, bookedDates]);
-
-  const reviewCount = vehicle?.reviews?.length || 0;
-  const averageRating = reviewCount > 0
-    ? vehicle.reviews.reduce((acc, review) => acc + review.rating, 0) / reviewCount
-    : 0;
 
   const totalPrice = useMemo(() => {
     if (startDate && endDate && vehicle) {
       const start = new Date(startDate);
       const end = new Date(endDate);
       if (end < start) return 0;
-
-      const diffTime = end.getTime() - start.getTime();
-      let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diffDays === 0) {
-        diffDays = 1;
-      }
+      const diffDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
 
       let total = diffDays * vehicle.price_per_day;
-
-      if (useCustomPickup && vehicle.pickup_available) {
-        total += vehicle.pickup_charge;
-      }
-      if (useCustomDropoff && vehicle.dropoff_available) {
-        total += vehicle.dropoff_charge;
-      }
-
+      if (useCustomPickup && vehicle.pickup_available) total += vehicle.pickup_charge;
+      if (useCustomDropoff && vehicle.dropoff_available) total += vehicle.dropoff_charge;
       return total;
     }
     return 0;
   }, [startDate, endDate, vehicle, useCustomPickup, useCustomDropoff]);
 
   const handleBooking = () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    if (!startDate || !endDate || totalPrice <= 0) {
-      alert('Please select a valid date range.');
-      return;
-    }
-    if (dateConflictError) {
-      alert(dateConflictError);
-      return;
-    }
-    if (useCustomPickup && !pickupLocation.trim()) {
-      alert('Please enter a custom pickup location.');
-      return;
-    }
-    if (useCustomDropoff && !dropoffLocation.trim()) {
-      alert('Please enter a custom drop-off location.');
-      return;
-    }
+    if (!user) return navigate('/login');
+    if (!startDate || !endDate || totalPrice <= 0) return alert('Please select a valid date range.');
+    if (dateConflictError) return alert(dateConflictError);
+    if (useCustomPickup && !pickupLocation.trim()) return alert('Please enter a custom pickup location.');
+    if (useCustomDropoff && !dropoffLocation.trim()) return alert('Please enter a custom drop-off location.');
     setShowTerms(true);
   };
 
   const confirmBooking = () => {
     setShowTerms(false);
     navigate("/booking-summary", {
-    state: {
-      vehicle,
-      startDate,
-      endDate,
-      totalPrice,
-      pickupLocation: useCustomPickup ? pickupLocation : null,
-      dropoffLocation: useCustomDropoff ? dropoffLocation : null
-    },
+      state: { vehicle, startDate, endDate, totalPrice, pickupLocation, dropoffLocation },
     });
   };
 
-  if (isLoading) return <div className="text-center p-10 font-bold text-xl">Loading...</div>;
-  if (isError) return <div className="text-center p-10 text-red-500"><h2>Error: {error.message}</h2></div>;
+  if (isLoading) return <div className="min-h-screen pt-32 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950 font-medium">Loading details...</div>;
+  if (isError) return <div className="min-h-screen pt-32 text-center text-red-500 bg-slate-50 dark:bg-slate-950 font-medium">Error: {error.message}</div>;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
+    <div className="bg-slate-50 dark:bg-slate-950 min-h-screen pb-24 transition-colors duration-300">
 
-          <div className="lg:col-span-3">
-            <div className="mb-8 shadow-2xl rounded-2xl overflow-hidden">
-              <img src={vehicle.image_urls?.[0]} alt={`${vehicle.make} ${vehicle.model}`} className="w-full h-auto object-cover" />
-            </div>
+      {/* 
+         🖼️ Hero Gallery (Immersive)
+      */}
+      <div className="h-[50vh] min-h-[400px] w-full bg-slate-900 relative">
+        <img
+          src={vehicle.image_urls?.[0]}
+          alt={vehicle.model}
+          className="w-full h-full object-cover opacity-90"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-90" />
 
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Key Details</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <SpecItem icon={<BsCalendar size={24} />} label="Year" value={vehicle.year} />
-              <SpecItem icon={<FaUsers size={24} />} label="Seats" value={vehicle.seating_capacity} />
-              <SpecItem icon={<GiGearStickPattern size={24} />} label="Transmission" value={vehicle.transmission} />
-              <SpecItem icon={<BsTagFill size={24} />} label="Type" value={vehicle.vehicle_type} />
-              <SpecItem icon={<FuelInfo fuelType={vehicle.fuel_type} />} label="Fuel" value={vehicle.fuel_type} />
-            </div>
-
-            <div className="mt-12">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Pickup & Drop-off</h3>
-              <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-                <div className="flex items-start">
-                  <FaMapMarkerAlt className="text-gray-500 mr-4 mt-1 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-gray-800">Default Location</p>
-                    <p className="text-gray-600">{vehicle.profiles?.address || 'Address not provided by host.'}</p>
-                  </div>
-                </div>
-
-                {vehicle.pickup_available && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <div className="flex items-center">
-                      <input type="checkbox" id="useCustomPickup" checked={useCustomPickup} onChange={(e) => setUseCustomPickup(e.target.checked)} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
-                      <label htmlFor="useCustomPickup" className="ml-3 font-medium text-gray-800">Custom Pickup Location (Charge: ₹{vehicle.pickup_charge})</label>
-                    </div>
-                    {useCustomPickup && (
-                      <div className="mt-2 pl-8">
-                        <input type="text" value={pickupLocation} onChange={(e) => setPickupLocation(e.target.value)} placeholder="Enter custom pickup address" className="mt-1 w-full p-2 border border-gray-300 rounded-md" />
-                        <p className="text-xs text-gray-500 mt-1">Additional charges may apply based on distance.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {vehicle.dropoff_available && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <div className="flex items-center">
-                      <input type="checkbox" id="useCustomDropoff" checked={useCustomDropoff} onChange={(e) => setUseCustomDropoff(e.target.checked)} className="h-5 w-5 text-blue-600 border-gray-300 rounded" />
-                      <label htmlFor="useCustomDropoff" className="ml-3 font-medium text-gray-800">Custom Drop-off Location (Charge: ₹{vehicle.dropoff_charge})</label>
-                    </div>
-                    {useCustomDropoff && (
-                      <div className="mt-2 pl-8">
-                        <input type="text" value={dropoffLocation} onChange={(e) => setDropoffLocation(e.target.value)} placeholder="Enter custom drop-off address" className="mt-1 w-full p-2 border border-gray-300 rounded-md" />
-                        <p className="text-xs text-gray-500 mt-1">Additional charges may apply based on distance.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2">
-            <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-lg">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-3xl font-extrabold text-gray-900">{vehicle.make} {vehicle.model}</h1>
-                    {/* --- NEW: Certified Badge --- */}
-                    {vehicle.is_certified && (
-                        <span className="flex items-center text-blue-600 font-semibold bg-blue-100 px-2.5 py-1 rounded-full text-sm">
-                            <FaShieldAlt className="mr-1.5" /> Certified
-                        </span>
-                    )}
-                </div>
-              <div className="mt-2 text-md text-gray-600">
-                <div className="flex items-center">
-                  <span>Hosted by <span className="font-semibold text-blue-600">{vehicle.profiles?.full_name}</span></span>
-                  {vehicle.profiles?.is_verified && <span className="ml-2 flex items-center text-green-600 font-semibold bg-green-100 px-2 py-0.5 rounded-full text-xs"><FaCheckCircle className="mr-1" /> Verified</span>}
-                </div>
-              </div>
-              <div className="mt-4 flex items-center">
-                {reviewCount > 0 ? (
-                  <>
-                    <div className="flex items-center text-yellow-500">{[...Array(5)].map((_, i) => i < Math.round(averageRating) ? <FaStar key={i} /> : <FaRegStar key={i} />)}</div>
-                    <span className="ml-2 text-gray-600 font-semibold">{averageRating.toFixed(1)}</span>
-                    <Link to={`/vehicle/${id}/reviews`} className="ml-3 text-blue-600 hover:underline text-sm font-medium">({reviewCount} reviews)</Link>
-                  </>
-                ) : (<p className="text-sm text-gray-500">No reviews yet.</p>)}
-              </div>
-
-              <p className="text-2xl font-bold text-blue-600 mt-4">₹{vehicle.price_per_day} <span className="text-base font-medium text-gray-500">/day</span></p>
-
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">Select Your Dates</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="start-date" className="block text-sm font-medium text-gray-700">Start Date</label>
-                    <input type="date" id="start-date" value={startDate} onChange={(e) => setStartDate(e.target.value)} min={new Date().toISOString().split("T")[0]} className="mt-1 w-full p-2 border border-gray-300 rounded-md" />
-                  </div>
-                  <div>
-                    <label htmlFor="end-date" className="block text-sm font-medium text-gray-700">End Date</label>
-                    <input type="date" id="end-date" value={endDate} onChange={(e) => setEndDate(e.target.value)} min={startDate || new Date().toISOString().split("T")[0]} className="mt-1 w-full p-2 border border-gray-300 rounded-md" />
-                  </div>
-                </div>
-                {dateConflictError && <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-lg flex items-start"><FaExclamationCircle className="mr-2 mt-1 flex-shrink-0" /><p className="text-sm font-semibold">{dateConflictError}</p></div>}
-              </div>
-
-              {totalPrice > 0 && (
-                <div className="mt-6 bg-blue-50 p-4 rounded-lg text-center">
-                  <p className="text-gray-600">Total Price:</p>
-                  <p className="text-2xl font-bold text-blue-700">₹{totalPrice}</p>
-                </div>
+        <div className="absolute bottom-0 left-0 w-full p-6 md:pb-12 container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl">
+            <div className="flex flex-wrap gap-2 mb-4">
+              {vehicle.is_certified && (
+                <Badge variant="success" className="bg-green-500 text-white border-none"><FaShieldAlt className="mr-1.5" /> Certified</Badge>
               )}
-
-              <button
-                onClick={handleBooking}
-                disabled={!startDate || !endDate || totalPrice <= 0 || !!dateConflictError}
-                className="mt-6 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                Review Booking
-              </button>
-
-              {showTerms && (
-              <TermsPopup
-                onAccept={confirmBooking}
-                onDecline={() => setShowTerms(false)} 
-              />
-            )}
-
+              {vehicle.fuel_type === 'Electric' && (
+                <Badge variant="info" className="bg-blue-500 text-white border-none"><FaBolt className="mr-1.5" /> Electric</Badge>
+              )}
+            </div>
+            <h1 className="text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm">
+              {vehicle.make} {vehicle.model}
+            </h1>
+            <div className="flex items-center text-slate-300 text-sm md:text-base font-medium">
+              <FaMapMarkerAlt className="mr-2" />
+              {vehicle.profiles?.address || "Goa, India"}
+              <span className="mx-3 text-slate-500">•</span>
+              <span className="text-white">Professional Host</span>
             </div>
           </div>
-        </div>
-
-        <div className="mt-16">
-          <h3 className="text-3xl font-bold text-gray-900 mb-6">Availability</h3>
-          {isLoadingBookedDates ? (<p>Loading calendar...</p>) : bookedDates && bookedDates.length > 0 ? (
-            <div className="bg-white p-6 rounded-xl shadow-md">
-              <p className="font-semibold mb-3">This vehicle is already booked on:</p>
-              <ul className="space-y-2">{bookedDates.map((b, i) => (<li key={i} className="p-2 bg-red-50 text-red-800 rounded-md">From <strong>{new Date(b.start_date).toLocaleDateString()}</strong> to <strong>{new Date(b.end_date).toLocaleDateString()}</strong></li>))}</ul>
-            </div>
-          ) : (<div className="bg-green-50 text-green-800 p-6 rounded-xl shadow-md"><p className="font-semibold">This vehicle is currently available!</p></div>)}
         </div>
       </div>
+
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10 block">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+          {/* 
+               📝 Left Column: Details (Width 8/12)
+            */}
+          <div className="lg:col-span-8 space-y-8">
+
+            {/* Specs Grid */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Vehicle Specifications</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <SpecItem icon={<BsCalendar />} label="Year" value={vehicle.year} />
+                <SpecItem icon={<FaUsers />} label="Capacity" value={`${vehicle.seating_capacity} Seats`} />
+                <SpecItem icon={<GiGearStickPattern />} label="Transmission" value={vehicle.transmission} />
+                <SpecItem icon={<BsTagFill />} label="Category" value={vehicle.vehicle_type} />
+                <SpecItem icon={<FaGasPump />} label="Fuel Type" value={vehicle.fuel_type} />
+                <SpecItem icon={<FaCheckCircle />} label="Condition" value="Excellent" />
+              </div>
+            </div>
+
+            {/* Description / Host Info */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">About this Vehicle</h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-8">
+                This {vehicle.make} {vehicle.model} is maintained to the highest standards. Perfect for navigating Goa's scenic roads.
+                Includes comprehensive insurance and 24/7 roadside assistance support.
+              </p>
+
+              <div className="flex items-center gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700">
+                  <FaUser className="text-xl" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-base">Hosted by {vehicle.profiles?.full_name}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    {vehicle.profiles?.is_verified && (
+                      <span className="inline-flex items-center text-green-600 dark:text-green-500 text-xs font-bold uppercase tracking-wide">
+                        <FaCheckCircle className="mr-1.5" /> Identity Verified
+                      </span>
+                    )}
+                    <span className="text-slate-300 dark:text-slate-600 text-xs">•</span>
+                    <span className="text-slate-500 dark:text-slate-400 text-xs">Member since 2024</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Logistics */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Pickup & Locations</h3>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-slate-900 dark:text-white text-sm mb-1">Base Location</h4>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm flex items-center">
+                    <FaMapMarkerAlt className="mr-2 text-slate-400" />
+                    {vehicle.profiles?.address || "Address provided after booking"}
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  {vehicle.pickup_available && (
+                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked={useCustomPickup} onChange={(e) => setUseCustomPickup(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300" />
+                        <span className="text-slate-700 dark:text-slate-300 font-semibold text-sm">Request Custom Pickup (+₹{vehicle.pickup_charge})</span>
+                      </label>
+                      {useCustomPickup && (
+                        <input type="text" value={pickupLocation} onChange={(e) => setPickupLocation(e.target.value)} placeholder="Enter pickup address, e.g. Airport" className="mt-3 w-full text-sm p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white" />
+                      )}
+                    </div>
+                  )}
+
+                  {vehicle.dropoff_available && (
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked={useCustomDropoff} onChange={(e) => setUseCustomDropoff(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300" />
+                        <span className="text-slate-700 dark:text-slate-300 font-semibold text-sm">Request Custom Drop-off (+₹{vehicle.dropoff_charge})</span>
+                      </label>
+                      {useCustomDropoff && (
+                        <input type="text" value={dropoffLocation} onChange={(e) => setDropoffLocation(e.target.value)} placeholder="Enter drop-off address" className="mt-3 w-full text-sm p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* 
+               💰 Right Column: Sticky Booking Widget (Width 4/12)
+            */}
+          <div className="lg:col-span-4">
+            <div className="sticky top-24 space-y-6">
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-black/50 border border-slate-200 dark:border-slate-800 overflow-hidden">
+                {/* Header */}
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+                  <div className="flex items-baseline justify-between">
+                    <div>
+                      <span className="text-3xl font-bold text-slate-900 dark:text-white font-display">₹{vehicle.price_per_day}</span>
+                      <span className="text-slate-500 dark:text-slate-400 text-sm font-medium"> / day</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold text-sm">
+                      <FaStar className="text-amber-500" /> 4.8
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Date Inputs - Financial Style */}
+                  <div className="grid grid-cols-2 gap-0 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                    <div className="p-3 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Check-in</label>
+                      <input type="date" min={new Date().toISOString().split("T")[0]} value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full text-sm font-medium bg-transparent border-none p-0 text-slate-900 dark:text-white focus:ring-0" />
+                    </div>
+                    <div className="p-3 bg-white dark:bg-slate-900">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Check-out</label>
+                      <input type="date" min={startDate || new Date().toISOString().split("T")[0]} value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full text-sm font-medium bg-transparent border-none p-0 text-slate-900 dark:text-white focus:ring-0" />
+                    </div>
+                  </div>
+
+                  {dateConflictError && (
+                    <div className="flex items-center text-red-600 dark:text-red-400 text-xs font-semibold bg-red-50 dark:bg-red-900/10 p-3 rounded-lg">
+                      <FaInfoCircle className="mr-2" /> {dateConflictError}
+                    </div>
+                  )}
+
+                  {/* Invoice Breakdown */}
+                  {totalPrice > 0 && (
+                    <div className="bg-slate-50 dark:bg-slate-950/50 rounded-xl p-4 space-y-3">
+                      <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
+                        <span>₹{vehicle.price_per_day} x {(totalPrice - (useCustomPickup ? vehicle.pickup_charge : 0) - (useCustomDropoff ? vehicle.dropoff_charge : 0)) / vehicle.price_per_day} days</span>
+                        <span>₹{totalPrice - (useCustomPickup ? vehicle.pickup_charge : 0) - (useCustomDropoff ? vehicle.dropoff_charge : 0)}</span>
+                      </div>
+                      {useCustomPickup && (
+                        <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
+                          <span>Pickup Service</span>
+                          <span>₹{vehicle.pickup_charge}</span>
+                        </div>
+                      )}
+                      {useCustomDropoff && (
+                        <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
+                          <span>Drop-off Service</span>
+                          <span>₹{vehicle.dropoff_charge}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm text-green-600 dark:text-green-500 font-medium">
+                        <span>Platform Fee</span>
+                        <span>₹0 (Waived)</span>
+                      </div>
+                      <div className="pt-3 mt-1 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                        <span className="font-bold text-slate-900 dark:text-white">Total</span>
+                        <span className="font-bold text-lg text-slate-900 dark:text-white">₹{totalPrice}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleBooking}
+                    disabled={!startDate || !endDate || totalPrice <= 0 || !!dateConflictError}
+                    className="w-full h-12 text-base font-bold shadow-lg shadow-blue-600/20"
+                    size="lg"
+                    variant="primary"
+                  >
+                    Reserve
+                  </Button>
+
+                  <div className="flex justify-center text-xs text-slate-400 dark:text-slate-500 font-medium items-center gap-1.5">
+                    <FaLock className="text-slate-300" /> Secure SSL Encryption
+                  </div>
+                </div>
+              </div>
+
+              {/* Trust Box */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
+                    <FaShieldAlt />
+                  </div>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm">RentalDrives Guarantee</span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Every booking includes free cancellation up to 24 hours before pickup. Your payment is protected until you get the keys.
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {showTerms && <TermsPopup onAccept={confirmBooking} onDecline={() => setShowTerms(false)} />}
     </div>
   );
 }

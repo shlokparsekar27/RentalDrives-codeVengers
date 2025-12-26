@@ -3,20 +3,23 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import logo from "../assets/car.jpg"; // Your existing logo
+import logo from "../assets/car.jpg";
 import { useState } from "react";
+import Button from './ui/Button';
+import ThemeToggle from './ThemeToggle';
+import { FaBars, FaTimes, FaUserCircle } from 'react-icons/fa';
 
-// Function to fetch the user's profile remains the same
 const fetchUserProfile = async (userId) => {
-    if (!userId) return null;
-    const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single();
-    if (error) throw new Error(error.message);
-    return data;
+  if (!userId) return null;
+  const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single();
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 function Navbar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { data: profile } = useQuery({
     enabled: !!user,
@@ -27,9 +30,9 @@ function Navbar() {
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
+    setIsMobileMenuOpen(false);
   };
 
-  // --- Dynamically build the navigation items based on the new structure ---
   const navItems = [
     { label: "Home", to: "/" },
     { label: "Cars", to: "/cars" },
@@ -43,34 +46,30 @@ function Navbar() {
   if (profile?.role === 'admin') {
     navItems.push({ label: "Admin Dashboard", to: "/admin/dashboard" });
   }
-  
-  // State for mobile menu
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
 
   return (
-    <nav className="bg-gray-900 shadow-lg sticky top-0 z-50">
+    <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 transition-colors duration-300 dark:bg-slate-950 dark:border-slate-800">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
-          
-          {/* Logo Section */}
-          <div className="flex-shrink-0">
-            <NavLink to="/">
-              <img src={logo} alt="Rental Drives Logo" className="h-12 w-auto" />
+
+          {/* Logo */}
+          <div className="flex-shrink-0 flex items-center gap-3">
+            <NavLink to="/" className="flex items-center gap-2">
+              <img src={logo} alt="Rental Drives" className="h-10 w-auto rounded-full border-2 border-slate-700" />
+              <span className="text-white font-display font-bold text-xl tracking-tight hidden sm:block">RentalDrives</span>
             </NavLink>
           </div>
 
-          {/* Desktop Menu Links */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
             {navItems.map((item) => (
               <NavLink
                 key={item.label}
                 to={item.to}
                 className={({ isActive }) =>
-                  `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  `px-3 py-2 rounded-lg text-sm font-medium transition-all ${isActive
+                    ? 'bg-slate-800 text-white shadow-sm dark:bg-slate-800'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
                   }`
                 }
               >
@@ -79,82 +78,79 @@ function Navbar() {
             ))}
           </div>
 
-          {/* Auth Buttons for Desktop */}
-          <div className="hidden md:flex items-center space-x-3">
+          {/* Desktop Auth & Theme */}
+          <div className="hidden md:flex items-center space-x-4">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {user ? (
               <>
-                <NavLink to="/profile" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                  Profile
+                <NavLink to="/profile" className="text-slate-300 hover:text-white transition-colors dark:text-slate-400 dark:hover:text-white">
+                  <FaUserCircle size={24} />
                 </NavLink>
-                <button onClick={handleLogout} className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
+                <Button onClick={handleLogout} variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-800 dark:text-slate-400">
                   Logout
-                </button>
+                </Button>
               </>
             ) : (
               <>
-                <NavLink to="/login" className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                <Button to="/login" variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-800 dark:text-slate-400">
                   Login
-                </NavLink>
-                <NavLink to="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
+                </Button>
+                <Button to="/signup" variant="accent" size="sm">
                   Sign Up
-                </NavLink>
+                </Button>
               </>
             )}
           </div>
-          
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
+
+          {/* Mobile Menu Button - Includes small theme toggle next to menu? No, keep it inside menu or top right */}
+          <div className="md:hidden flex items-center gap-4">
+            <ThemeToggle />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none"
             >
-              <span className="sr-only">Open main menu</span>
-              {isMobileMenuOpen ? (
-                <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
-                </svg>
-              )}
+              {isMobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
             </button>
           </div>
-
         </div>
       </div>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+        <div className="md:hidden bg-slate-900 border-t border-slate-800 dark:bg-slate-950">
+          <div className="px-4 pt-4 pb-6 space-y-2">
             {navItems.map((item) => (
               <NavLink
                 key={item.label}
                 to={item.to}
-                onClick={() => setIsMobileMenuOpen(false)} // Close menu on click
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    isActive
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  `block px-4 py-3 rounded-lg text-base font-medium transition-colors ${isActive
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`
                 }
               >
                 {item.label}
               </NavLink>
             ))}
-            {/* Auth links in mobile menu */}
-            <div className="border-t border-gray-700 pt-4 mt-4">
+
+            <div className="border-t border-slate-700 pt-4 mt-4 space-y-3">
               {user ? (
-                <div className="space-y-1">
-                    <NavLink to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Profile</NavLink>
-                    <button onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Logout</button>
-                </div>
+                <>
+                  <NavLink to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+                    <FaUserCircle /> Profile
+                  </NavLink>
+                  <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white font-medium">
+                    Logout
+                  </button>
+                </>
               ) : (
-                <div className="space-y-1">
-                    <NavLink to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Login</NavLink>
-                    <NavLink to="/signup" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Sign Up</NavLink>
+                <div className="flex flex-col gap-2">
+                  <Button to="/login" variant="secondary" className="w-full justify-center" onClick={() => setIsMobileMenuOpen(false)}>Login</Button>
+                  <Button to="/signup" variant="accent" className="w-full justify-center" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Button>
                 </div>
               )}
             </div>

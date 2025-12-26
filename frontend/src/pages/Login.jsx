@@ -3,9 +3,9 @@ import { useState } from "react";
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaEnvelope, FaLock } from 'react-icons/fa';
+import { FaEnvelope, FaLock, FaArrowRight } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
 
-// The function that calls the backend for login
 const signInUser = async ({ email, password }) => {
   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
     method: 'POST',
@@ -37,11 +37,10 @@ function Login() {
   const mutation = useMutation({
     mutationFn: signInUser,
     onSuccess: () => {
-      navigate('/'); 
+      navigate('/');
     },
     onError: (error) => {
-      // More specific error message for the user
-      const message = error.message.includes('Invalid login credentials') 
+      const message = error.message.includes('Invalid login credentials')
         ? 'Invalid email or password. Please try again.'
         : `Error: ${error.message}`;
       alert(message);
@@ -52,69 +51,98 @@ function Login() {
     event.preventDefault();
     mutation.mutate({ email, password });
   };
-  
-  const inputBaseClass = "w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900">Welcome Back!</h2>
-          <p className="mt-2 text-gray-600">Sign in to continue to RentalDrives</p>
+    <div className="min-h-screen bg-white dark:bg-slate-950 flex transition-colors duration-300">
+      {/* 
+        🖼️ Left Side: Brand Image / Marketing 
+        Hidden on mobile, visible on lg screens
+      */}
+      <div className="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=3483&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-slate-900 via-slate-900/80 to-transparent"></div>
+        <div className="relative z-10 p-16 text-white max-w-xl">
+          <div className="mb-8 p-3 bg-white/10 backdrop-blur-md rounded-xl inline-block border border-white/20">
+            <img src="/car.jpg" className="w-8 h-8 rounded-full" alt="Logo" />
+          </div>
+          <h1 className="text-5xl font-display font-bold mb-6 leading-tight">Explore Goa,<br />Uninterrupted.</h1>
+          <p className="text-xl text-slate-300 leading-relaxed font-light">
+            Join the community of verified hosts and travelers. Experience the freedom of the road with zero hidden fees.
+          </p>
         </div>
-        
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Email Input */}
-          <div className="relative">
-            <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="email" 
-              placeholder="Email address" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required 
-              className={inputBaseClass}
-            />
+      </div>
+
+      {/* 
+        📝 Right Side: Login Form 
+      */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-slate-950">
+        <div className="max-w-md w-full">
+          <div className="text-center lg:text-left mb-10">
+            <Link to="/" className="inline-block lg:hidden text-2xl font-display font-bold text-slate-900 dark:text-white mb-8">RentalDrives</Link>
+            <h2 className="text-3xl font-display font-bold text-slate-900 dark:text-white mt-4">Welcome back</h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-base">Enter your access credentials to continue.</p>
           </div>
 
-          {/* Password Input */}
-          <div className="relative">
-            <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="password" 
-              placeholder="Password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required 
-              className={inputBaseClass}
-            />
-          </div>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Email address</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <FaEnvelope />
+                </div>
+                <input
+                  type="email"
+                  required
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-slate-900 dark:focus:ring-white outline-none transition-all placeholder-slate-400 text-slate-900 dark:text-white font-medium"
+                  placeholder="name@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
 
-          {/* Submit Button */}
-          <div>
-            <button 
-              type="submit" 
-              className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400 flex items-center justify-center" 
-              disabled={mutation.isPending}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <FaLock />
+                </div>
+                <input
+                  type="password"
+                  required
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-slate-900 dark:focus:ring-white outline-none transition-all placeholder-slate-400 text-slate-900 dark:text-white font-medium"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center">
+                <input type="checkbox" className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-slate-900" />
+                <span className="ml-2 text-sm text-slate-600 dark:text-slate-400 font-medium">Remember me</span>
+              </label>
+              <a href="#" className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">Forgot password?</a>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full py-3.5 justify-center text-base font-bold shadow-lg shadow-blue-500/20"
+              size="lg"
+              isLoading={mutation.isPending}
             >
-              {mutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                  <span>Logging In...</span>
-                </>
-              ) : (
-                'Login'
-              )}
-            </button>
-          </div>
-        </form>
+              {mutation.isPending ? 'Authenticating...' : 'Sign In'} <FaArrowRight className="ml-2 group-hover:translate-x-1" />
+            </Button>
+          </form>
 
-        <p className="text-center text-sm text-gray-600">
-          Don't have an account?{' '}
-          <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-            Sign up here
-          </Link>
-        </p>
+          <p className="mt-8 text-center text-sm text-slate-600 dark:text-slate-400 font-medium">
+            Don't have an account?{' '}
+            <Link to="/signup" className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors">
+              Create an account
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

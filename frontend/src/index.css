@@ -1,89 +1,73 @@
 @import "tailwindcss";
 
 /* ------------------------------
-   🔥 Page Load Animation
+   🌍 Fonts & Typography
 --------------------------------*/
-@keyframes fadeInSlideUp {
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+/* Configure dark mode via class strategy */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  --color-brand-primary: #0F172A;
+  --color-brand-secondary: #334155;
+  --color-brand-accent: #2563EB;
+
+  --animate-fade-in-up: fadeInUp 0.5s ease-out forwards;
+}
+
+/* ------------------------------
+   🎨 Base Styles
+--------------------------------*/
+body {
+  font-family: var(--font-sans);
+  @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  @apply tracking-tight;
+}
+
+/* ------------------------------
+   🔥 Animations
+--------------------------------*/
+@keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-.animate-fadeInSlideUp {
-  animation: fadeInSlideUp 0.8s ease-out forwards;
+
+.animate-enter {
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ------------------------------
-   🎴 3D Perspective Helpers
+   ✨ Utilities
 --------------------------------*/
-.perspective {
-  perspective: 1000px;
-}
-.transform-style-3d {
-  transform-style: preserve-3d;
-}
-.translate-z-25 { transform: translateZ(25px); }
-.translate-z-40 { transform: translateZ(40px); }
-.translate-z-60 { transform: translateZ(60px); }
-.translate-z-80 { transform: translateZ(80px); }
-.translate-z-100 { transform: translateZ(100px); }
-
-/* ------------------------------
-   ✨ Uiverse Card Styling
---------------------------------*/
-
-/* Card hover tilt (matches styled-components) */
-.card-3d {
-  transition: transform 0.3s ease;
-  transform-style: preserve-3d;
-}
-.card-3d:hover {
-  transform: rotateX(10deg) rotateY(-10deg) scale(1.05);
+.glass-panel {
+  @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl dark:bg-slate-900/70 dark:border-white/10;
 }
 
-/* Glass inner card */
-.inner-glass {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 1rem;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-}
-.card-3d:hover .inner-glass {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.2);
+.text-balance {
+  text-wrap: balance;
 }
 
-/* Floating logo circles */
-.circle {
-  position: absolute;
-  width: 4rem;
-  height: 4rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-.circle:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Social buttons glow */
-.social-btn {
-  @apply w-10 h-10 rounded-full flex items-center justify-center text-white transition-all duration-300;
-  background: rgba(255, 255, 255, 0.1);
-}
-.social-btn:hover {
-  transform: translateY(-5px) scale(1.1);
-  box-shadow: 0 0 15px currentColor;
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
 }

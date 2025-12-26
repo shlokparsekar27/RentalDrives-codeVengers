@@ -18,17 +18,20 @@ import EditVehicle from './pages/EditVehicle';
 import AdminDashboard from './pages/AdminDashboard';
 import HostBookings from "./pages/HostBookings";
 import VehicleReviews from './pages/VehicleReviews';
-import AdminHostVerification from './pages/AdminHostVerification'; 
+import AdminHostVerification from './pages/AdminHostVerification';
 import AdminLicenseVerification from './pages/AdminLicenseVerification';
 import BookingSummary from "./pages/BookingSummary";
 import FAQ from "./pages/FAQ";
 import TermsOfService from "./pages/TermsofService";
+import MobileBottomNav from "./Components/MobileBottomNav"; // Import the new component
+import ScrollToTop from "./Components/ScrollToTop";
 
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Navbar />
-      <main style={{ paddingBottom: '5rem' }}>
+      <main style={{ paddingBottom: '7rem' }}> {/* Adjusted padding to clear bottom nav */}
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/cars" element={<Cars />} />
@@ -49,11 +52,12 @@ function App() {
           <Route path="/admin/verify-hosts" element={<AdminHostVerification />} />
           <Route path="/admin/verify-licenses" element={<AdminLicenseVerification />} />
           <Route path="/booking-summary" element={<BookingSummary />} />
-          <Route path="/faq" element={<FAQ/>} /> 
-          <Route path="/terms" element={<TermsOfService />} /> 
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<TermsOfService />} />
         </Routes>
       </main>
       <Footer />
+      <MobileBottomNav /> {/* Render it here */}
     </Router>
   );
 }
