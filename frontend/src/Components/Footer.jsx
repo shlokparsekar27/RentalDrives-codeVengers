@@ -1,61 +1,80 @@
-// src/Components/Footer.jsx
 import { Link } from 'react-router-dom';
-import logo from '../assets/car.jpg'; // Using the same logo as the navbar
-import { FaTwitter, FaInstagram, FaFacebook, FaLinkedin } from 'react-icons/fa'; // Using react-icons
+import { FaTwitter, FaInstagram, FaFacebook, FaLinkedin, FaShieldAlt } from 'react-icons/fa';
 
 function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="bg-gray-900 text-gray-400">
+    <footer className="bg-card border-t border-border mt-auto font-sans">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 py-12">
-          
-          {/* Logo and Description Section */}
-          <div className="md:col-span-12 lg:col-span-5 flex flex-col items-center lg:items-start text-center lg:text-left">
-            <Link to="/" className="flex items-center mb-4">
-              <img src={logo} alt="RentalDrives Logo" className="h-10 w-auto mr-3" />
-              <span className="text-white font-bold text-2xl">RentalDrives</span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 py-16">
+
+          {/* Brand Section */}
+          <div className="col-span-1 md:col-span-2">
+            <Link to="/" className="flex items-center gap-2 mb-6 group">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl group-hover:bg-primary/90 transition-colors">
+                R
+              </div>
+              <span className="font-bold text-xl tracking-tight text-foreground">Rental<span className="text-primary">Drives</span></span>
             </Link>
-            <p className="text-sm max-w-sm">
-              Your premier destination for vehicle rentals in Goa. Explore with freedom and book your perfect ride in minutes.
+            <p className="text-muted-foreground leading-relaxed max-w-sm">
+              The premium marketplace for verified vehicle rentals in Goa.
+              Engineered for trust, safety, and transparent pricing.
             </p>
+            <div className="mt-8 flex gap-4">
+              {[
+                { icon: FaTwitter, href: "https://x.com" },
+                { icon: FaInstagram, href: "https://instagram.com" },
+                { icon: FaFacebook, href: "https://facebook.com" },
+                { icon: FaLinkedin, href: "https://linkedin.com" }
+              ].map((social, idx) => (
+                <a
+                  key={idx}
+                  href={social.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-all duration-300"
+                >
+                  <social.icon />
+                </a>
+              ))}
+            </div>
           </div>
 
-          {/* Quick Links Section */}
-          <div className="md:col-span-6 lg:col-span-3 text-center lg:text-left">
-            <h3 className="font-bold text-white text-lg mb-4 tracking-wider">Help & Support</h3>
-            <ul className="space-y-2">
-              <li><Link to="/about" className="hover:text-blue-400 transition-colors">About Us</Link></li>
-              <li><Link to="/faq" className="hover:text-blue-400 transition-colors">FAQ</Link></li>
-              <li><Link to="/terms" className="hover:text-blue-400">Terms of Service</Link></li> 
-              <li><Link to="/contact" className="hover:text-blue-400 transition-colors">Contact Us</Link></li>
+          {/* Quick Links */}
+          <div className="col-span-1">
+            <h4 className="font-bold text-foreground mb-6">Discovery</h4>
+            <ul className="space-y-4 text-sm text-muted-foreground">
+              <li><Link to="/cars" className="hover:text-primary transition-colors">Cars & SUVs</Link></li>
+              <li><Link to="/bikes" className="hover:text-primary transition-colors">Motorcycles</Link></li>
+              <li><Link to="/scooters" className="hover:text-primary transition-colors">City Scooters</Link></li>
+              <li><Link to="/host/add-vehicle" className="hover:text-primary transition-colors">Become a Host</Link></li>
             </ul>
           </div>
 
-          {/* Follow Us Section */}
-          <div className="md:col-span-6 lg:col-span-4 text-center lg:text-left">
-            <h3 className="font-bold text-white text-lg mb-4 tracking-wider">Follow Us</h3>
-            <p className="mb-4">Stay connected for the latest news and offers.</p>
-            <div className="flex justify-center lg:justify-start space-x-5">
-              <a href="https://x.com/home" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="Twitter">
-                <FaTwitter size={24} />
-              </a>
-              <a href="https://www.instagram.com/rental.drives/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="Instagram">
-                <FaInstagram size={24} />
-              </a>
-              <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="Facebook">
-                <FaFacebook size={24} />
-              </a>
-              <a href="https://www.linkedin.com/feed/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors" aria-label="LinkedIn">
-                <FaLinkedin size={24} />
-              </a>
-            </div>
+          {/* Legal/Support */}
+          <div className="col-span-1">
+            <h4 className="font-bold text-foreground mb-6">Company</h4>
+            <ul className="space-y-4 text-sm text-muted-foreground">
+              <li><Link to="/about" className="hover:text-primary transition-colors">About Us</Link></li>
+              <li><Link to="/contact" className="hover:text-primary transition-colors">Contact Support</Link></li>
+              <li><Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+              <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+            </ul>
           </div>
         </div>
-        
-        {/* Bottom Bar with Copyright */}
-        <div className="border-t border-gray-800 py-6 text-center text-sm">
-          <p>© {new Date().getFullYear()} RentalDrives. All Rights Reserved.</p>
+
+        {/* Bottom Bar */}
+        <div className="border-t border-border py-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-muted-foreground">
+            © {currentYear} RentalDrives Inc. All rights reserved.
+          </p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground px-3 py-1 bg-secondary rounded-full">
+            <FaShieldAlt className="text-emerald-500" />
+            <span>Secure SSL Transaction System</span>
+          </div>
         </div>
 
       </div>

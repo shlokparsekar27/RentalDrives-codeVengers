@@ -1,89 +1,194 @@
 @import "tailwindcss";
 
-/* ------------------------------
-   🔥 Page Load Animation
---------------------------------*/
-@keyframes fadeInSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
+@theme {
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --font-sans: Inter, sans-serif;
+  --font-mono: 'Fira Code', monospace;
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  --animate-fade-in-up: fadeInSlideUp 0.8s ease-out forwards;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+
+    to {
+      height: var(--radix-accordion-content-height);
+    }
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+
+    to {
+      height: 0;
+    }
   }
-}
-.animate-fadeInSlideUp {
-  animation: fadeInSlideUp 0.8s ease-out forwards;
+
+  @keyframes fadeInSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
-/* ------------------------------
-   🎴 3D Perspective Helpers
---------------------------------*/
+:root {
+  /* Theme: Zurich Day (Light) */
+  --background: hsl(240 5% 98%);
+  --foreground: hsl(240 10% 6%);
+
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(240 10% 6%);
+
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(240 10% 6%);
+
+  --primary: hsl(221 83% 53%);
+  --primary-foreground: hsl(210 40% 98%);
+
+  --secondary: hsl(240 5% 96%);
+  --secondary-foreground: hsl(240 6% 10%);
+
+  --muted: hsl(240 5% 96%);
+  --muted-foreground: hsl(240 4% 46%);
+
+  --accent: hsl(240 5% 96%);
+  --accent-foreground: hsl(240 6% 10%);
+
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(210 40% 98%);
+
+  --border: hsl(240 6% 90%);
+  --input: hsl(240 6% 90%);
+  --ring: hsl(221 83% 53%);
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Theme: Midnight Terminal (Dark) */
+  --background: hsl(240 10% 4%);
+  --foreground: hsl(0 0% 98%);
+
+  --card: hsl(240 10% 6%);
+  --card-foreground: hsl(0 0% 98%);
+
+  --popover: hsl(240 10% 4%);
+  --popover-foreground: hsl(0 0% 98%);
+
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(222 47% 11%);
+
+  --secondary: hsl(240 4% 16%);
+  --secondary-foreground: hsl(0 0% 98%);
+
+  --muted: hsl(240 4% 16%);
+  --muted-foreground: hsl(240 5% 65%);
+
+  --accent: hsl(240 4% 16%);
+  --accent-foreground: hsl(0 0% 98%);
+
+  --destructive: hsl(0 63% 31%);
+  --destructive-foreground: hsl(0 0% 98%);
+
+  --border: hsl(240 4% 16%);
+  --input: hsl(240 4% 16%);
+  --ring: hsl(217 91% 60%);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1 {
+    @apply text-4xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-3xl font-semibold tracking-tight;
+  }
+
+  h3 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  h4 {
+    @apply text-xl font-medium tracking-tight;
+  }
+
+  p {
+    @apply leading-7;
+  }
+
+  .font-mono-numbers {
+    @apply font-mono tracking-tight;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* 3D and Glass Effects */
 .perspective {
   perspective: 1000px;
 }
+
 .transform-style-3d {
   transform-style: preserve-3d;
 }
-.translate-z-25 { transform: translateZ(25px); }
-.translate-z-40 { transform: translateZ(40px); }
-.translate-z-60 { transform: translateZ(60px); }
-.translate-z-80 { transform: translateZ(80px); }
-.translate-z-100 { transform: translateZ(100px); }
 
-/* ------------------------------
-   ✨ Uiverse Card Styling
---------------------------------*/
-
-/* Card hover tilt (matches styled-components) */
-.card-3d {
-  transition: transform 0.3s ease;
-  transform-style: preserve-3d;
-}
-.card-3d:hover {
-  transform: rotateX(10deg) rotateY(-10deg) scale(1.05);
-}
-
-/* Glass inner card */
 .inner-glass {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 1rem;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
 }
-.card-3d:hover .inner-glass {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.2);
-}
 
-/* Floating logo circles */
-.circle {
-  position: absolute;
-  width: 4rem;
-  height: 4rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-.circle:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Social buttons glow */
-.social-btn {
-  @apply w-10 h-10 rounded-full flex items-center justify-center text-white transition-all duration-300;
-  background: rgba(255, 255, 255, 0.1);
-}
-.social-btn:hover {
-  transform: translateY(-5px) scale(1.1);
-  box-shadow: 0 0 15px currentColor;
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
 }

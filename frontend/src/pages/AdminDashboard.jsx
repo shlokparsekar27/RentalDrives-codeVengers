@@ -2,7 +2,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
-import { FaCheck, FaTimes, FaUser, FaTag, FaRupeeSign, FaInfoCircle, FaCheckCircle, FaExternalLinkAlt, FaShieldAlt, FaSyncAlt, FaFileContract, FaIdCard } from 'react-icons/fa';
+import { FaCheck, FaTimes, FaUser, FaTag, FaRupeeSign, FaInfoCircle, FaCheckCircle, FaIdCard, FaFileContract, FaShieldAlt, FaSyncAlt } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 // --- API Functions ---
 const fetchPendingVehicles = async () => {
@@ -27,7 +30,6 @@ const updateVehicleStatus = async ({ vehicleId, status }) => {
     return response.json();
 };
 
-// UPDATED: This function now takes a docType to specify which URL to get
 const getDocumentUrl = async (vehicleId, docType) => {
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/vehicles/${vehicleId}/document-url?type=${docType}`, {
@@ -84,7 +86,6 @@ function AdminDashboard() {
         }
     };
 
-    // UPDATED: This handler now accepts a docType
     const handleViewDocument = async (vehicleId, docType) => {
         const newWindow = window.open('', '_blank');
         newWindow.document.write('Loading document, please wait...');
@@ -109,139 +110,153 @@ function AdminDashboard() {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center min-h-screen bg-gray-100">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-xl font-semibold text-gray-700">Loading Pending Approvals...</p>
-                </div>
+            <div className="flex justify-center items-center min-h-screen bg-background pt-24 font-mono text-primary animate-pulse">
+                LOADING DATA STREAM...
             </div>
         );
     }
 
     if (isError) {
         return (
-            <div className="flex justify-center items-center min-h-screen bg-gray-100">
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-6 rounded-lg shadow-md max-w-md mx-auto">
-                    <div className="flex">
-                        <div className="py-1"><FaInfoCircle className="h-6 w-6 text-red-500 mr-4" /></div>
-                        <div>
-                            <p className="font-bold">Error Fetching Data</p>
-                            <p className="text-sm">Could not retrieve pending approvals. Please ensure you have admin privileges and try again later.</p>
-                        </div>
-                    </div>
+            <div className="flex justify-center items-center min-h-screen bg-background pt-24">
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive p-8 rounded-xl max-w-md mx-auto text-center">
+                    <FaInfoCircle className="h-8 w-8 mx-auto mb-4" />
+                    <h3 className="font-bold text-lg">Access Denied / Error</h3>
+                    <p className="text-sm mt-2">Could not retrieve secure data. Please verification credentials.</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="bg-gray-100 min-h-screen font-sans">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="bg-white rounded-xl shadow-lg p-6 mb-10 flex flex-col sm:flex-row justify-between items-center border-t-4 border-blue-600">
-                    <div className="text-center sm:text-left">
-                        <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-                        <p className="mt-1 text-gray-500">Manage all platform approvals from one place.</p>
+        <div className="bg-background min-h-screen font-sans pb-24 pt-24">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+
+                {/* Header */}
+                <div className="bg-card border border-border rounded-xl p-8 mb-10 flex flex-col md:flex-row justify-between items-center shadow-sm">
+                    <div className="text-center md:text-left">
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Command Center</h1>
+                        <p className="mt-1 text-muted-foreground">Admin oversight for vehicle approvals and KYC.</p>
                     </div>
-                    {/* UPDATED SECTION */}
-                    <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-4">
-                        <Link
-                            to="/admin/verify-hosts"
-                            className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                        >
-                            <FaUser />
-                            Review Host License
-                        </Link>
-                        <Link
-                            to="/admin/verify-licenses"
-                            className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                        >
-                            <FaIdCard />
-                            Review Tourist License
-                        </Link>
+                    <div className="mt-6 md:mt-0 flex flex-wrap justify-center gap-4">
+                        <Button to="/admin/verify-hosts" variant="primary" className="shadow-lg shadow-primary/20">
+                            <FaUser className="mr-2" /> Verify Hosts
+                        </Button>
+                        <Button to="/admin/verify-licenses" variant="secondary">
+                            <FaIdCard className="mr-2" /> Verify Tourists
+                        </Button>
                     </div>
                 </div>
 
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Pending Vehicle Approvals</h2>
+                <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-primary rounded-full"></span>
+                    Pending Vehicle Approvals
+                </h2>
 
                 {pendingVehicles && pendingVehicles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {pendingVehicles.map((vehicle) => (
-                            <div key={vehicle.id} className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:border-blue-500 border-2 border-transparent">
-                                <div className="overflow-hidden relative">
+                            <Card key={vehicle.id} hover className="overflow-hidden flex flex-col h-full border-primary/20 bg-gradient-to-b from-card to-secondary/30">
+                                {/* Image Area */}
+                                <div className="relative h-56 w-full bg-secondary border-b border-border">
                                     <img
-                                        src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
+                                        src={vehicle.image_urls?.[0]}
                                         alt={`${vehicle.make} ${vehicle.model}`}
-                                        className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-300"
+                                        className="w-full h-full object-cover"
                                     />
                                     {vehicle.is_certified === false && vehicle.status === 'pending' && (
-                                        <div className="absolute top-3 left-3 bg-yellow-500 text-white text-xs font-bold py-1 px-3 rounded-full flex items-center gap-1">
-                                            <FaSyncAlt /> Re-submission
+                                        <div className="absolute top-3 left-3">
+                                            <Badge variant="warning" className="shadow-sm backdrop-blur-md bg-amber-500/90 text-white border-none">
+                                                <FaSyncAlt className="mr-1" /> Re-submission
+                                            </Badge>
                                         </div>
                                     )}
-                                    <Link to={`/vehicle/${vehicle.id}`} className="absolute top-3 right-3 bg-black bg-opacity-50 text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-opacity-75 transition-all">
-                                        View Details
+                                    <Link
+                                        to={`/vehicle/${vehicle.id}`}
+                                        className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold py-1 px-3 rounded-full hover:bg-black/80 transition-all border border-white/10"
+                                    >
+                                        Inspect
                                     </Link>
+                                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+                                        <h3 className="text-white font-bold text-lg truncate">{vehicle.make} {vehicle.model}</h3>
+                                        <p className="text-white/80 text-xs font-mono">{vehicle.year} • {vehicle.vehicle_type}</p>
+                                    </div>
                                 </div>
-                                <div className="p-5 flex-grow flex flex-col">
-                                    <h3 className="text-xl font-bold text-gray-900">{vehicle.make} {vehicle.model} ({vehicle.year})</h3>
 
-                                    <div className="mt-4 space-y-3 text-sm text-gray-600 border-t pt-4">
-                                        <p className="flex items-center"><FaUser className="mr-3 text-gray-400" /> <strong>Host:</strong> <span className="ml-2 font-semibold text-gray-800">{vehicle.profiles?.full_name || 'N/A'}</span></p>
-                                        <p className="flex items-center"><FaRupeeSign className="mr-3 text-gray-400" /> <strong>Price:</strong> <span className="ml-2 font-semibold text-gray-800">{vehicle.price_per_day}/day</span></p>
-                                        <p className="flex items-center"><FaTag className="mr-3 text-gray-400" /> <strong>Type:</strong> <span className="ml-2 font-semibold text-gray-800">{vehicle.vehicle_type}</span></p>
+                                {/* Content */}
+                                <div className="p-6 flex-grow flex flex-col">
+                                    <div className="space-y-3 mb-6">
+                                        <div className="flex justify-between items-center text-sm border-b border-border pb-2 border-dashed">
+                                            <span className="text-muted-foreground flex items-center gap-2"><FaUser size={12} /> Host</span>
+                                            <span className="font-medium text-foreground">{vehicle.profiles?.full_name || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm border-b border-border pb-2 border-dashed">
+                                            <span className="text-muted-foreground flex items-center gap-2"><FaRupeeSign size={12} /> Rate</span>
+                                            <span className="font-mono-numbers font-medium text-foreground">₹{vehicle.price_per_day}/day</span>
+                                        </div>
                                     </div>
 
-                                    <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-3">
+                                    {/* Documents */}
+                                    <div className="grid grid-cols-2 gap-3 mb-6">
                                         <button
                                             onClick={() => handleViewDocument(vehicle.id, 'rc')}
-                                            className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition-all"
+                                            className="flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg transition-colors border border-border"
                                         >
-                                            <FaFileContract /> View RC
+                                            <FaFileContract /> RC
                                         </button>
                                         <button
                                             onClick={() => handleViewDocument(vehicle.id, 'insurance')}
-                                            className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-200 transition-all"
+                                            className="flex items-center justify-center gap-2 py-2 px-3 text-xs font-bold bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg transition-colors border border-border"
                                         >
-                                            <FaFileContract /> View Insurance
+                                            <FaShieldAlt /> Ins.
                                         </button>
                                     </div>
 
-                                    <div className="mt-auto pt-5 space-y-3">
+                                    {/* Actions */}
+                                    <div className="mt-auto space-y-3">
                                         {!vehicle.is_certified && (
-                                            <button
+                                            <Button
                                                 onClick={() => handleApproveAndCertify(vehicle.id)}
                                                 disabled={statusMutation.isPending || certifyMutation.isPending}
-                                                className="w-full flex items-center justify-center gap-2 bg-blue-100 text-blue-800 font-bold py-2 px-4 rounded-lg hover:bg-blue-200 transition-all"
+                                                fullWidth
+                                                variant="primary"
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
                                             >
-                                                <FaShieldAlt /> Approve & Certify
-                                            </button>
+                                                <FaShieldAlt className="mr-2" /> Approve & Certify
+                                            </Button>
                                         )}
                                         <div className="grid grid-cols-2 gap-3">
-                                            <button
-                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUpdateStatus(vehicle.id, 'approved'); }}
+                                            <Button
+                                                onClick={(e) => { e.preventDefault(); handleUpdateStatus(vehicle.id, 'approved'); }}
                                                 disabled={statusMutation.isPending}
-                                                className="w-full flex items-center justify-center gap-2 bg-green-100 text-green-800 font-bold py-2 px-4 rounded-lg hover:bg-green-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                variant="outline"
+                                                className="border-emerald-500/50 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                                             >
-                                                <FaCheck /> Approve Only
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUpdateStatus(vehicle.id, 'rejected'); }}
+                                                <FaCheck /> Approve
+                                            </Button>
+                                            <Button
+                                                onClick={(e) => { e.preventDefault(); handleUpdateStatus(vehicle.id, 'rejected'); }}
                                                 disabled={statusMutation.isPending}
-                                                className="w-full flex items-center justify-center gap-2 bg-red-100 text-red-800 font-bold py-2 px-4 rounded-lg hover:bg-red-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                variant="outline"
+                                                className="border-destructive/50 text-destructive hover:bg-destructive/10"
                                             >
                                                 <FaTimes /> Reject
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </Card>
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center bg-white p-12 rounded-xl shadow-md border-t-4 border-green-500">
-                        <FaCheckCircle className="mx-auto h-16 w-16 text-green-500" />
-                        <h3 className="mt-4 text-xl font-semibold text-gray-800">All Clear!</h3>
-                        <p className="mt-2 text-gray-500">There are no vehicles currently pending approval.</p>
+                    <div className="bg-card border border-border rounded-xl p-12 text-center flex flex-col items-center animate-fade-in-up">
+                        <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-full flex items-center justify-center mb-6">
+                            <FaCheckCircle size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-foreground">All Clear</h3>
+                        <p className="mt-2 text-muted-foreground max-w-sm">
+                            There are no vehicles pending approval. The fleet is fully operational.
+                        </p>
                     </div>
                 )}
             </div>

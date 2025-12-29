@@ -20,16 +20,18 @@ import EditVehicle from './pages/EditVehicle';
 import AdminDashboard from './pages/AdminDashboard';
 import HostBookings from "./pages/HostBookings";
 import VehicleReviews from './pages/VehicleReviews';
-import AdminHostVerification from './pages/AdminHostVerification'; 
+import AdminHostVerification from './pages/AdminHostVerification';
 import AdminLicenseVerification from './pages/AdminLicenseVerification';
 import BookingSummary from "./pages/BookingSummary";
 import FAQ from "./pages/FAQ";
 import TermsOfService from "./pages/TermsofService";
 import BookingDetails from "./pages/BookingDetails";
+import ScrollToTop from "./Components/ScrollToTop";
 
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Navbar />
       <main style={{ paddingBottom: '5rem' }}>
         <Routes>
@@ -54,9 +56,9 @@ function App() {
           <Route path="/admin/verify-hosts" element={<AdminHostVerification />} />
           <Route path="/admin/verify-licenses" element={<AdminLicenseVerification />} />
           <Route path="/booking-summary" element={<BookingSummary />} />
-          <Route path="/faq" element={<FAQ/>} /> 
-          <Route path="/terms" element={<TermsOfService />} /> 
-           <Route path="/booking/:id" element={<BookingDetails />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/booking/:id" element={<BookingDetails />} />
         </Routes>
       </main>
       <Footer />

@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { FaPlus, FaCalendarAlt, FaEdit, FaTrash, FaCar } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 // --- API Functions for Host ---
 const fetchMyVehicles = async () => {
@@ -15,23 +19,23 @@ const fetchMyVehicles = async () => {
 };
 
 const deleteVehicle = async (vehicleId) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-    });
-    if (!response.ok) throw new Error('Failed to delete vehicle');
+  const { data: { session } } = await supabase.auth.getSession();
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${vehicleId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+  });
+  if (!response.ok) throw new Error('Failed to delete vehicle');
 };
 
-// Helper to get color classes for status badges
-const getStatusClasses = (status) => {
-    switch (status) {
-        case 'approved': return 'bg-green-100 text-green-800';
-        case 'pending': return 'bg-yellow-100 text-yellow-800';
-        case 'rejected': return 'bg-red-100 text-red-800';
-        case 'archived': return 'bg-gray-100 text-gray-800';
-        default: return 'bg-gray-100 text-gray-800';
-    }
+const VehicleStatusBadge = ({ status }) => {
+  let variant = 'neutral';
+  switch (status) {
+    case 'approved': variant = 'success'; break;
+    case 'pending': variant = 'warning'; break;
+    case 'rejected': variant = 'destructive'; break;
+    default: variant = 'neutral';
+  }
+  return <Badge variant={variant} className="uppercase tracking-wider text-[10px]">{status}</Badge>;
 };
 
 function HostDashboard() {
@@ -39,7 +43,7 @@ function HostDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: myVehicles, isLoading: isLoadingVehicles, isError: isErrorVehicles } = useQuery({
+  const { data: myVehicles, isLoading, isError } = useQuery({
     enabled: !!user,
     queryKey: ['myVehicles', user?.id],
     queryFn: fetchMyVehicles,
@@ -48,100 +52,119 @@ function HostDashboard() {
   const deleteMutation = useMutation({
     mutationFn: deleteVehicle,
     onSuccess: () => {
-        alert('Vehicle deleted successfully.');
-        queryClient.invalidateQueries({ queryKey: ['myVehicles'] });
+      // Optimistic update or refetch
+      queryClient.invalidateQueries({ queryKey: ['myVehicles'] });
     },
     onError: (error) => alert(`Error: ${error.message}`),
   });
 
   const handleDelete = (vehicleId) => {
-      if (window.confirm('Are you sure you want to permanently delete this vehicle?')) {
-          deleteMutation.mutate(vehicleId);
-      }
+    if (window.confirm('Are you sure you want to permanently delete this vehicle? This cannot be undone.')) {
+      deleteMutation.mutate(vehicleId);
+    }
   };
 
-  // REMOVED: The early returns for loading and error states.
-
   return (
-    <div className="bg-gray-100 min-h-screen">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* --- This header section will now ALWAYS be visible --- */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
+    <div className="bg-background min-h-screen font-sans py-24">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 border-b border-border pb-8 gap-6">
           <div>
-            <h2 className="text-4xl font-extrabold text-gray-900">Host Dashboard</h2>
-            <p className="mt-1 text-gray-600">Manage your vehicle listings.</p>
+            <Badge variant="outline" className="mb-2">Host Portal</Badge>
+            <h2 className="text-4xl font-bold tracking-tight text-foreground">Fleet Management</h2>
+            <p className="mt-2 text-muted-foreground text-lg">Track performance and manage your assets.</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 mt-4 sm:mt-0">
-            <Link to="/host/bookings" className="w-full sm:w-auto bg-white text-blue-600 border border-blue-600 font-bold py-3 px-6 rounded-lg hover:bg-blue-50 transition-all text-center">
-              View Bookings
-            </Link>
-            <Link to="/host/add-vehicle" className="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all text-center">
-              + Add New Vehicle
-            </Link>
+          <div className="flex gap-4 w-full md:w-auto">
+            <Button to="/host/bookings" variant="secondary" className="flex-1 md:flex-none">
+              <FaCalendarAlt className="mr-2" /> Bookings
+            </Button>
+            <Button to="/host/add-vehicle" variant="primary" className="flex-1 md:flex-none shadow-lg shadow-primary/25">
+              <FaPlus className="mr-2" /> Add Vehicle
+            </Button>
           </div>
         </div>
 
-        {/* --- Your Vehicle Listings Section --- */}
+        {/* Listings Section */}
         <div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-6">Your Vehicle Listings</h3>
-          
-          {/* --- NEW: Conditional rendering is now handled INSIDE the main layout --- */}
-          {isLoadingVehicles ? (
-            <div className="bg-white text-center p-8 rounded-xl shadow-sm">
-              <p className="text-gray-600">Loading your vehicles...</p>
+          <h3 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
+            <FaCar className="text-primary" /> Active Assets
+          </h3>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-pulse">
+              {[1, 2, 3].map(i => <div key={i} className="h-64 bg-secondary/50 rounded-xl"></div>)}
             </div>
-          ) : isErrorVehicles ? (
-            <div className="bg-red-50 text-red-700 text-center p-8 rounded-xl shadow-sm">
-              <p className="font-semibold">Error Fetching Your Data</p>
-              <p className="text-sm mt-1">There was a problem loading your vehicles. Please try refreshing the page.</p>
+          ) : isError ? (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-8 rounded-xl text-center">
+              <p className="font-bold">Error syncing fleet data.</p>
+              <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-4 border-destructive/30 hover:bg-destructive/10">Retry Connection</Button>
             </div>
           ) : myVehicles && myVehicles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {myVehicles.map((vehicle) => (
-                <Link to={`/vehicle/${vehicle.id}`} key={vehicle.id} className="block bg-white rounded-xl shadow-md overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                  <div className="overflow-hidden">
-                    <img
-                      src={vehicle.image_urls?.[0] || 'https://via.placeholder.com/400x250.png?text=No+Image'}
-                      alt={`${vehicle.make} ${vehicle.model}`}
-                      className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <div className="p-6 flex flex-col flex-grow">
-                    <div className="flex justify-between items-start">
-                        <h4 className="text-xl font-bold text-gray-900">{vehicle.make} {vehicle.model}</h4>
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${getStatusClasses(vehicle.status)}`}>
-                            {vehicle.status}
-                        </span>
+                <div
+                  key={vehicle.id}
+                  onClick={() => navigate(`/vehicle/${vehicle.id}`)}
+                  className="group cursor-pointer"
+                >
+                  <Card hover noPadding className="h-full flex flex-col overflow-hidden border-border/60 bg-card transition-all duration-300 hover:border-primary/50">
+                    {/* Image Header */}
+                    <div className="relative h-48 bg-secondary overflow-hidden">
+                      <img
+                        src={vehicle.image_urls?.[0]}
+                        alt={`${vehicle.make} ${vehicle.model}`}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                      <div className="absolute top-3 left-3">
+                        <VehicleStatusBadge status={vehicle.status} />
+                      </div>
+                      <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/80 backdrop-blur-sm px-2 py-1 rounded text-xs font-mono font-bold text-foreground">
+                        ₹{vehicle.price_per_day}/d
+                      </div>
                     </div>
-                    <p className="text-lg font-semibold text-blue-600 mt-2">₹{vehicle.price_per_day}/day</p>
-                    <div className="mt-auto pt-6 grid grid-cols-2 gap-3">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          navigate(`/host/edit-vehicle/${vehicle.id}`);
-                        }} 
-                        className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">
-                          Edit
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          handleDelete(vehicle.id);
-                        }} 
-                        disabled={deleteMutation.isPending} 
-                        className="bg-red-100 text-red-700 font-semibold py-2 px-4 rounded-lg hover:bg-red-200 transition-colors text-sm disabled:opacity-50">
-                          Delete
-                      </button>
+
+                    {/* Content Body */}
+                    <div className="p-5 flex-grow flex flex-col">
+                      <h4 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                        {vehicle.make} {vehicle.model}
+                      </h4>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">
+                        {vehicle.year} • {vehicle.fuel_type} • {vehicle.transmission}
+                      </p>
+
+                      <div className="mt-auto grid grid-cols-2 gap-3 pt-4 border-t border-border border-dashed">
+                        <Button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/host/edit-vehicle/${vehicle.id}`); }}
+                          variant="secondary"
+                          size="sm"
+                          className="bg-secondary/50 hover:bg-secondary"
+                        >
+                          <FaEdit className="mr-2" /> Edit
+                        </Button>
+                        <Button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(vehicle.id); }}
+                          disabled={deleteMutation.isPending}
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <FaTrash className="mr-2" /> Delete
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Card>
+                </div>
               ))}
             </div>
           ) : (
-            <div className="bg-white text-center p-8 rounded-xl shadow-sm">
-                <p className="text-gray-600">You have not listed any vehicles yet.</p>
+            <div className="border-2 border-dashed border-border rounded-xl p-16 text-center">
+              <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground">
+                <FaCar size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">No Vehicles Listed</h3>
+              <p className="text-muted-foreground mb-6">Start earning by adding your first vehicle to the fleet.</p>
+              <Button to="/host/add-vehicle" variant="primary">Add Your First Vehicle</Button>
             </div>
           )}
         </div>
