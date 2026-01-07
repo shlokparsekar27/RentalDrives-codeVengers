@@ -1,6 +1,9 @@
 // src/pages/FAQ.jsx
 import { useState } from 'react';
-import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp, FaQuestionCircle } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 const faqData = [
     {
@@ -28,46 +31,52 @@ const faqData = [
 // Reusable Accordion Item Component
 function AccordionItem({ item, isOpen, onClick }) {
     return (
-        <div className="border-b border-gray-200">
+        <div className={`border-b border-border transition-colors ${isOpen ? 'bg-secondary/20' : ''}`}>
             <button
                 onClick={onClick}
-                className="w-full flex justify-between items-center text-left py-5 px-4 focus:outline-none"
+                className="w-full flex justify-between items-center text-left py-5 px-6 focus:outline-none group"
             >
-                <h3 className="text-lg font-semibold text-gray-800">{item.question}</h3>
-                <span className="text-blue-600">
-                    {isOpen ? <FaChevronUp /> : <FaChevronDown />}
+                <h3 className={`text-base font-bold transition-colors ${isOpen ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>
+                    {item.question}
+                </h3>
+                <span className={`text-sm transition-transform duration-300 ${isOpen ? 'rotate-180 text-primary' : 'text-muted-foreground'}`}>
+                    <FaChevronDown />
                 </span>
             </button>
-            {isOpen && (
-                <div className="p-4 bg-gray-50 text-gray-700">
-                    <p>{item.answer}</p>
+            <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}
+            >
+                <div className="p-6 pt-0 text-muted-foreground leading-relaxed text-sm">
+                    {item.answer}
                 </div>
-            )}
+            </div>
         </div>
     );
 }
 
 
 function FAQ() {
-    const [openIndex, setOpenIndex] = useState(null);
+    const [openIndex, setOpenIndex] = useState(0);
 
     const handleToggle = (index) => {
         setOpenIndex(openIndex === index ? null : index);
     };
 
     return (
-        <div className="bg-gray-50 min-h-screen">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="bg-background min-h-screen pt-24 pb-20 font-sans">
+            <div className="container mx-auto px-4 max-w-4xl">
+
                 <div className="text-center mb-12">
-                    <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight">
+                    <Badge variant="outline" className="mb-4">Support Center</Badge>
+                    <h1 className="text-4xl font-bold tracking-tight text-foreground mb-4">
                         Frequently Asked Questions
                     </h1>
-                    <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-600">
-                        Have questions? We've got answers. If you can't find what you're looking for, feel free to contact us.
+                    <p className="max-w-xl mx-auto text-lg text-muted-foreground">
+                        Everything you need to know about booking, hosting, and riding with RentalDrives.
                     </p>
                 </div>
 
-                <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+                <Card className="overflow-hidden shadow-xl border-primary/10">
                     {faqData.map((item, index) => (
                         <AccordionItem
                             key={index}
@@ -76,7 +85,17 @@ function FAQ() {
                             onClick={() => handleToggle(index)}
                         />
                     ))}
+                </Card>
+
+                <div className="mt-12 text-center bg-secondary/30 p-8 rounded-2xl border border-dashed border-border">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-background mb-4 shadow-sm text-primary">
+                        <FaQuestionCircle size={24} />
+                    </div>
+                    <h3 className="text-lg font-bold mb-2">Still have questions?</h3>
+                    <p className="text-muted-foreground mb-6">Can't find the answer you're looking for? Please chat to our friendly team.</p>
+                    <Button to="/contact" variant="primary">Get in Touch</Button>
                 </div>
+
             </div>
         </div>
     );

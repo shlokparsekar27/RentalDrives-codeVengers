@@ -3,9 +3,12 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { FaUpload, FaFileAlt } from 'react-icons/fa';
+import { FaUpload, FaFileAlt, FaCar, FaMotorcycle, FaBicycle, FaCheckCircle, FaChevronRight, FaTimes } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
-// --- UPDATED: createVehicle now handles three file uploads ---
+// --- API Logic ---
 const createVehicle = async ({ formData, imageFile, rcFile, insuranceFile }) => {
     // 1. Upload Vehicle Image
     const imageExt = imageFile.name.split('.').pop();
@@ -20,7 +23,7 @@ const createVehicle = async ({ formData, imageFile, rcFile, insuranceFile }) => 
     const rcExt = rcFile.name.split('.').pop();
     const rcFileName = `rc-${Date.now()}.${rcExt}`;
     const { error: rcUploadError } = await supabase.storage
-        .from('vehicle-certifications') // Using the same bucket for simplicity
+        .from('vehicle-certifications')
         .upload(rcFileName, rcFile);
     if (rcUploadError) throw new Error(`RC Upload Failed: ${rcUploadError.message}`);
     const { data: rcUrlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(rcFileName);
@@ -34,17 +37,15 @@ const createVehicle = async ({ formData, imageFile, rcFile, insuranceFile }) => 
     if (insuranceUploadError) throw new Error(`Insurance Upload Failed: ${insuranceUploadError.message}`);
     const { data: insuranceUrlData } = supabase.storage.from('vehicle-certifications').getPublicUrl(insuranceFileName);
 
-
-    // 4. Prepare data for the API
+    // 4. API Packet
     const vehicleData = {
         ...formData,
         image_urls: [imageUrlData.publicUrl],
-        rc_document_url: rcUrlData.publicUrl, // NEW
-        insurance_document_url: insuranceUrlData.publicUrl, // NEW
-        certification_url: rcUrlData.publicUrl, // Keep this for backward compatibility or general use
+        rc_document_url: rcUrlData.publicUrl,
+        insurance_document_url: insuranceUrlData.publicUrl,
     };
-    
-    // 5. Call the backend API to create the vehicle record
+
+    // 5. Backend Call
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles`, {
         method: 'POST',
@@ -59,6 +60,8 @@ const createVehicle = async ({ formData, imageFile, rcFile, insuranceFile }) => 
 function AddVehicle() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const [step, setStep] = useState(1);
+
     const [formData, setFormData] = useState({
         make: '', model: '', year: '', license_plate: '',
         price_per_day: '', vehicle_type: 'Car', transmission: 'Manual',
@@ -66,15 +69,15 @@ function AddVehicle() {
         pickup_available: false, dropoff_available: false,
         pickup_charge: 0, dropoff_charge: 0,
     });
+
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
-    const [rcFile, setRcFile] = useState(null); // NEW state for RC
-    const [insuranceFile, setInsuranceFile] = useState(null); // NEW state for Insurance
+    const [rcFile, setRcFile] = useState(null);
+    const [insuranceFile, setInsuranceFile] = useState(null);
 
     const mutation = useMutation({
         mutationFn: createVehicle,
         onSuccess: () => {
-            alert('Vehicle listed successfully! It is now pending admin approval.');
             queryClient.invalidateQueries({ queryKey: ['myVehicles'] });
             navigate('/host/dashboard');
         },
@@ -86,165 +89,282 @@ function AddVehicle() {
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
-    const handleImageChange = (e) => {
+    const handleFileChange = (e, setter, previewSetter) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            setImageFile(file);
-            setImagePreview(URL.createObjectURL(file));
+            setter(file);
+            if (previewSetter) previewSetter(URL.createObjectURL(file));
         }
     };
 
-    const handleRcChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setRcFile(e.target.files[0]);
+    const nextStep = () => setStep(prev => prev + 1);
+    const prevStep = () => setStep(prev => prev - 1);
+
+    const validateStep1 = () => {
+        if (!formData.make || !formData.model || !formData.year || !formData.license_plate || !formData.seating_capacity) {
+            alert("Please fill in all vehicle specifications.");
+            return false;
         }
+        return true;
     };
-    
-    const handleInsuranceChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setInsuranceFile(e.target.files[0]);
+
+    const validateStep2 = () => {
+        if (!formData.price_per_day) {
+            alert("Please enter the daily rate.");
+            return false;
         }
+        return true;
+    };
+
+    const handleNextStep1 = () => {
+        if (validateStep1()) nextStep();
+    };
+
+    const handleNextStep2 = () => {
+        if (validateStep2()) nextStep();
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // UPDATED: Check for all three files
         if (!imageFile || !rcFile || !insuranceFile) {
-            alert('Please upload a vehicle image, RC document, and insurance document.');
+            alert('Please upload all required documents (Photo, RC, and Insurance).');
             return;
         }
         mutation.mutate({ formData, imageFile, rcFile, insuranceFile });
     };
-    
-    const labelClass = "block text-sm font-medium text-gray-700 mb-1";
-    const inputClass = "w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
+
+    const renderStepper = () => (
+        <div className="flex justify-between mb-8 max-w-sm mx-auto">
+            {[1, 2, 3].map(i => (
+                <div key={i} className={`flex items-center ${i < 3 ? 'w-full' : ''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${step >= i ? 'bg-primary border-primary text-primary-foreground' : 'bg-background border-muted text-muted-foreground'}`}>
+                        {step > i ? <FaCheckCircle /> : i}
+                    </div>
+                    {i < 3 && <div className={`h-1 w-full mx-2 rounded ${step > i ? 'bg-primary' : 'bg-secondary'}`} />}
+                </div>
+            ))}
+        </div>
+    );
 
     return (
-        <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-lg">
+        <div className="bg-background min-h-screen pt-24 pb-20 font-sans">
+            <div className="container mx-auto px-4 max-w-2xl">
+
                 <div className="text-center mb-8">
-                    <h2 className="text-3xl font-extrabold text-gray-900">List a New Vehicle</h2>
-                    <p className="mt-2 text-gray-600">Fill in the details and upload documents for your vehicle.</p>
+                    <h1 className="text-3xl font-bold mb-2">List New Vehicle</h1>
+                    <p className="text-muted-foreground">Monetize your premium vehicle.</p>
                 </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Vehicle Image Upload */}
-                    <div>
-                        <label className={labelClass}>Vehicle Image</label>
-                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                            <div className="space-y-1 text-center">
-                                {imagePreview ? (<img src={imagePreview} alt="Preview" className="mx-auto h-48 w-auto rounded-lg" />) : (<FaUpload className="mx-auto h-12 w-12 text-gray-400" />)}
-                                <div className="flex text-sm text-gray-600"><label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload a file</span><input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/*" required /></label><p className="pl-1">or drag and drop</p></div>
-                                <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* --- NEW: RC Document Upload --- */}
-                    <div>
-                         <label className={labelClass}>Vehicle RC (Registration Certificate)</label>
-                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                            <div className="space-y-1 text-center">
-                                <FaFileAlt className={`mx-auto h-12 w-12 ${rcFile ? 'text-green-500' : 'text-gray-400'}`} />
-                                <div className="flex text-sm text-gray-600"><label htmlFor="rc-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload RC document</span><input id="rc-upload" name="rc-upload" type="file" className="sr-only" onChange={handleRcChange} accept="image/*,.pdf" required /></label></div>
-                                <p className="text-xs text-gray-500">{rcFile ? `Selected: ${rcFile.name}` : 'PNG, JPG, PDF up to 10MB'}</p>
-                            </div>
-                        </div>
-                    </div>
+                {renderStepper()}
 
-                    {/* --- NEW: Insurance Document Upload --- */}
-                    <div>
-                         <label className={labelClass}>Vehicle Insurance Document</label>
-                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                            <div className="space-y-1 text-center">
-                                <FaFileAlt className={`mx-auto h-12 w-12 ${insuranceFile ? 'text-green-500' : 'text-gray-400'}`} />
-                                <div className="flex text-sm text-gray-600"><label htmlFor="insurance-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500"><span>Upload insurance</span><input id="insurance-upload" name="insurance-upload" type="file" className="sr-only" onChange={handleInsuranceChange} accept="image/*,.pdf" required /></label></div>
-                                <p className="text-xs text-gray-500">{insuranceFile ? `Selected: ${insuranceFile.name}` : 'PNG, JPG, PDF up to 10MB'}</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* Vehicle Details Form */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label htmlFor="make" className={labelClass}>Make</label>
-                            <input type="text" name="make" id="make" value={formData.make} onChange={handleChange} required className={inputClass} placeholder="e.g., Maruti" />
-                        </div>
-                        <div>
-                            <label htmlFor="model" className={labelClass}>Model</label>
-                            <input type="text" name="model" id="model" value={formData.model} onChange={handleChange} required className={inputClass} placeholder="e.g., Swift" />
-                        </div>
-                         <div>
-                            <label htmlFor="year" className={labelClass}>Year</label>
-                            <input type="number" name="year" id="year" value={formData.year} onChange={handleChange} required className={inputClass} placeholder="e.g., 2023" />
-                        </div>
-                        <div>
-                            <label htmlFor="license_plate" className={labelClass}>License Plate</label>
-                            <input type="text" name="license_plate" id="license_plate" value={formData.license_plate} onChange={handleChange} required className={inputClass} placeholder="e.g., GA01AB1234" />
-                        </div>
-                        <div>
-                            <label htmlFor="price_per_day" className={labelClass}>Price Per Day (₹)</label>
-                            <input type="number" name="price_per_day" id="price_per_day" value={formData.price_per_day} onChange={handleChange} required className={inputClass} placeholder="e.g., 2500" />
-                        </div>
-                        <div>
-                            <label htmlFor="seating_capacity" className={labelClass}>Seating Capacity</label>
-                            <input type="number" name="seating_capacity" id="seating_capacity" value={formData.seating_capacity} onChange={handleChange} required className={inputClass} placeholder="e.g., 5" />
-                        </div>
-                        <div>
-                            <label htmlFor="vehicle_type" className={labelClass}>Vehicle Type</label>
-                            <select name="vehicle_type" id="vehicle_type" value={formData.vehicle_type} onChange={handleChange} className={inputClass}>
-                                <option value="Car">Car</option>
-                                <option value="Bike">Bike</option>
-                                <option value="Scooter">Scooter</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="transmission" className={labelClass}>Transmission</label>
-                            <select name="transmission" id="transmission" value={formData.transmission} onChange={handleChange} className={inputClass}>
-                                <option value="Manual">Manual</option>
-                                <option value="Automatic">Automatic</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label htmlFor="fuel_type" className={labelClass}>Fuel Type</label>
-                        <select name="fuel_type" id="fuel_type" value={formData.fuel_type} onChange={handleChange} className={inputClass}>
-                            <option value="Petrol">Petrol</option>
-                            <option value="Diesel">Diesel</option>
-                            <option value="Electric">Electric</option>
-                        </select>
-                    </div>
+                <form onSubmit={handleSubmit}>
 
-                    {/* Delivery Options Section */}
-                    <div className="space-y-4 rounded-lg bg-gray-50 p-4 border">
-                        <div className="flex items-center">
-                            <input type="checkbox" name="pickup_available" id="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                            <label htmlFor="pickup_available" className="ml-3 block font-medium text-gray-800">Offer vehicle pickup?</label>
-                        </div>
-                        {formData.pickup_available && (
-                            <div className="pl-8">
-                                <label htmlFor="pickup_charge" className={labelClass}>Pickup Service Charge (₹)</label>
-                                <input type="number" name="pickup_charge" id="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
-                            </div>
-                        )}
-                        <div className="flex items-center">
-                            <input type="checkbox" name="dropoff_available" id="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                            <label htmlFor="dropoff_available" className="ml-3 block font-medium text-gray-800">Offer vehicle drop-off?</label>
-                        </div>
-                        {formData.dropoff_available && (
-                            <div className="pl-8">
-                                <label htmlFor="dropoff_charge" className={labelClass}>Drop-off Service Charge (₹)</label>
-                                <input type="number" name="dropoff_charge" id="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
-                            </div>
-                        )}
-                    </div>
+                    {/* STEP 1: Basic Stats */}
+                    {step === 1 && (
+                        <Card className="p-6 md:p-8 animate-fade-in-up">
+                            <h3 className="text-xl font-bold mb-6">Vehicle Specs</h3>
 
-                    <div>
-                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700" disabled={mutation.isPending}>
-                            {mutation.isPending ? 'Submitting...' : 'Submit for Approval'}
-                        </button>
-                    </div>
+                            {/* Type Selector */}
+                            <div className="grid grid-cols-3 gap-4 mb-6">
+                                {['Car', 'Bike', 'Scooter'].map(type => (
+                                    <div key={type}
+                                        onClick={() => setFormData({ ...formData, vehicle_type: type })}
+                                        className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all ${formData.vehicle_type === type ? 'border-primary bg-primary/5 text-primary' : 'border-border hover:bg-secondary'}`}>
+                                        {type === 'Car' && <FaCar size={24} />}
+                                        {type === 'Bike' && <FaMotorcycle size={24} />}
+                                        {type === 'Scooter' && <FaBicycle size={24} />}
+                                        <span className="text-sm font-bold">{type}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Make *</label>
+                                    <input name="make" value={formData.make} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" placeholder="e.g. Toyota" required />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Model *</label>
+                                    <input name="model" value={formData.model} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" placeholder="e.g. Fortuner" required />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Year *</label>
+                                    <input type="number" name="year" value={formData.year} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" placeholder="2024" required />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Plate No *</label>
+                                    <input name="license_plate" value={formData.license_plate} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none font-mono uppercase" placeholder="GA-XX-XX-XXXX" required />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Transmission</label>
+                                    <select name="transmission" value={formData.transmission} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary outline-none cursor-pointer">
+                                        <option value="Manual">Manual</option>
+                                        <option value="Automatic">Automatic</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Fuel</label>
+                                    <select name="fuel_type" value={formData.fuel_type} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary outline-none cursor-pointer">
+                                        <option value="Petrol">Petrol</option>
+                                        <option value="Diesel">Diesel</option>
+                                        <option value="Electric">Electric</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1 md:col-span-2">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Seating Capacity *</label>
+                                    <input type="number" name="seating_capacity" value={formData.seating_capacity} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" placeholder="e.g. 5" required />
+                                </div>
+                            </div>
+
+                            <Button fullWidth onClick={handleNextStep1} variant="primary" className="mt-8">Next Step <FaChevronRight /></Button>
+                        </Card>
+                    )}
+
+                    {/* STEP 2: Pricing & Logistics */}
+                    {step === 2 && (
+                        <Card className="p-6 md:p-8 animate-fade-in-up">
+                            <h3 className="text-xl font-bold mb-6">Pricing & Logistics</h3>
+
+                            <div className="mb-6 space-y-1">
+                                <label className="text-xs font-bold uppercase text-muted-foreground">Daily Rate (₹) *</label>
+                                <input type="number" name="price_per_day" value={formData.price_per_day} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xl font-mono" placeholder="2500" required />
+                            </div>
+
+                            <div className="space-y-4 border-t border-border pt-6">
+                                <div className="flex items-center justify-between">
+                                    <label className="font-bold text-sm">Pickup Service</label>
+                                    <input type="checkbox" name="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="w-5 h-5 accent-primary" />
+                                </div>
+                                {formData.pickup_available && (
+                                    <input type="number" name="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className="w-full p-2 bg-secondary/50 rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge Amount" />
+                                )}
+                            </div>
+
+                            <div className="space-y-4 border-t border-border pt-4 mt-4">
+                                <div className="flex items-center justify-between">
+                                    <label className="font-bold text-sm">Drop-off Service</label>
+                                    <input type="checkbox" name="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="w-5 h-5 accent-primary" />
+                                </div>
+                                {formData.dropoff_available && (
+                                    <input type="number" name="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className="w-full p-2 bg-secondary/50 rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge Amount" />
+                                )}
+                            </div>
+
+                            <div className="flex gap-4 mt-8">
+                                <Button fullWidth onClick={prevStep} className="bg-secondary hover:bg-secondary/80 text-black dark:text-white font-bold">Back</Button>
+                                <Button fullWidth onClick={handleNextStep2} variant="primary">Next Step <FaChevronRight /></Button>
+                            </div>
+                        </Card>
+                    )}
+
+                    {/* STEP 3: Verification Docs */}
+                    {step === 3 && (
+                        <Card className="p-6 md:p-8 animate-fade-in-up">
+                            <h3 className="text-xl font-bold mb-6">Verification Docs</h3>
+
+                            <div className="space-y-6">
+                                {/* Photo */}
+                                <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:bg-secondary/20 transition-colors relative group">
+                                    {imageFile ? (
+                                        <div className="relative inline-block">
+                                            <img src={imagePreview} className="h-32 mx-auto rounded-lg object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setImageFile(null); setImagePreview(''); }}
+                                                className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1 shadow-md hover:bg-destructive/90 transition-all"
+                                                title="Remove Photo"
+                                            >
+                                                <FaTimes size={12} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-muted-foreground pointer-events-none">
+                                            <FaCar className="mx-auto text-3xl mb-2 opacity-50" />
+                                            <span className="text-xs font-bold uppercase">Vehicle Photo *</span>
+                                        </div>
+                                    )}
+                                    {!imageFile && (
+                                        <input type="file" onChange={(e) => handleFileChange(e, setImageFile, setImagePreview)} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 mt-4" required />
+                                    )}
+                                </div>
+
+                                {/* RC */}
+                                <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:bg-secondary/20 transition-colors relative">
+                                    {rcFile ? (
+                                        <div className="flex items-center justify-center gap-3">
+                                            <div className="w-12 h-12 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center">
+                                                <FaCheckCircle size={20} />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-sm font-bold text-foreground truncate max-w-[200px]">{rcFile.name}</p>
+                                                <span className="text-xs text-emerald-600 font-semibold">RC Uploaded</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setRcFile(null)}
+                                                className="ml-2 text-destructive hover:bg-destructive/10 p-2 rounded-full transition-colors"
+                                                title="Remove File"
+                                            >
+                                                <FaTimes />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="text-muted-foreground pointer-events-none">
+                                                <FaFileAlt className="mx-auto text-3xl mb-2 opacity-50" />
+                                                <span className="text-xs font-bold uppercase">Registration Certificate (RC) *</span>
+                                            </div>
+                                            <input type="file" onChange={(e) => handleFileChange(e, setRcFile)} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 mt-4" required />
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Insurance */}
+                                <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:bg-secondary/20 transition-colors relative">
+                                    {insuranceFile ? (
+                                        <div className="flex items-center justify-center gap-3">
+                                            <div className="w-12 h-12 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center">
+                                                <FaCheckCircle size={20} />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-sm font-bold text-foreground truncate max-w-[200px]">{insuranceFile.name}</p>
+                                                <span className="text-xs text-emerald-600 font-semibold">Insurance Uploaded</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setInsuranceFile(null)}
+                                                className="ml-2 text-destructive hover:bg-destructive/10 p-2 rounded-full transition-colors"
+                                                title="Remove File"
+                                            >
+                                                <FaTimes />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="text-muted-foreground pointer-events-none">
+                                                <FaFileAlt className="mx-auto text-3xl mb-2 opacity-50" />
+                                                <span className="text-xs font-bold uppercase">Insurance Policy *</span>
+                                            </div>
+                                            <input type="file" onChange={(e) => handleFileChange(e, setInsuranceFile)} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 mt-4" required />
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 mt-8">
+                                <Button fullWidth onClick={prevStep} className="bg-secondary hover:bg-secondary/80 text-black dark:text-white font-bold">Back</Button>
+                                <Button fullWidth type="submit" variant="primary" disabled={mutation.isPending}>
+                                    {mutation.isPending ? 'Uploading...' : 'Submit Listing'}
+                                </Button>
+                            </div>
+                        </Card>
+                    )}
+
                 </form>
+
             </div>
         </div>
     );

@@ -3,7 +3,10 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FaFileAlt, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaFileAlt, FaExternalLinkAlt, FaSave, FaArrowLeft, FaCar, FaMotorcycle, FaBicycle, FaCog, FaMoneyBillWave, FaShieldAlt } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 // --- API Functions ---
 const fetchVehicleById = async (vehicleId) => {
@@ -12,11 +15,8 @@ const fetchVehicleById = async (vehicleId) => {
     return data;
 };
 
-// --- THIS IS THE CORRECTED FUNCTION ---
-// It now properly accepts 'docType' and uses it in the fetch URL.
 const getCertificationUrlForHost = async (vehicleId, docType) => {
     const { data: { session } } = await supabase.auth.getSession();
-    // The `?type=${docType}` part tells the backend which document to fetch.
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/hosts/my-vehicles/${vehicleId}/certification-url?type=${docType}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
     });
@@ -30,7 +30,7 @@ const getCertificationUrlForHost = async (vehicleId, docType) => {
 
 const updateVehicle = async ({ vehicleId, formData, newRcFile, newInsuranceFile }) => {
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     let updatedFormData = { ...formData };
 
     if (newRcFile) {
@@ -110,22 +110,15 @@ function EditVehicle() {
         const { name, value, type, checked } = e.target;
         setFormData(prevData => ({ ...prevData, [name]: type === 'checkbox' ? checked : value }));
     };
-    
-    const handleRcChange = (e) => {
+
+    const handleFileChange = (e, setter) => {
         if (e.target.files && e.target.files[0]) {
-            setNewRcFile(e.target.files[0]);
-        }
-    };
-    
-    const handleInsuranceChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setNewInsuranceFile(e.target.files[0]);
+            setter(e.target.files[0]);
         }
     };
 
     const handleViewDocument = async (docType) => {
         const newWindow = window.open('', '_blank');
-        newWindow.document.write('Loading document, please wait...');
         try {
             const secureUrl = await getCertificationUrlForHost(id, docType);
             newWindow.location.href = secureUrl;
@@ -141,114 +134,165 @@ function EditVehicle() {
         mutation.mutate({ vehicleId: id, formData: dataToUpdate, newRcFile, newInsuranceFile });
     };
 
-    const labelClass = "block text-sm font-medium text-gray-700 mb-1";
-    const inputClass = "w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition";
-
-    if (isLoading || !formData) {
-        return <div className="text-center p-10 font-bold text-xl">Loading Vehicle Data...</div>;
-    }
-    if (isError) {
-        return <div className="text-center p-10 text-red-600"><h2>Error loading vehicle data.</h2></div>;
-    }
+    if (isLoading || !formData) return <div className="text-center p-10 font-mono text-muted-foreground animate-pulse pt-32">LOADING VEHICLE DATA...</div>;
+    if (isError) return <div className="text-center p-10 text-destructive pt-32">ERROR LOADING DATA.</div>;
 
     return (
-        <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-lg">
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl font-extrabold text-gray-900">Edit Vehicle Details</h2>
-                    <p className="mt-2 text-gray-600">Update the information for your vehicle below.</p>
+        <div className="bg-background min-h-screen pt-24 pb-20 font-sans">
+            <div className="container mx-auto px-4 max-w-4xl">
+
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-8">
+                    <div>
+                        <Badge variant="warning" className="mb-2">Maintenance Mode</Badge>
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Edit Vehicle</h1>
+                        <p className="mt-1 text-muted-foreground">Modify details for <span className="font-bold text-foreground">{vehicle?.make} {vehicle?.model}</span></p>
+                    </div>
+                    <Button to="/host/dashboard" variant="outline" size="sm" className="gap-2">
+                        <FaArrowLeft /> Cancel & Return
+                    </Button>
                 </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* RC Document Section */}
-                    <div>
-                         <label className={labelClass}>Vehicle RC (Registration Certificate)</label>
-                         {formData.rc_document_url && (
-                            <div className="mb-2">
-                                <button type="button" onClick={() => handleViewDocument('rc')} className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-                                    <FaExternalLinkAlt /> View Current RC
-                                </button>
-                            </div>
-                         )}
-                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                            <div className="space-y-1 text-center">
-                                <FaFileAlt className={`mx-auto h-12 w-12 ${newRcFile ? 'text-green-500' : 'text-gray-400'}`} />
-                                <div className="flex text-sm text-gray-600">
-                                    <label htmlFor="rc-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                        <span>Upload new RC</span>
-                                        <input id="rc-upload" name="rc-upload" type="file" className="sr-only" onChange={handleRcChange} accept="image/*,.pdf" />
-                                    </label>
+
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                    {/* LEFT COL: Specs */}
+                    <div className="lg:col-span-2 space-y-6">
+
+                        {/* 1. Core Specs */}
+                        <Card className="p-6">
+                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+                                <FaCog className="text-primary" /> Specifications
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Make</label>
+                                    <input name="make" value={formData.make} onChange={handleChange} required className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
                                 </div>
-                                <p className="text-xs text-gray-500">{newRcFile ? `Selected: ${newRcFile.name}` : 'Replace the current document'}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Insurance Document Section */}
-                    <div>
-                         <label className={labelClass}>Vehicle Insurance Document</label>
-                         {formData.insurance_document_url && (
-                            <div className="mb-2">
-                                <button type="button" onClick={() => handleViewDocument('insurance')} className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-                                    <FaExternalLinkAlt /> View Current Insurance
-                                </button>
-                            </div>
-                         )}
-                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                            <div className="space-y-1 text-center">
-                                <FaFileAlt className={`mx-auto h-12 w-12 ${newInsuranceFile ? 'text-green-500' : 'text-gray-400'}`} />
-                                <div className="flex text-sm text-gray-600">
-                                    <label htmlFor="insurance-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                        <span>Upload new insurance</span>
-                                        <input id="insurance-upload" name="insurance-upload" type="file" className="sr-only" onChange={handleInsuranceChange} accept="image/*,.pdf" />
-                                    </label>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Model</label>
+                                    <input name="model" value={formData.model} onChange={handleChange} required className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
                                 </div>
-                                <p className="text-xs text-gray-500">{newInsuranceFile ? `Selected: ${newInsuranceFile.name}` : 'Replace the current document'}</p>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Year</label>
+                                    <input type="number" name="year" value={formData.year} onChange={handleChange} required className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Plate No (Fixed)</label>
+                                    <input value={formData.license_plate} disabled className="w-full p-3 bg-secondary/50 rounded-lg border border-border text-muted-foreground cursor-not-allowed font-mono uppercase" />
+                                </div>
                             </div>
-                        </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mt-6">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Type</label>
+                                    <select name="vehicle_type" value={formData.vehicle_type} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary outline-none">
+                                        <option value="Car">Car</option>
+                                        <option value="Bike">Bike</option>
+                                        <option value="Scooter">Scooter</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Gearbox</label>
+                                    <select name="transmission" value={formData.transmission} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary outline-none">
+                                        <option value="Manual">Manual</option>
+                                        <option value="Automatic">Automatic</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Fuel</label>
+                                    <select name="fuel_type" value={formData.fuel_type} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary outline-none">
+                                        <option value="Petrol">Petrol</option>
+                                        <option value="Diesel">Diesel</option>
+                                        <option value="Electric">Electric</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* 2. Pricing & Logistics */}
+                        <Card className="p-6">
+                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+                                <FaMoneyBillWave className="text-emerald-500" /> Pricing & Logistics
+                            </h3>
+                            <div className="mb-6 space-y-1">
+                                <label className="text-xs font-bold uppercase text-muted-foreground">Daily Rate (₹)</label>
+                                <input type="number" name="price_per_day" value={formData.price_per_day} onChange={handleChange} required className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none font-mono text-xl" />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="p-4 bg-secondary/20 rounded-lg border border-border">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="font-bold text-sm">Pickup</label>
+                                        <input type="checkbox" name="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="w-5 h-5 accent-primary" />
+                                    </div>
+                                    {formData.pickup_available && (
+                                        <input type="number" name="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className="w-full p-2 bg-background rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge" />
+                                    )}
+                                </div>
+                                <div className="p-4 bg-secondary/20 rounded-lg border border-border">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="font-bold text-sm">Drop-off</label>
+                                        <input type="checkbox" name="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="w-5 h-5 accent-primary" />
+                                    </div>
+                                    {formData.dropoff_available && (
+                                        <input type="number" name="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className="w-full p-2 bg-background rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge" />
+                                    )}
+                                </div>
+                            </div>
+                        </Card>
                     </div>
 
-                    {/* Other Vehicle Details... */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label htmlFor="make" className={labelClass}>Make</label><input type="text" name="make" id="make" value={formData.make} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="model" className={labelClass}>Model</label><input type="text" name="model" id="model" value={formData.model} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="year" className={labelClass}>Year</label><input type="number" name="year" id="year" value={formData.year} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="license_plate" className={labelClass}>License Plate (Cannot be changed)</label><input type="text" name="license_plate" id="license_plate" value={formData.license_plate} required className={`${inputClass} bg-gray-100 cursor-not-allowed`} disabled /></div>
-                        <div><label htmlFor="price_per_day" className={labelClass}>Price Per Day (₹)</label><input type="number" name="price_per_day" id="price_per_day" value={formData.price_per_day} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="seating_capacity" className={labelClass}>Seating Capacity</label><input type="number" name="seating_capacity" id="seating_capacity" value={formData.seating_capacity} onChange={handleChange} required className={inputClass} /></div>
-                        <div><label htmlFor="vehicle_type" className={labelClass}>Vehicle Type</label><select name="vehicle_type" id="vehicle_type" value={formData.vehicle_type} onChange={handleChange} className={inputClass}><option value="Car">Car</option><option value="Bike">Bike</option><option value="Scooter">Scooter</option></select></div>
-                        <div><label htmlFor="transmission" className={labelClass}>Transmission</label><select name="transmission" id="transmission" value={formData.transmission} onChange={handleChange} className={inputClass}><option value="Manual">Manual</option><option value="Automatic">Automatic</option></select></div>
-                    </div>
-                    <div><label htmlFor="fuel_type" className={labelClass}>Fuel Type</label><select name="fuel_type" id="fuel_type" value={formData.fuel_type} onChange={handleChange} className={inputClass}><option value="Petrol">Petrol</option><option value="Diesel">Diesel</option><option value="Electric">Electric</option></select></div>
-                    
-                    <div className="space-y-4 rounded-lg bg-gray-50 p-4 border">
-                        <div className="flex items-center">
-                            <input type="checkbox" name="pickup_available" id="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                            <label htmlFor="pickup_available" className="ml-3 block font-medium text-gray-800">Offer vehicle pickup?</label>
-                        </div>
-                        {formData.pickup_available && (
-                            <div className="pl-8">
-                                <label htmlFor="pickup_charge" className={labelClass}>Pickup Service Charge (₹)</label>
-                                <input type="number" name="pickup_charge" id="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
+                    {/* RIGHT COL: Docs & Save */}
+                    <div className="space-y-6">
+                        <Card className="p-6 sticky top-28">
+                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+                                <FaShieldAlt className="text-blue-500" /> Docs Update
+                            </h3>
+
+                            <div className="space-y-6">
+                                {/* RC */}
+                                <div className="border border-dashed border-border rounded-xl p-4 bg-secondary/10">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-bold uppercase">RC Doc</span>
+                                        {formData.rc_document_url && (
+                                            <button type="button" onClick={() => handleViewDocument('rc')} className="text-xs text-primary hover:underline flex items-center gap-1"><FaExternalLinkAlt /> View</button>
+                                        )}
+                                    </div>
+                                    <input type="file" onChange={(e) => handleFileChange(e, setNewRcFile)} className="block w-full text-xs text-muted-foreground file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+                                    {newRcFile && <p className="text-xs text-emerald-500 mt-1 font-bold">New file selected</p>}
+                                </div>
+
+                                {/* Insurance */}
+                                <div className="border border-dashed border-border rounded-xl p-4 bg-secondary/10">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-bold uppercase">Insurance</span>
+                                        {formData.insurance_document_url && (
+                                            <button type="button" onClick={() => handleViewDocument('insurance')} className="text-xs text-primary hover:underline flex items-center gap-1"><FaExternalLinkAlt /> View</button>
+                                        )}
+                                    </div>
+                                    <input type="file" onChange={(e) => handleFileChange(e, setNewInsuranceFile)} className="block w-full text-xs text-muted-foreground file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+                                    {newInsuranceFile && <p className="text-xs text-emerald-500 mt-1 font-bold">New file selected</p>}
+                                </div>
                             </div>
-                        )}
-                        <div className="flex items-center">
-                            <input type="checkbox" name="dropoff_available" id="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                            <label htmlFor="dropoff_available" className="ml-3 block font-medium text-gray-800">Offer vehicle drop-off?</label>
-                        </div>
-                        {formData.dropoff_available && (
-                            <div className="pl-8">
-                                <label htmlFor="dropoff_charge" className={labelClass}>Drop-off Service Charge (₹)</label>
-                                <input type="number" name="dropoff_charge" id="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className={inputClass} placeholder="e.g., 300" />
+
+                            <div className="border-t border-border mt-6 pt-6">
+                                <Button
+                                    type="submit"
+                                    fullWidth
+                                    variant="primary"
+                                    size="lg"
+                                    isLoading={mutation.isPending}
+                                    className="shadow-xl"
+                                >
+                                    {mutation.isPending ? 'Saving...' : <><FaSave className="mr-2" /> Save Changes</>}
+                                </Button>
+                                <p className="text-xs text-muted-foreground mt-3 text-center">
+                                    Submitting changes will require re-verification by admin.
+                                </p>
                             </div>
-                        )}
+                        </Card>
                     </div>
 
-                    <div>
-                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700" disabled={mutation.isPending}>
-                            {mutation.isPending ? 'Saving Changes...' : 'Save Changes'}
-                        </button>
-                    </div>
                 </form>
             </div>
         </div>

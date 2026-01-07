@@ -1,6 +1,11 @@
+// src/pages/BookingDetails.jsx
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { FaCheckCircle, FaClock, FaPrint, FaArrowLeft, FaReceipt, FaMoneyBillWave } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 export default function BookingDetail() {
   const params = useParams();
@@ -10,9 +15,7 @@ export default function BookingDetail() {
 
   const [isCancelled, setIsCancelled] = useState(false);
 
-  // -----------------------------
-  // Fetch booking from backend
-  // -----------------------------
+  // Fetch Logic
   const fetchBookingById = async () => {
     const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/booking/${id}`);
     if (!res.ok) throw new Error("Booking not found");
@@ -24,161 +27,136 @@ export default function BookingDetail() {
     queryFn: fetchBookingById,
     enabled: !!id,
     refetchInterval: (data) =>
-      data?.payments?.[0]?.refund_status !== "completed" && isCancelled ? 10000 : false, // ⏱️ Poll every 10s only after cancellation and stops polling once hits completed (alternate to supabase live subscription)
+      data?.payments?.[0]?.refund_status !== "completed" && isCancelled ? 10000 : false,
   });
 
-  // -----------------------------
-  // Cancel Booking Handler
-  // -----------------------------
+  // Actions
   const handleCancelBooking = async () => {
     if (!window.confirm("Are you sure you want to cancel this booking?")) return;
-
     const token = localStorage.getItem("token");
     const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/${id}/cancel`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     });
-
     const data = await res.json();
     alert(data.message);
-
-    setIsCancelled(true); // start polling for refund updates
+    setIsCancelled(true);
     await queryClient.invalidateQueries(["booking", id]);
   };
 
-  // -----------------------------
-  // UI Rendering
-  // -----------------------------
-  if (!id) return <p className="text-center mt-10">Invalid booking ID</p>;
-  if (isLoading) return <p className="text-center mt-10">Loading booking...</p>;
-  if (isError) return <p className="text-center text-red-600">Error: {error.message}</p>;
-  if (!booking) return <p className="text-center mt-10">No booking found</p>;
+  if (isLoading) return <div className="min-h-screen pt-32 text-center font-mono animate-pulse text-muted-foreground">LOADING RECEIPT...</div>;
+  if (isError) return <div className="min-h-screen pt-32 text-center text-destructive">UNABLE TO RETRIEVE RECORD.</div>;
+  if (!booking) return <div className="min-h-screen pt-32 text-center">Reference ID invalid.</div>;
 
   const refund = booking.payments?.[0] || {};
-  const refundStatus = refund.refund_status || "not_requested";
   const steps = ["Initiated", "Processed", "Completed"];
-  const stepIndex =
-    refundStatus === "initiated"
-      ? 0
-      : refundStatus === "processed"
-      ? 1
-      : refundStatus === "completed"
-      ? 2
-      : -1;
+  // Simple refund logic index finding
+  const stepIndex = ["initiated", "processed", "completed"].indexOf(refund.refund_status?.toLowerCase()) ?? -1;
+
+  const StatusBadge = ({ status }) => {
+    let variant = 'neutral';
+    if (status === 'confirmed') variant = 'success';
+    if (status === 'cancelled') variant = 'destructive';
+    return <Badge variant={variant} className="uppercase tracking-widest">{status}</Badge>;
+  };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow">
-      <button onClick={() => navigate(-1)} className="mb-4 text-blue-600 hover:underline">
-        ← Back
-      </button>
+    <div className="bg-background min-h-screen pt-24 pb-20 font-sans flex justify-center items-start">
+      <Card className="w-full max-w-2xl bg-card border-none md:border md:border-border shadow-2xl relative overflow-hidden">
 
-      <h2 className="text-2xl font-bold mb-6">Booking Details</h2>
+        {/* Decorative Top Border similar to a real receipt */}
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
 
-      {/* Booking Info */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">Booking Info</h3>
-        <p><b>Vehicle:</b> {booking.vehicles?.make || "N/A"} {booking.vehicles?.model || ""}</p>
-        <p><b>Type:</b> {booking.vehicles?.type || "N/A"}</p>
-        <p><b>Rental Dates:</b> {new Date(booking.start_date).toLocaleDateString()} → {new Date(booking.end_date).toLocaleDateString()}</p>
-        <p><b>Dropoff Location:</b> {booking.dropoff_location}</p>
-        <p><b>Booking Created:</b> {new Date(booking.created_at).toLocaleString()}</p>
-        <p>
-          <b>Status:</b>{" "}
-          <span
-            className={`px-2 py-1 rounded text-sm ${
-              booking.status === "confirmed"
-                ? "bg-green-200 text-green-800"
-                : booking.status === "cancelled"
-                ? "bg-yellow-200 text-yellow-800"
-                : "bg-red-200 text-red-800"
-            }`}
-          >
-            {booking.status}
-          </span>
-        </p>
-      </div>
+        <div className="p-8 md:p-12">
 
-      {/* Payment Info */}
-      <div className="mb-6 border-t pt-4">
-        <h3 className="text-lg font-semibold mb-2">Payment Details</h3>
-        <p><b>Total Paid:</b> ₹{booking.total_price}</p>
-        <p><b>Invoice No:</b> {booking.invoice_no}</p>
-      </div>
-
-      {/* Invoice Download */}
-      <div className="border-t pt-4">
-        <h3 className="text-lg font-semibold mb-2">Invoice</h3>
-        {booking.invoice_no ? (
-          <a
-            href={`${import.meta.env.VITE_API_BASE_URL}/api/invoice/${booking.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
-          >
-            Download Invoice
-          </a>
-        ) : (
-          <p className="text-gray-500">Invoice not available</p>
-        )}
-      </div>
-
-      {/* Refund Stepper */}
-      {booking.status === "cancelled" && (
-        <div className="border-t pt-4 mt-6">
-          <h3 className="text-lg font-semibold mb-2">Refund Status</h3>
-          <div className="flex items-center justify-between">
-            {steps.map((step, index) => {
-              let stepTime = "";
-              if (step.toLowerCase() === "initiated" && refund.refund_status === "initiated") {
-                stepTime = refund.created_at ? new Date(refund.created_at).toLocaleString() : "";
-              } else if (step.toLowerCase() === "processed" && refund.refund_status === "processed") {
-                stepTime = refund.refunded_at ? new Date(refund.refunded_at).toLocaleString() : "";
-              } else if (step.toLowerCase() === "completed" && refund.refund_status === "completed") {
-                stepTime = refund.refunded_at ? new Date(refund.refunded_at).toLocaleString() : "";
-              }
-
-              const isActive = index <= stepIndex;
-
-              return (
-                <div key={step} className="flex-1 flex flex-col items-center">
-                  <div
-                    className={`w-8 h-8 flex items-center justify-center rounded-full text-white ${
-                      isActive ? "bg-green-500" : "bg-gray-300"
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-                  <span className={`mt-2 text-sm ${isActive ? "text-green-700" : "text-gray-400"}`}>
-                    {step}
-                  </span>
-                  {stepTime && <span className="text-xs text-gray-500 mt-1">{stepTime}</span>}
-                  {index < steps.length - 1 && (
-                    <div className={`flex-1 h-1 ${isActive ? "bg-green-500" : "bg-gray-300"} mt-2`} />
-                  )}
-                </div>
-              );
-            })}
+          {/* Header */}
+          <div className="flex justify-between items-start mb-12">
+            <div>
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-4 pl-0 hover:bg-transparent hover:text-primary">
+                <FaArrowLeft className="mr-2" /> Back
+              </Button>
+              <h1 className="text-3xl font-bold text-foreground">Booking Receipt</h1>
+              <p className="text-sm text-muted-foreground font-mono mt-1 uppercase">ID: #{id}</p>
+            </div>
+            <div className="text-right">
+              <StatusBadge status={booking.status} />
+              <p className="text-xs text-muted-foreground mt-2">{new Date(booking.created_at).toLocaleString()}</p>
+            </div>
           </div>
-          {refund.refund_amount && (
-            <p className="mt-2 text-sm text-gray-600">
-              Refund Amount: ₹{refund.refund_amount} ({refundStatus})
-            </p>
-          )}
-        </div>
-      )}
 
-      {/* Cancel Booking Button */}
-      {booking.status === "confirmed" && (
-        <button
-          onClick={handleCancelBooking}
-          className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Cancel Booking
-        </button>
-      )}
+          {/* Main Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 border-b border-border pb-12 border-dashed">
+            <div>
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Vehicle Details</h3>
+              <div className="text-lg font-bold text-foreground">{booking.vehicles?.make} {booking.vehicles?.model}</div>
+              <div className="text-sm text-muted-foreground">{booking.vehicles?.vehicle_type}</div>
+              <div className="mt-4 text-sm">
+                <span className="block text-muted-foreground">Pick-up</span>
+                <span className="font-semibold text-foreground">{new Date(booking.start_date).toLocaleDateString()}</span>
+              </div>
+              <div className="mt-2 text-sm">
+                <span className="block text-muted-foreground">Drop-off</span>
+                <span className="font-semibold text-foreground">{new Date(booking.end_date).toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            <div className="md:text-right">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Payment Summary</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between md:justify-end gap-8">
+                  <span className="text-muted-foreground">Total Paid</span>
+                  <span className="font-mono font-bold text-foreground">₹{booking.total_price}</span>
+                </div>
+                <div className="flex justify-between md:justify-end gap-8">
+                  <span className="text-muted-foreground">Invoice No</span>
+                  <span className="font-mono text-foreground">{booking.invoice_no || 'Processing...'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Refund Section */}
+          {booking.status === "cancelled" && (
+            <div className="mb-12 p-6 bg-secondary/30 rounded-xl border border-border">
+              <h3 className="font-bold flex items-center gap-2 mb-6"><FaMoneyBillWave className="text-emerald-500" /> Refund Status</h3>
+              <div className="relative flex justify-between items-center w-full px-4">
+                {/* Connecting Line */}
+                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-border -z-10 mx-6"></div>
+
+                {steps.map((step, index) => {
+                  const isActive = index <= stepIndex;
+                  return (
+                    <div key={step} className="flex flex-col items-center bg-background px-2 z-10">
+                      <div className={`w-3 h-3 rounded-full mb-2 ${isActive ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-secondary-foreground/20'}`}></div>
+                      <span className={`text-xs font-bold uppercase ${isActive ? 'text-emerald-600' : 'text-muted-foreground'}`}>{step}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              {refund.refund_amount && (
+                <div className="text-center mt-6 p-2 bg-emerald-500/10 text-emerald-600 rounded text-sm font-bold">
+                  Refund Amount: ₹{refund.refund_amount}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer Actions */}
+          <div className="flex flex-col md:flex-row gap-4 justify-end">
+            {booking.invoice_no && (
+              <Button variant="outline" onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL}/api/invoice/${booking.id}`, '_blank')} className="gap-2">
+                <FaReceipt /> Download Invoice
+              </Button>
+            )}
+            {booking.status === "confirmed" && (
+              <Button variant="destructive" onClick={handleCancelBooking}>
+                Cancel Booking
+              </Button>
+            )}
+          </div>
+
+        </div>
+      </Card>
     </div>
   );
 }

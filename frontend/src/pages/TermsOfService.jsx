@@ -1,90 +1,133 @@
 // src/pages/TermsOfService.jsx
 import React from 'react';
+import { FaShieldAlt, FaBalanceScale, FaHandshake, FaGavel, FaExclamationTriangle } from 'react-icons/fa';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
+
+const LastUpdated = "December 30, 2025";
 
 function TermsOfService() {
     return (
-        <div className="bg-gray-50 py-12 sm:py-16">
+        <div className="bg-background min-h-screen py-24 font-sans text-foreground">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
-                <div className="bg-white p-8 sm:p-10 rounded-xl shadow-lg">
-                    <div className="text-center mb-10">
-                        <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">Terms of Service</h1>
-                        <p className="mt-2 text-gray-500 text-sm">Last Updated: September 16, 2025</p>
-                    </div>
 
-                    {/* Use space-y utility to add vertical spacing between all direct children */}
-                    <div className="prose prose-lg max-w-none space-y-8">
-                        
-                        <p className="lead">
-                            Welcome to RentalDrives! By accessing or using our application ("the Platform"), you agree to be bound by these Terms of Service. Please read them carefully.
+                {/* Header */}
+                <div className="text-center mb-16">
+                    <Badge variant="outline" className="mb-4">Legal Agreement</Badge>
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Terms of Service</h1>
+                    <p className="text-muted-foreground text-lg">
+                        Please review the contract governing your use of the RentalDrives marketplace.
+                    </p>
+                    <p className="text-xs font-mono text-muted-foreground mt-4 uppercase tracking-wider">
+                        Last Modified: {LastUpdated}
+                    </p>
+                </div>
+
+                {/* Main Contract Card */}
+                <Card className="p-8 md:p-12 shadow-xl border-border/80">
+                    <div className="prose prose-zinc dark:prose-invert max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:text-primary">
+
+                        <p className="lead text-xl text-muted-foreground border-b border-border pb-8 mb-8">
+                            Welcome to RentalDrives. By accessing our platform, you agree to these binding terms.
+                            RentalDrives acts strictly as a technology provider connecting verified Hosts with Tourists.
                         </p>
 
-                        <hr className="my-6" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 my-12 not-prose">
+                            <PolicyHighlight
+                                icon={FaHandshake}
+                                title="Peer-to-Peer Model"
+                                desc="We are not a rental agency. We facilitate secure contracts between you and vehicle owners."
+                            />
+                            <PolicyHighlight
+                                icon={FaShieldAlt}
+                                title="User Responsibility"
+                                desc="You retain full liability for vehicle operation, adherence to traffic laws, and safety."
+                            />
+                        </div>
 
-                        {/* Section 1 */}
-                        <section>
-                            <h2>1. Description of Service</h2>
-                            <p>
-                                RentalDrives is a peer-to-peer marketplace that connects vehicle owners ("Hosts") with individuals seeking to rent vehicles ("Tourists"). RentalDrives is not a rental company. We are a neutral platform that facilitates the rental transaction between the Host and the Tourist. The actual rental agreement is a direct contract between the Host and the Tourist.
-                            </p>
-                        </section>
+                        <h3>1. The Marketplace Platform</h3>
+                        <p>
+                            RentalDrives is a neutral venue. We verify identities via government ID and enforce chassis-level verification for vehicles, but the actual rental agreement is formed directly between the Host and the Guest.
+                        </p>
+                        <br />
+                        <br />
 
-                        {/* Section 2 */}
-                        <section>
-                            <h2>2. User Responsibilities</h2>
-                            <ul>
-                                <li><strong>Accurate Information:</strong> You agree to provide true, accurate, and complete information during registration and to keep this information updated.</li>
-                                <li><strong>Compliance with Laws:</strong> All users must comply with all applicable local, state, and national laws, including traffic laws and vehicle regulations in Goa, India.</li>
-                                <li><strong>Tourists:</strong> You must possess a valid and current driver's license to book and operate any vehicle.</li>
-                                <li><strong>Hosts:</strong> You must ensure your vehicle is legally registered, insured, safe, and in good mechanical condition. You are responsible for ensuring your vehicle meets all legal standards for rental.</li>
-                            </ul>
-                        </section>
 
-                        {/* Section 3 */}
-                        <section>
-                            <h2>3. Verification and Identity</h2>
-                            <p>
-                                While RentalDrives has an admin approval process for Hosts and vehicles, we do not and cannot guarantee the identity of any user, the accuracy of any information provided, or the roadworthiness, safety, or legality of any vehicle listed on the Platform. Users are encouraged to exercise their own judgment and due diligence before entering into a rental agreement.
-                            </p>
-                        </section>
+                        <h3>2. Financial Obligations</h3>
+                        <p>
+                            All transactions are processed securely via 256-bit encrypted gateways (Razorpay).
+                            Guests agree to pay the listed "Total Rate" which includes:
+                        </p>
+                        <ul className="list-disc pl-5 space-y-2 text-muted-foreground font-medium">
+                            <li>Base Daily Rental Rate</li>
+                            <li>Platform Facilitation Fee (2%)</li>
+                            <li>Applicable Taxes (GST)</li>
+                        </ul>
 
-                        {/* Section 4 - Highlighted for emphasis */}
-                        <section className="bg-gray-100 p-6 rounded-lg border border-gray-200">
-                            <h2 className="!mt-0">4. Limitation of Liability and Disclaimer</h2>
-                            <p>
-                                <strong>RentalDrives is only a platform. We are not responsible and expressly disclaim any liability for:</strong>
-                            </p>
-                            <ul>
-                                <li><strong>Accidents and Injuries:</strong> Any accidents, personal injuries, property damage, or death that may occur during a rental period. All liability rests with the Host and/or the Tourist involved.</li>
-                                <li><strong>User Conduct:</strong> The conduct of any Host or Tourist. This includes, but is not limited to, traffic violations, illegal activities, reckless driving, or any form of misconduct.</li>
-                                <li><strong>Fake or Fraudulent Users:</strong> Any loss or damage arising from interactions with users who may have provided false, misleading, or fraudulent information.</li>
-                                <li><strong>Vehicle Condition:</strong> The condition, performance, or safety of any vehicle. Hosts are solely responsible for the maintenance and safety of their vehicles.</li>
-                                <li><strong>Disputes:</strong> Any and all disputes arising between a Host and a Tourist. RentalDrives has no obligation to mediate or resolve disputes between its users.</li>
-                            </ul>
-                            <p className="font-semibold">
-                                By using this service, you agree that you are doing so at your own risk.
-                            </p>
-                        </section>
+                        <div className="my-10 p-6 bg-destructive/5 border border-destructive/20 rounded-xl not-prose">
+                            <div className="flex gap-4">
+                                <FaExclamationTriangle className="text-destructive text-2xl shrink-0 mt-1" />
+                                <div>
+                                    <h4 className="font-bold text-destructive text-lg mb-2">3. Limitation of Liability</h4>
+                                    <p className="text-sm text-foreground/80 leading-relaxed">
+                                        RentalDrives expressly disclaims liability for any accidents, injuries, or third-party damages occurring during the rental period.
+                                        By using the platform, you acknowledge that <strong>RentalDrives is an intermediary</strong> and not a party to the rental contract.
+                                        All claims must be directed to the respective Host or Insurance Provider.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
 
-                        {/* Section 5 */}
-                        <section>
-                            <h2>5. Indemnification</h2>
-                            <p>
-                                You agree to indemnify and hold harmless RentalDrives, its owners, and employees from any claim or demand, including reasonable attorneys' fees, made by any third party due to or arising out of your use of the service, your violation of these Terms of Service, or your violation of any rights of another.
-                            </p>
-                        </section>
+                        <h3>4. Cancellation & Refunds</h3>
+                        <p>
+                            Cancellation policies are set by Hosts but enforced by the platform:
+                        </p>
+                        <ul>
+                            <li><strong>&gt; 24 Hours before pickup:</strong> Full Refund (minus processing fees).</li>
+                            <li><strong>&lt; 24 Hours before pickup:</strong> 50% Refund of Base Rate.</li>
+                            <li><strong>No-Show:</strong> No Refund.</li>
+                        </ul>
+                        <br />
+                        <br />
 
-                        {/* Section 6 */}
-                        <section>
-                            <h2>6. Governing Law</h2>
-                            <p>
-                                These Terms of Service shall be governed by the laws of the State of Goa, India, without regard to its conflict of law provisions.
-                            </p>
-                        </section>
+
+                        <h3>5. Dispute Resolution</h3>
+                        <p>
+                            In the event of a dispute, users agree to first attempt mediation via our Support Center.
+                            Unresolved matters shall be governed by the laws of the State of Goa, India.
+                        </p>
+
                     </div>
-                </div>
+
+                    <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 font-bold text-sm">
+                            <FaShieldAlt /> Legally Binding Digital Contract
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center md:text-right">
+                            RentalDrives Inc, Panaji, Goa.<br />
+                            Legal Department
+                        </p>
+                    </div>
+
+                </Card>
             </div>
         </div>
     );
 }
+
+// Helper Component for Visual Interest
+const PolicyHighlight = ({ icon: Icon, title, desc }) => (
+    <div className="flex gap-4 p-4 rounded-lg bg-secondary/50 border border-border">
+        <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center shrink-0 text-primary shadow-sm border border-border/50">
+            <Icon />
+        </div>
+        <div>
+            <h4 className="font-bold text-foreground text-sm uppercase tracking-wide mb-1">{title}</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+                {desc}
+            </p>
+        </div>
+    </div>
+);
 
 export default TermsOfService;

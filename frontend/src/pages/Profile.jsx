@@ -3,149 +3,11 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { FaUser, FaEnvelope, FaUserTag, FaStar, FaRegStar, FaEdit, FaUpload, FaCheckCircle, FaMapMarkerAlt, FaPhone, FaIdCard } from 'react-icons/fa';
-import { Link ,useNavigate } from 'react-router-dom';
-
-// --- Edit Profile Modal Component ---
-function EditProfileModal({ profile, onClose, onSubmit }) {
-    const [fullName, setFullName] = useState(profile?.full_name || '');
-    const [address, setAddress] = useState(profile?.address || '');
-    const [phonePrimary, setPhonePrimary] = useState(profile?.phone_primary || '');
-    const [phoneSecondary, setPhoneSecondary] = useState(profile?.phone_secondary || '');
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!fullName.trim()) {
-            alert('Please enter your full name.');
-            return;
-        }
-        onSubmit({
-            full_name: fullName,
-            address: address,
-            phone_primary: phonePrimary,
-            phone_secondary: phoneSecondary
-        });
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-                <h2 className="text-2xl font-bold mb-6">Edit Your Profile</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label htmlFor="fullName" className="block text-gray-700 font-semibold mb-2">Full Name</label>
-                        <input
-                            id="fullName"
-                            type="text"
-                            className="w-full p-3 border border-gray-300 rounded-lg"
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="mb-4">
-                        <label htmlFor="address" className="block text-gray-700 font-semibold mb-2">Your Address (for pickup)</label>
-                        <textarea
-                            id="address"
-                            rows="3"
-                            className="w-full p-3 border border-gray-300 rounded-lg"
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            placeholder="e.g., 123 Beach Rd, Panjim, Goa"
-                        />
-                    </div>
-                    <div className="mb-4">
-                        <label htmlFor="phonePrimary" className="block text-gray-700 font-semibold mb-2">Primary Phone</label>
-                        <input
-                            id="phonePrimary"
-                            type="tel"
-                            className="w-full p-3 border border-gray-300 rounded-lg"
-                            value={phonePrimary}
-                            onChange={(e) => setPhonePrimary(e.target.value)}
-                            placeholder="e.g., +91 9876543210"
-                        />
-                    </div>
-                    <div className="mb-6">
-                        <label htmlFor="phoneSecondary" className="block text-gray-700 font-semibold mb-2">Secondary Phone (Optional)</label>
-                        <input
-                            id="phoneSecondary"
-                            type="tel"
-                            className="w-full p-3 border border-gray-300 rounded-lg"
-                            value={phoneSecondary}
-                            onChange={(e) => setPhoneSecondary(e.target.value)}
-                            placeholder="e.g., +91 9876543211"
-                        />
-                    </div>
-                    <div className="flex justify-end gap-4">
-                        <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
-                            Cancel
-                        </button>
-                        <button type="submit" className="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                            Save Changes
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-// --- Review Modal Component (remains the same) ---
-function ReviewModal({ booking, review, onClose, onSubmit }) {
-    const [rating, setRating] = useState(review?.rating || 0);
-    const [comment, setComment] = useState(review?.comment || '');
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (rating === 0) {
-            alert('Please select a rating.');
-            return;
-        }
-        onSubmit({ rating, comment });
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-                <h2 className="text-2xl font-bold mb-4">
-                    {review ? 'Edit Your Review' : 'Write a Review'}
-                </h2>
-                <p className="text-gray-600 mb-6">For your booking of the {booking.vehicles.make} {booking.vehicles.model}</p>
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold mb-2">Your Rating</label>
-                        <div className="flex space-x-2 text-3xl text-yellow-400">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <button type="button" key={star} onClick={() => setRating(star)} className="focus:outline-none">
-                                    {star <= rating ? <FaStar /> : <FaRegStar />}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="mb-6">
-                        <label htmlFor="comment" className="block text-gray-700 font-semibold mb-2">Your Comments</label>
-                        <textarea
-                            id="comment"
-                            rows="4"
-                            className="w-full p-2 border border-gray-300 rounded-lg"
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            placeholder="How was your experience?"
-                        />
-                    </div>
-                    <div className="flex justify-end gap-4">
-                        <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
-                            Cancel
-                        </button>
-                        <button type="submit" className="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                            Submit Review
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
+import { FaUser, FaEnvelope, FaStar, FaRegStar, FaEdit, FaCheckCircle, FaIdCard, FaCar, FaCalendarAlt, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 // --- API Functions ---
 const fetchUserProfile = async (userId) => {
@@ -161,53 +23,23 @@ const updateUserProfile = async (profileData) => {
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify(profileData)
     });
-    if (!response.ok) throw new Error('Failed to update profile');
-    return response.json();
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to update profile');
+    return data;
 };
 
-const uploadHostDocument = async ({ file, userId }) => {
-    if (!file) throw new Error("No file selected for upload.");
-
+const uploadDocument = async ({ file, userId, bucket, profileKey }) => {
+    if (!file) throw new Error("No file selected.");
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}-${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage
-        .from('host-documents')
-        .upload(fileName, file);
-
-    if (uploadError) throw new Error(uploadError.message);
-
-    const { data: urlData } = supabase.storage
-        .from('host-documents')
-        .getPublicUrl(fileName);
-
-    return updateUserProfile({ business_document_url: urlData.publicUrl });
+    const { error } = await supabase.storage.from(bucket).upload(fileName, file);
+    if (error) throw new Error(error.message);
+    const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    return updateUserProfile({ [profileKey]: data.publicUrl });
 };
-
-const uploadLicenseDocument = async ({ file, userId }) => {
-    if (!file) throw new Error("No file selected for upload.");
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}-license-${Date.now()}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-        .from('tourist-licenses')
-        .upload(fileName, file);
-
-    if (uploadError) throw new Error(uploadError.message);
-
-    const { data: urlData } = supabase.storage
-        .from('tourist-licenses')
-        .getPublicUrl(fileName);
-
-    return updateUserProfile({ license_document_url: urlData.publicUrl });
-};
-
 
 const fetchUserBookings = async (userId) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -224,10 +56,7 @@ const cancelBooking = async (bookingId) => {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to cancel booking');
-    }
+    if (!response.ok) throw new Error('Cancellation failed');
     return response.json();
 };
 
@@ -236,14 +65,9 @@ const createReview = async ({ booking, rating, comment }) => {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-            booking_id: booking.id,
-            vehicle_id: booking.vehicle_id,
-            rating,
-            comment,
-        }),
+        body: JSON.stringify({ booking_id: booking.id, vehicle_id: booking.vehicle_id, rating, comment }),
     });
-    if (!response.ok) throw new Error('Failed to create review.');
+    if (!response.ok) throw new Error('Failed to post review');
     return response.json();
 };
 
@@ -254,144 +78,99 @@ const updateReview = async ({ reviewId, rating, comment }) => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ rating, comment }),
     });
-    if (!response.ok) throw new Error('Failed to update review.');
+    if (!response.ok) throw new Error('Failed to update review');
     return response.json();
 };
 
-const deleteReview = async (reviewId) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reviews/${reviewId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-    });
-    if (!response.ok) throw new Error('Failed to delete review.');
-};
+
+// --- Sub-Components ---
 
 
-const getStatusClasses = (status) => {
-    switch (status) {
-        case 'confirmed':
-            return 'bg-green-100 text-green-800';
-        case 'cancelled':
-            return 'bg-red-100 text-red-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
-    }
-};
+function ReviewModal({ booking, review, onClose, onSubmit }) {
+    const [rating, setRating] = useState(review?.rating || 0);
+    const [comment, setComment] = useState(review?.comment || '');
 
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <Card className="w-full max-w-md shadow-2xl animate-fade-in-up">
+                <div className="p-6 border-b border-border">
+                    <h3 className="text-xl font-bold">{review ? 'Edit Review' : 'Rate Your Trip'}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">{booking.vehicles.make} {booking.vehicles.model}</p>
+                </div>
+                <form onSubmit={(e) => { e.preventDefault(); onSubmit({ rating, comment }); }} className="p-6 space-y-6">
+                    <div className="flex justify-center gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                            <button type="button" key={star} onClick={() => setRating(star)} className="text-3xl focus:outline-none transition-transform hover:scale-110">
+                                {star <= rating ? <FaStar className="text-amber-400" /> : <FaRegStar className="text-muted-foreground" />}
+                            </button>
+                        ))}
+                    </div>
+                    <textarea
+                        className="w-full p-3 bg-secondary rounded-lg border border-input focus:ring-2 focus:ring-primary outline-none min-h-[100px]"
+                        placeholder="Share your experience..."
+                        value={comment}
+                        onChange={e => setComment(e.target.value)}
+                    />
+                    <div className="flex justify-end gap-3">
+                        <Button variant="ghost" onClick={onClose} size="sm">Back</Button>
+                        <Button type="submit" variant="primary" size="sm" disabled={rating === 0}>Submit</Button>
+                    </div>
+                </form>
+            </Card>
+        </div>
+    );
+}
+
+// --- Main Component ---
 function Profile() {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
+
+    // UI State
+    const [activeTab, setActiveTab] = useState('overview');
+    const [isEditModalOpen, setEditModalOpen] = useState(false);
     const [isReviewModalOpen, setReviewModalOpen] = useState(false);
     const [currentReviewData, setCurrentReviewData] = useState({ booking: null, review: null });
-    const [isEditModalOpen, setEditModalOpen] = useState(false);
-    const [documentFile, setDocumentFile] = useState(null);
-    const [licenseFile, setLicenseFile] = useState(null);
-      const navigate = useNavigate();
 
-    const { data: profile, isLoading: isLoadingProfile } = useQuery({
+    const [docFile, setDocFile] = useState(null);
+    const [licenseFile, setLicenseFile] = useState(null);
+
+    // Queries
+    const { data: profile, isLoading } = useQuery({
         enabled: !!user?.id,
         queryKey: ['profile', user?.id],
         queryFn: () => fetchUserProfile(user.id),
     });
 
-    const { data: bookings, isLoading: isLoadingBookings } = useQuery({
+    const { data: bookings } = useQuery({
         enabled: !!user?.id && !!profile && profile.role !== 'admin',
         queryKey: ['bookings', user?.id],
         queryFn: () => fetchUserBookings(user.id),
     });
 
-    const updateProfileMutation = useMutation({
-        mutationFn: updateUserProfile,
-        onSuccess: () => {
-            alert('Profile updated successfully!');
-            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
-            setEditModalOpen(false);
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
+    // Mutations
+
+
+    const docUploadMutation = useMutation({
+        mutationFn: (vars) => uploadDocument(vars),
+        onSuccess: () => { alert("Document uploaded."); queryClient.invalidateQueries(['profile']); setDocFile(null); setLicenseFile(null); }
     });
 
-    const documentUploadMutation = useMutation({
-        mutationFn: uploadHostDocument,
-        onSuccess: () => {
-            alert("Document uploaded successfully! It is now pending review.");
-            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
-            setDocumentFile(null);
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
-    });
-
-    const licenseUploadMutation = useMutation({
-        mutationFn: uploadLicenseDocument,
-        onSuccess: () => {
-            alert("License uploaded successfully! It is now pending review.");
-            queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
-            setLicenseFile(null);
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
-    });
-
-    const cancelBookingMutation = useMutation({
+    const cancelMutation = useMutation({
         mutationFn: cancelBooking,
-        onSuccess: () => {
-            alert('Booking cancelled successfully.');
-            queryClient.invalidateQueries({ queryKey: ['bookings', user?.id] });
-        },
-        onError: (error) => {
-            alert(`Error: ${error.message}`);
-        },
+        onSuccess: () => queryClient.invalidateQueries(['bookings'])
     });
 
     const createReviewMutation = useMutation({
         mutationFn: createReview,
-        onSuccess: () => {
-            alert('Review submitted successfully!');
-            queryClient.invalidateQueries({ queryKey: ['bookings', user?.id] });
-            setReviewModalOpen(false);
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
+        onSuccess: () => { queryClient.invalidateQueries(['bookings']); setReviewModalOpen(false); alert("Review submitted."); }
     });
 
     const updateReviewMutation = useMutation({
         mutationFn: updateReview,
-        onSuccess: () => {
-            alert('Review updated successfully!');
-            queryClient.invalidateQueries({ queryKey: ['bookings', user?.id] });
-            setReviewModalOpen(false);
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
+        onSuccess: () => { queryClient.invalidateQueries(['bookings']); setReviewModalOpen(false); alert("Review updated."); }
     });
-
-    const deleteReviewMutation = useMutation({
-        mutationFn: deleteReview,
-        onSuccess: () => {
-            alert('Review deleted successfully!');
-            queryClient.invalidateQueries({ queryKey: ['bookings', user?.id] });
-        },
-        onError: (error) => alert(`Error: ${error.message}`),
-    });
-
-    const handleCancelBooking = (bookingId) => {
-        if (window.confirm('Are you sure you want to cancel this booking?')) {
-            cancelBookingMutation.mutate(bookingId);
-        }
-    };
-
-    const handleCreateReview = (booking) => {
-        setCurrentReviewData({ booking, review: null });
-        setReviewModalOpen(true);
-    };
-
-    const handleEditReview = (booking, review) => {
-        setCurrentReviewData({ booking, review });
-        setReviewModalOpen(true);
-    };
-
-    const handleDeleteReview = (reviewId) => {
-        if (window.confirm('Are you sure you want to delete this review?')) {
-            deleteReviewMutation.mutate(reviewId);
-        }
-    };
 
     const handleReviewSubmit = ({ rating, comment }) => {
         if (currentReviewData.review) {
@@ -401,191 +180,200 @@ function Profile() {
         }
     };
 
-    const handleDocumentUpload = () => {
-        if (documentFile) {
-            documentUploadMutation.mutate({ file: documentFile, userId: user.id });
-        }
-    };
-
-    const handleLicenseUpload = () => {
-        if (licenseFile) {
-            licenseUploadMutation.mutate({ file: licenseFile, userId: user.id });
-        }
-    };
-
-    if (isLoadingProfile) {
-        return <div className="text-center p-10 font-bold text-xl">Loading Profile...</div>;
+    const handleCancelBooking = (id) => {
+        if (confirm("Cancel this booking?")) cancelMutation.mutate(id);
     }
 
+    const handleSignOut = async () => {
+        if (window.confirm("Are you sure you want to sign out?")) {
+            await signOut();
+            navigate('/login');
+        }
+    };
+
+    if (isLoading) return <div className="min-h-[100dvh] pt-24 text-center font-mono animate-pulse text-muted-foreground">SYNCING PROFILE...</div>;
+
+    const StatusBadge = ({ status }) => {
+        let variant = 'neutral';
+        if (status === 'confirmed') variant = 'success';
+        if (status === 'cancelled') variant = 'destructive';
+        if (status === 'completed') variant = 'primary';
+        return <Badge variant={variant} className="uppercase text-[10px] tracking-wider">{status}</Badge>;
+    };
+
     return (
-        <div className="bg-gray-100 min-h-screen">
-            {isReviewModalOpen && (
-                <ReviewModal
-                    booking={currentReviewData.booking}
-                    review={currentReviewData.review}
-                    onClose={() => setReviewModalOpen(false)}
-                    onSubmit={handleReviewSubmit}
-                />
-            )}
-            {isEditModalOpen && (
-                <EditProfileModal
-                    profile={profile}
-                    onClose={() => setEditModalOpen(false)}
-                    onSubmit={(data) => updateProfileMutation.mutate(data)}
-                />
-            )}
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <h1 className="text-4xl font-extrabold text-gray-900 mb-8">Your Profile</h1>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-1 space-y-8">
-                        <div className="bg-white p-6 rounded-xl shadow-md">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-2xl font-bold text-gray-800">Account Details</h2>
-                                <button onClick={() => setEditModalOpen(true)} className="text-gray-500 hover:text-blue-600">
-                                    <FaEdit size={20} />
-                                </button>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="flex items-center"><FaUser className="mr-3 text-gray-500" /> <span className="text-gray-700">{profile?.full_name}</span></div>
-                                <div className="flex items-center"><FaEnvelope className="mr-3 text-gray-500" /> <span className="text-gray-700">{user?.email}</span></div>
-                                <div className="flex items-center"><FaUserTag className="mr-3 text-gray-500" /> <span className="capitalize font-semibold text-blue-600">{profile?.role}</span></div>
-                                {profile?.address && (
-                                    <div className="flex items-start"><FaMapMarkerAlt className="mr-3 mt-1 text-gray-500 flex-shrink-0" /> <span className="text-gray-700">{profile.address}</span></div>
-                                )}
-                                <div className="flex items-center">
-                                    <FaPhone className="mr-3 text-gray-500" />
-                                    <span className="text-gray-700">{profile?.phone_primary || 'N/A'}</span>
-                                </div>
-                                <div className="flex items-center">
-                                    <FaPhone className="mr-3 text-gray-500" />
-                                    <span className="text-gray-700">{profile?.phone_secondary || 'N/A'}</span>
-                                </div>
+        <div className="bg-background min-h-[100dvh] pt-20 md:pt-24 pb-20 font-sans">
+            <div className="container mx-auto px-4 lg:px-8 max-w-6xl">
+
+                {/* Mobile Header: Compact */}
+                <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between mb-8">
+                    <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-3xl border border-primary/20 flex-shrink-0 uppercase">
+                            {(profile?.full_name || user?.user_metadata?.full_name)?.charAt(0) || <FaUser />}
+                        </div>
+                        <div className="flex-grow">
+                            <h1 className="text-2xl md:text-3xl font-bold text-foreground capitalize">{profile?.full_name || user?.user_metadata?.full_name || 'Valued Member'}</h1>
+                            <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1"><FaEnvelope size={12} /> {user?.email}</span>
+                                <span className="hidden md:inline w-1 h-1 bg-muted-foreground rounded-full"></span>
+                                <span className="flex items-center gap-1 font-mono uppercase text-xs border border-border px-1 rounded">{profile?.role || user?.user_metadata?.role || 'User'}</span>
                             </div>
                         </div>
-
-                        {/* CORRECTED LOGIC: Host verification block */}
-                        {profile?.role === 'host' && (
-                            <div className="bg-white p-6 rounded-xl shadow-md">
-                                <h2 className="text-2xl font-bold text-gray-800 mb-4">Host Verification</h2>
-                                {profile?.is_verified ? (
-                                    <div className="flex items-center text-green-600">
-                                        <FaCheckCircle className="mr-3" />
-                                        <span className="font-semibold">Verified Host</span>
-                                    </div>
-                                ) : profile?.business_document_url ? (
-                                    <div className="text-center">
-                                        <p className="text-yellow-600 font-semibold mb-2">Document Submitted</p>
-                                        <p className="text-sm text-gray-500">Your document is pending review by our team.</p>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <p className="text-gray-600 mb-4">Upload your business registration or license to get a "Verified Host" badge.</p>
-                                        <input
-                                            type="file"
-                                            onChange={(e) => setDocumentFile(e.target.files[0])}
-                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                            accept="image/*,.pdf"
-                                        />
-                                        <button
-                                            onClick={handleDocumentUpload}
-                                            disabled={!documentFile || documentUploadMutation.isPending}
-                                            className="w-full mt-4 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-                                        >
-                                            {documentUploadMutation.isPending ? 'Uploading...' : 'Upload Document'}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* CORRECTED LOGIC: Tourist verification block (Moved outside of the host block) */}
-                        {profile?.role === 'tourist' && (
-                            <div className="bg-white p-6 rounded-xl shadow-md">
-                                <h2 className="text-2xl font-bold text-gray-800 mb-4">Driver's License Verification</h2>
-                                {profile?.is_license_verified ? (
-                                    <div className="flex items-center text-green-600">
-                                        <FaCheckCircle className="mr-3" />
-                                        <span className="font-semibold">License Verified</span>
-                                    </div>
-                                ) : profile?.license_document_url ? (
-                                    <div className="text-center">
-                                        <p className="text-yellow-600 font-semibold mb-2">License Submitted</p>
-                                        <p className="text-sm text-gray-500">Your license is pending review by our team.</p>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <p className="text-gray-600 mb-4">
-                                            Upload your driver’s license to complete verification. <br />
-                                            <span className="text-sm text-gray-500">
-                                                (You can also show your license at the pickup location)
-                                            </span>
-                                        </p>
-                                        <input
-                                            type="file"
-                                            onChange={(e) => setLicenseFile(e.target.files[0])}
-                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                            accept="image/*,.pdf"
-                                        />
-                                        <button
-                                            onClick={handleLicenseUpload}
-                                            disabled={!licenseFile || licenseUploadMutation.isPending}
-                                            className="w-full mt-4 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-                                        >
-                                            {licenseUploadMutation.isPending ? 'Uploading...' : 'Upload License'}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
-                    <div className="lg:col-span-2">
-                        <div className="bg-white p-6 rounded-xl shadow-md">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6">My Bookings</h2>
-                            {isLoadingBookings ? (
-                                <p className="text-center text-gray-500 py-8">Loading bookings...</p>
-                            ) : bookings && bookings.length > 0 ? (
-                                <ul className="space-y-6">
-                                    {bookings.map(booking => {
-                                        const existingReview = booking.vehicles.reviews?.find(r => r.booking_id === booking.id);
-                                        return (
-                                            <li key={booking.id} className="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                                <img src={booking.vehicles.image_urls?.[0] || 'https://via.placeholder.com/150'} alt="Vehicle" className="w-32 h-20 object-cover rounded-md flex-shrink-0" />
-                                                <div className="flex-grow text-center sm:text-left">
-                                                    <Link to={`/vehicle/${booking.vehicle_id}`} className="font-bold text-lg text-gray-800 hover:text-blue-600">{booking.vehicles.make} {booking.vehicles.model}</Link>
-                                                    {/* NEW LINK: Booking Details */}
-                                                    <Link to={`/booking/${booking.id}`} className="text-blue-600 text-sm hover:underline mt-1 block">View Booking Details</Link>
-                                                    <p className={`text-sm font-semibold mt-1 capitalize ${getStatusClasses(booking.status)} inline-block px-2 py-0.5 rounded-full`}>{booking.status}</p>
-                                                    {existingReview && (
-                                                        <div className="flex items-center mt-2 justify-center sm:justify-start">
-                                                            <span className="text-yellow-500 flex items-center">{[...Array(5)].map((_, i) => i < existingReview.rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}</span>
-                                                            <span className="text-sm ml-2 text-gray-600">Your Rating: {existingReview.rating}/5</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-shrink-0 gap-2 self-center sm:self-auto">
-                                                    {booking.status === 'confirmed' && (<button onClick={() => handleCancelBooking(booking.id)} disabled={cancelBookingMutation.isPending} className="bg-red-500 text-white text-xs font-semibold py-1 px-3 rounded-full hover:bg-red-600 transition-colors disabled:bg-gray-400">Cancel</button>)}
-                                                    {booking.status !== 'cancelled' && (
-                                                        existingReview ? (
-                                                            <>
-                                                                <button onClick={() => handleEditReview(booking, existingReview)} className="bg-gray-200 text-gray-700 text-xs font-semibold py-1 px-3 rounded-full hover:bg-gray-300">Edit</button>
-                                                                <button onClick={() => handleDeleteReview(existingReview.id)} className="bg-gray-200 text-gray-700 text-xs font-semibold py-1 px-3 rounded-full hover:bg-gray-300">Delete</button>
-                                                            </>
-                                                        ) : (
-                                                            <button onClick={() => handleCreateReview(booking)} className="bg-blue-500 text-white text-xs font-semibold py-1 px-3 rounded-full hover:bg-blue-600">Review</button>
-                                                        )
-                                                    )}
-                                                </div>
-                                            </li>
-                                        )
-                                    })}
-                                </ul>
-                            ) : (
-                                <p className="text-center text-gray-500 py-8">You have not made any bookings yet.</p>
-                            )}
-                        </div>
+
+                    {/* Action Buttons - Stacked on Mobile */}
+                    <div className="flex gap-2 w-full md:w-auto">
+                        {profile?.role === 'host' && <Button to="/host/dashboard" variant="primary" size="sm" className="flex-1 md:flex-none">Host Dashboard</Button>}
+                        {profile?.role === 'admin' && <Button to="/admin/dashboard" variant="primary" size="sm" className="flex-1 md:flex-none">Admin Console</Button>}
+                        <Button onClick={handleSignOut} variant="outline" size="sm" className="border-destructive/30 text-destructive hover:bg-destructive/10 flex-1 md:flex-none">
+                            <FaSignOutAlt className="md:hidden mr-1" />
+                            Sign Out
+                        </Button>
                     </div>
                 </div>
+
+                {/* Scrollable Tabs */}
+                <div className="flex gap-6 border-b border-border mb-8 overflow-x-auto no-scrollbar tap-highlight-transparent">
+                    {['overview', 'bookings', 'identity'].map(tab => (
+                        <button key={tab} onClick={() => setActiveTab(tab)}
+                            className={`pb-3 text-sm font-semibold capitalize transition-all border-b-2 whitespace-nowrap px-1 ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}>
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+
+                {/* TAB: OVERVIEW */}
+                {activeTab === 'overview' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
+                        <Card className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-bold flex items-center gap-2"><FaUser className="text-primary" /> Personal Details</h3>
+                                <Button variant="ghost" size="sm" onClick={() => navigate('/edit-profile')}><FaEdit /> Edit</Button>
+                            </div>
+                            <div className="space-y-4 text-sm">
+                                <div className="grid grid-cols-1 md:grid-cols-3 py-2 border-b border-border border-dashed gap-1 md:gap-0">
+                                    <span className="text-muted-foreground">Name</span>
+                                    <span className="md:col-span-2 font-medium md:text-right">{profile?.full_name || '-'}</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 py-2 border-b border-border border-dashed gap-1 md:gap-0">
+                                    <span className="text-muted-foreground">Phone</span>
+                                    <span className="md:col-span-2 font-medium md:text-right font-mono">{profile?.phone_primary || '-'}</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 py-2 border-b border-border border-dashed gap-1 md:gap-0">
+                                    <span className="text-muted-foreground">Address</span>
+                                    <span className="md:col-span-2 font-medium md:text-right truncate">{profile?.address || '-'}</span>
+                                </div>
+                            </div>
+                        </Card>
+
+                        <Card className="p-6 bg-gradient-to-br from-card to-secondary/30">
+                            <h3 className="font-bold flex items-center gap-2 mb-6"><FaCheckCircle className="text-emerald-500" /> Account Status</h3>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center bg-background p-4 rounded-lg border border-border">
+                                    <span className="text-sm font-medium">Identity Verified</span>
+                                    <Badge variant={profile?.identity_verified ? 'success' : 'neutral'}>
+                                        {profile?.identity_verified ? 'Verified' : 'Pending'}
+                                    </Badge>
+                                </div>
+                                <div className="flex justify-between items-center bg-background p-4 rounded-lg border border-border">
+                                    <span className="text-sm font-medium">Total Trips</span>
+                                    <span className="font-mono font-bold text-lg">{bookings?.length || 0}</span>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+
+                {/* TAB: BOOKINGS */}
+                {activeTab === 'bookings' && (
+                    <div className="space-y-4 animate-fade-in-up">
+                        {bookings?.length === 0 ? (
+                            <div className="text-center py-12 border-2 border-dashed border-border rounded-xl">
+                                <p className="mb-4 text-muted-foreground">You haven't booked any trips yet.</p>
+                                <Button to="/cars" variant="primary">Find a Ride</Button>
+                            </div>
+                        ) : (
+                            bookings?.map(booking => (
+                                <Card key={booking.id} className="p-0 overflow-hidden hover:border-primary/40 transition-colors">
+                                    <div className="flex flex-col md:flex-row">
+                                        <div className="w-full md:w-48 bg-secondary h-48 md:h-auto">
+                                            <img src={booking.vehicles.image_urls?.[0]} className="w-full h-full object-cover" alt="Vehicle" />
+                                        </div>
+                                        <div className="p-6 flex-grow flex flex-col justify-between gap-6">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <StatusBadge status={booking.status} />
+                                                        <span className="text-xs font-mono text-muted-foreground hidden sm:inline">#{booking.id.slice(0, 8)}</span>
+                                                    </div>
+                                                    <div className="font-mono-numbers font-bold text-lg md:text-xl">₹{booking.total_price.toLocaleString()}</div>
+                                                </div>
+                                                <h3 className="font-bold text-lg">{booking.vehicles.make} {booking.vehicles.model}</h3>
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground">
+                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {booking.start_date}</span>
+                                                    <span className="hidden sm:inline">→</span>
+                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {booking.end_date}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2 justify-end pt-4 border-t border-border border-dashed">
+                                                {booking.status === 'confirmed' && (
+                                                    <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)}
+                                                        className="text-destructive border-destructive/30 hover:bg-destructive/10 w-full sm:w-auto">
+                                                        Cancel Booking
+                                                    </Button>
+                                                )}
+                                                {booking.status === 'completed' && !booking.reviews?.[0] && (
+                                                    <Button variant="secondary" size="sm" onClick={() => { setCurrentReviewData({ booking }); setReviewModalOpen(true); }} className="w-full sm:w-auto">
+                                                        <FaStar className="mr-1" /> Write Review
+                                                    </Button>
+                                                )}
+                                                <Button variant="ghost" size="sm" to={`/vehicle/${booking.vehicle_id}`} className="w-full sm:w-auto">View Vehicle</Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {/* TAB: IDENTITY */}
+                {activeTab === 'identity' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
+                        <Card className="p-6">
+                            <h3 className="font-bold flex items-center gap-2 mb-4"><FaIdCard className="text-primary" /> Tourist License</h3>
+                            <p className="text-sm text-muted-foreground mb-6">Upload your government issued driving license.</p>
+                            {profile?.license_document_url ? (
+                                <div className="bg-emerald-500/10 text-emerald-600 p-4 rounded-lg flex items-center gap-3"><FaCheckCircle /> Uploaded</div>
+                            ) : (
+                                <div className="flex flex-col gap-3">
+                                    <input type="file" className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" onChange={e => setLicenseFile(e.target.files[0])} />
+                                    <Button size="sm" onClick={() => docUploadMutation.mutate({ file: licenseFile, userId: user.id, bucket: 'tourist-licenses', profileKey: 'license_document_url' })} disabled={!licenseFile} fullWidth>Upload License</Button>
+                                </div>
+                            )}
+                        </Card>
+                        {profile?.role === 'host' && (
+                            <Card className="p-6 border-primary/20 bg-primary/5">
+                                <h3 className="font-bold flex items-center gap-2 mb-4"><FaCar className="text-primary" /> Host Business Doc</h3>
+                                <p className="text-sm text-muted-foreground mb-6">Required to list vehicles.</p>
+                                {profile?.business_document_url ? (
+                                    <div className="bg-emerald-500/10 text-emerald-600 p-4 rounded-lg flex items-center gap-3"><FaCheckCircle /> Verified</div>
+                                ) : (
+                                    <div className="flex flex-col gap-3">
+                                        <input type="file" className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" onChange={e => setDocFile(e.target.files[0])} />
+                                        <Button size="sm" onClick={() => docUploadMutation.mutate({ file: docFile, userId: user.id, bucket: 'host-documents', profileKey: 'business_document_url' })} disabled={!docFile} fullWidth>Upload Document</Button>
+                                    </div>
+                                )}
+                            </Card>
+                        )}
+                    </div>
+                )}
             </div>
+
+
+            {isReviewModalOpen && <ReviewModal booking={currentReviewData.booking} review={currentReviewData.review} onClose={() => setReviewModalOpen(false)} onSubmit={handleReviewSubmit} />}
         </div>
     );
 }

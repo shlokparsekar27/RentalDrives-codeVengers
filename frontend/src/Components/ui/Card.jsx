@@ -1,15 +1,17 @@
-const Card = ({ children, className = '', noPadding = false, hover = false }) => {
+const Card = ({ children, className = '', noPadding = false, hover = false, ...props }) => {
     return (
         <div
             className={`
                 bg-card text-card-foreground 
                 rounded-xl border border-border 
                 shadow-sm 
-                ${hover ? 'transition-all duration-200 hover:shadow-md hover:border-primary/50 cursor-pointer' : ''}
+                overflow-hidden
+                ${hover ? 'transition-all duration-300 hover:shadow-lg hover:border-primary/50 hover:translate-y-[-2px] cursor-pointer' : ''}
                 ${className}
             `}
+            {...props}
         >
-            <div className={noPadding ? '' : 'p-6'}>
+            <div className={noPadding ? '' : 'p-4 sm:p-6'}>
                 {children}
             </div>
         </div>
