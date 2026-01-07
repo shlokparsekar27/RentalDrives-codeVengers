@@ -66,16 +66,63 @@ function getUserSupabase(req) {
   });
 }
 
+async function checkAdmin(req) {
+  const userId = req.user?.sub;
+  const metaRole = req.user?.user_metadata?.role;
+  console.log(`🔒 Checking Admin Access for ${userId}`);
+  console.log(`   - Metadata Role: ${metaRole}`);
+
+  // 1. Fast check: Metadata
+  if (metaRole === 'admin') {
+    console.log("   - ✅ Approved via Metadata");
+    return true;
+  }
+
+  // 2. Database check (Source of Truth)
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error("   - ❌ DB Fetch Error:", error.message);
+      return false;
+    }
+
+    console.log(`   - DB Role: ${data?.role}`);
+    req.adminDebug = { userId, metaRole, dbRole: data?.role };
+
+    if (data?.role === 'admin') {
+      console.log("   - ✅ Approved via Database");
+      return true;
+    }
+  } catch (err) {
+    console.error("   - ❌ Admin check exception:", err);
+    req.adminDebug = { userId, metaRole, error: err.message };
+    return false;
+  }
+
+  console.log("   - ⛔ Access Denied");
+  req.adminDebug = { userId, metaRole, dbRole: 'none (fetch failed or mismatch)' };
+  // Check if data existed but role mismatch
+  // We need to move `data` out of try block scope or re-fetch logic slightly?
+  // Actually, inside the try block where we have data:
+  // if (data?.role !== 'admin') req.adminDebug = { userId, metaRole, dbRole: data?.role };
+  return false;
+}
+
 //<--------------- Function to send WhatsApp messages---------->s
-async function sendWhatsAppMessage(to, message, recipientType = "user" ,filePath , bookingId) {
+async function sendWhatsAppMessage(to, message, recipientType = "user", filePath, bookingId) {
 
   console.log("\n============================");
   console.log(`📩 Preparing WhatsApp for ${recipientType.toUpperCase()}`);
   console.log(`👉 Recipient number: ${to}`);
   console.log(`👉 Message content:\n${message}`);
   console.log("============================\n");
-   if (filePath) console.log(`👉 With attachment: ${filePath}`);
-  
+  if (filePath) console.log(`👉 With attachment: ${filePath}`);
+
   try {
     const res = await fetch(WHATSAPP_API_URL, {
       method: "POST",
@@ -98,38 +145,39 @@ async function sendWhatsAppMessage(to, message, recipientType = "user" ,filePath
       return false;
     }
     // console.log(`✅ WhatsApp sent successfully to ${recipientType}:`, data);
-    
+
     // 2️⃣ If invoice PDF exists, upload & send
     if (filePath) {
-       console.log("📂 Uploading PDF from path:", filePath);
+      console.log("📂 Uploading PDF from path:", filePath);
 
-     const formData = new FormData();
+      const formData = new FormData();
       formData.append("file", fs.createReadStream(filePath)); // ✅ only file
       formData.append("type", "application/pdf"); // ✅ tell WhatsApp it's a document
       formData.append("messaging_product", "whatsapp");
 
-  
+
 
       const uploadRes = await fetch(
         `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/media`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}` ,
-          ...formData.getHeaders()   // ✅ required for multipart boundary
-           },
+          headers: {
+            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+            ...formData.getHeaders()   // ✅ required for multipart boundary
+          },
           body: formData,
         }
       );
 
       const uploadData = await uploadRes.json();
-       console.log("📂 Upload response:", JSON.stringify(uploadData, null, 2));
-if (!uploadRes.ok || !uploadData.id) {
+      console.log("📂 Upload response:", JSON.stringify(uploadData, null, 2));
+      if (!uploadRes.ok || !uploadData.id) {
         console.error("❌ Error uploading invoice:", uploadData);
         return false;
       }
-       console.log("✅ Media uploaded with ID:", uploadData.id);
+      console.log("✅ Media uploaded with ID:", uploadData.id);
 
-       const docRes=await fetch(WHATSAPP_API_URL, {
+      const docRes = await fetch(WHATSAPP_API_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${WHATSAPP_TOKEN}`,
@@ -142,20 +190,20 @@ if (!uploadRes.ok || !uploadData.id) {
           document: {
             id: uploadData.id,
             caption: "📄 Your Rental Invoice",
-           filename: `invoice-${bookingId || Date.now()}.pdf`,
+            filename: `invoice-${bookingId || Date.now()}.pdf`,
           },
         }),
       });
       const docData = await docRes.json();
-       console.log("📤 Document send response:", JSON.stringify(docData, null, 2));
-     // console.log("📤 Upload response:", uploadData);
-         console.log("📩 Document message response:", docData);
+      console.log("📤 Document send response:", JSON.stringify(docData, null, 2));
+      // console.log("📤 Upload response:", uploadData);
+      console.log("📩 Document message response:", docData);
       if (!docRes.ok) {
         console.error("❌ Error sending PDF:", docData);
         return false;
+      }
+      console.log("✅ PDF invoice sent successfully!");
     }
-    console.log("✅ PDF invoice sent successfully!");
-  }
 
     console.log(`✅ WhatsApp sent successfully to ${recipientType}`);
     return true;
@@ -163,13 +211,13 @@ if (!uploadRes.ok || !uploadData.id) {
     console.error(`❌ WhatsApp error for ${recipientType}:`, err);
     return false;
   }
-  
+
 }
 
-async function notifyBooking(userData, hostData, vehicle, booking, invoicePath ) {
+async function notifyBooking(userData, hostData, vehicle, booking, invoicePath) {
   try {
     // Generate hybrid invoice number: INV-YYYY-XXXX
-   // const year = new Date().getFullYear();
+    // const year = new Date().getFullYear();
     let invoiceNumber = booking.invoice_no;
 
     // Extract only the date part
@@ -183,27 +231,27 @@ Vehicle: ${vehicle.make} ${vehicle.model}
 From: ${startDate} To: ${endDate}
 Amount: ₹${booking.total_price}`;
 
-const hostMessage = `📢 New Booking!
+    const hostMessage = `📢 New Booking!
  Customer: ${userData.full_name} 
  Vehicle: ${vehicle.make} ${vehicle.model} 
  From: ${startDate} To: ${endDate};`;
 
 
-// Send WhatsApp message to user only
-   await sendWhatsAppMessage(
-  userData.phone_primary,
-  userMessage,
-  "user",
-  invoicePath,
-  invoiceNumber
-);
+    // Send WhatsApp message to user only
+    await sendWhatsAppMessage(
+      userData.phone_primary,
+      userMessage,
+      "user",
+      invoicePath,
+      invoiceNumber
+    );
 
-      await sendWhatsAppMessage(
+    await sendWhatsAppMessage(
       hostData.phone_primary,
       hostMessage,
       "host" // 🚫 no invoice attached for host
     );
-   
+
 
 
 
@@ -335,36 +383,36 @@ async function generateInvoice(booking, userData, hostData, vehicle) {
       doc.end();
 
       stream.on("finish", async () => { //// creates and saves invoice url to supabase 
-  try {
-    const fileBuffer = fs.readFileSync(invoicePath);
-    const fileName = `invoice-${invoiceNo}.pdf`;
+        try {
+          const fileBuffer = fs.readFileSync(invoicePath);
+          const fileName = `invoice-${invoiceNo}.pdf`;
 
-    const { data, error } = await supabase.storage
-      .from("invoices")
-      .upload(fileName, fileBuffer, {
-        contentType: "application/pdf",
-        upsert: true, // allows overwrite
+          const { data, error } = await supabase.storage
+            .from("invoices")
+            .upload(fileName, fileBuffer, {
+              contentType: "application/pdf",
+              upsert: true, // allows overwrite
+            });
+
+          if (error) {
+            console.error("❌ Error uploading invoice to Supabase:", error);
+            return reject(error);
+          }
+
+
+
+          resolve({ invoiceNo, invoicePath });
+        } catch (uploadErr) {
+          reject(uploadErr);
+        }
       });
-
-    if (error) {
-      console.error("❌ Error uploading invoice to Supabase:", error);
-      return reject(error);
-    }
-
-    
-
-    resolve({ invoiceNo, invoicePath });
-  } catch (uploadErr) {
-    reject(uploadErr);
-  }
-});
-    stream.on("error", reject);
+      stream.on("error", reject);
     } catch (err) {
       reject(err);
     }
   });
 }
-    
+
 
 
 //<---------------------whatsapp function ends here ----------------->
@@ -457,122 +505,92 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
   }
 });
 */
-// ================== AUTH FLOW (PHONE + OTP) ==================
 
-// ---------------- SEND OTP ----------------
-// ================== SEND OTP ==================
-app.post('/api/auth/send-otp', async (req, res) => {
-  try {
-    const { phone } = req.body;
-
-    if (!phone) return res.status(400).json({ error: "Phone number is required" });
-    if (!phone.startsWith("+")) return res.status(400).json({ error: "Phone must include country code (+91...)" });
-
-    const { data, error } = await supabase.auth.signInWithOtp({ phone });
-    if (error) {
-      console.error("Send OTP error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.status(200).json({ message: "OTP sent successfully", data });
-  } catch (err) {
-    console.error("Send OTP unexpected error:", err);
-    res.status(500).json({ error: "Unexpected server error" });
-  }
-});
-
-// ✅ verify-otp route (production-ready)
-app.post("/api/auth/verify-otp", async (req, res) => {
-  try {
-    const { phone, token, full_name, role } = req.body;
-
-    if (!phone || !token)
-      return res.status(400).json({ error: "Phone and OTP are required" });
-
-    // 1️⃣ Verify OTP
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token,
-      type: "sms",
-    });
-
-    if (error) return res.status(400).json({ error: "Invalid or expired OTP" });
-
-    const user = data.user;
-
-    // 2️⃣ Update metadata in Auth (using Admin client)
-    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        full_name,
-        role,
-      },
-    });
-    if (metaError) throw metaError;
-
-    // 3️⃣ Check for existing profile
-    const { data: existingProfile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id,role,full_name")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError && profileError.code !== "PGRST116")
-      return res.status(500).json({ error: "Failed to check profile" });
-
-    // 4️⃣ Create or Update Profile
-    if (!existingProfile) {
-      const { error: insertError } = await supabase.from("profiles").insert([
-        {
-          id: user.id,
-          full_name: full_name || "",
-          role: role === "host" ? "host" : "tourist",
-          phone_primary: phone.startsWith("+") ? phone.slice(1) : phone,
-        },
-      ]);
-      if (insertError) throw insertError;
-    } else {
-      const updates = {};
-      if (!existingProfile.full_name && full_name) updates.full_name = full_name;
-      if (role && existingProfile.role !== role) updates.role = role;
-
-      if (Object.keys(updates).length > 0) {
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update(updates)
-          .eq("id", user.id);
-        if (updateError) throw updateError;
-      }
-    }
-
-    // ✅ Success
-    res.status(200).json({
-      message: "Signup complete",
-      user,
-      session: data.session,
-    });
-  } catch (err) {
-    console.error("Verify OTP unexpected error:", err);
-    res.status(500).json({ error: "Unexpected server error" });
-  }
-});
 
 
 
 // ---------------- GET CURRENT USER PROFILE ----------------
+// ---------------- GET CURRENT USER PROFILE (With Lazy Sync) ----------------
 app.get("/api/users/me", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.sub;
-    const { data, error } = await supabase
+
+    // 1. Try to fetch profile from public table
+    let { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
-      .single();
+      .limit(1);
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: "Profile not found." });
+    // 2. CHECK if profile is missing OR incomplete (missing name)
+    // This fixes "Valued Member" issue where row exists but name is null
+    const profileExists = data && data.length > 0;
+    const isProfileIncomplete = profileExists && !data[0].full_name;
 
-    res.status(200).json(data);
+    if (!profileExists || isProfileIncomplete) {
+      console.log(`⚠️ Profile issue for ${userId} (Missing: ${!profileExists}, Incomplete: ${isProfileIncomplete}). Syncing from Auth...`);
+
+      try {
+        // Fetch Auth Metadata using Admin Client
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
+
+        if (authError || !authData.user) {
+          console.error("❌ Could not fetch user from Auth:", authError);
+          // If we have an incomplete profile, return it at least. If nothing, 404.
+          if (profileExists) return res.status(200).json(data[0]);
+          return res.status(404).json({ error: "User identity not found." });
+        }
+
+        const userMeta = authData.user.user_metadata || {};
+        const fullNameFromAuth = userMeta.full_name || '';
+
+        if (profileExists) {
+          // UPDATE existing profile
+          console.log(`🛠️ Repairing incomplete profile for ${authData.user.email}...`);
+          const { data: updatedData, error: updateError } = await supabaseAdmin
+            .from('profiles')
+            .update({ full_name: fullNameFromAuth, email: authData.user.email }) // Update email too just in case
+            .eq('id', userId)
+            .select('*');
+
+          if (!updateError && updatedData && updatedData.length > 0) {
+            data = updatedData;
+            console.log("✅ Profile repaired.");
+          }
+        } else {
+          // INSERT new profile
+          const newProfile = {
+            id: userId,
+            full_name: fullNameFromAuth,
+            email: authData.user.email,
+            role: userMeta.role || 'tourist',
+            created_at: new Date().toISOString()
+          };
+
+          const { data: insertData, error: insertError } = await supabaseAdmin
+            .from('profiles')
+            .insert([newProfile])
+            .select('*');
+
+          if (!insertError && insertData && insertData.length > 0) {
+            data = insertData;
+            console.log("✅ Profile lazily created.");
+          }
+        }
+
+      } catch (syncErr) {
+        console.error("Sync error:", syncErr);
+        // Fallthrough to return whatever partial data we might have
+      }
+    } else if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) return res.status(404).json({ error: "Profile not found." });
+
+    res.status(200).json(data[0]);
   } catch (error) {
+    console.error("GET /me error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -586,35 +604,82 @@ app.get("/api/users/me", authenticateToken, async (req, res) => {
 app.put('/api/users/me', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.sub;
-    // ADD license_document_url to this line
     const { full_name, address, phone_primary, phone_secondary, license_document_url } = req.body;
 
     const updates = {};
-    if (full_name) updates.full_name = full_name;
-    if (address) updates.address = address;
-    if (phone_primary) updates.phone_primary = phone_primary;
-    if (phone_secondary) updates.phone_secondary = phone_secondary;
-    // ADD this line
-    if (license_document_url) updates.license_document_url = license_document_url;
+    if (full_name !== undefined) updates.full_name = full_name;
+    if (address !== undefined) updates.address = address;
+    if (phone_primary !== undefined) updates.phone_primary = phone_primary;
+    if (phone_secondary !== undefined) updates.phone_secondary = phone_secondary;
+    if (license_document_url !== undefined) updates.license_document_url = license_document_url;
 
+    // Add missing timestamp for updates
+    updates.updated_at = new Date().toISOString();
 
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'No update data provided.' });
-    }
+    console.log("📝 Handling Profile Update for:", userId);
 
-    const { data, error } = await supabase
+    // 1. Try STANDARD UPDATE first
+    // Using select() here returns an ARRAY. We avoid .single() to prevent "Cannot coerce" errors.
+    const { data: updatedData, error: updateError } = await supabaseAdmin
       .from('profiles')
       .update(updates)
       .eq('id', userId)
-      .select()
-      .single();
+      .select('*');
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Profile not found.' });
+    if (updateError) {
+      console.error("❌ Update failed:", updateError);
+      throw updateError;
+    }
 
-    res.status(200).json(data);
+    // 2. SUCCESS: Profile existed and was updated
+    if (updatedData && updatedData.length > 0) {
+      console.log("✅ Profile updated successfully.");
+      return res.status(200).json(updatedData[0]);
+    }
+
+    // 3. FALLBACK: Profile did NOT exist (Lazy Creation on Save)
+    console.log("⚠️ Profile not found during update. Creating new profile...");
+
+    // Fetch Auth Metadata to populate required fields (email, role)
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
+
+    if (authError || !authData.user) {
+      throw new Error("User identity not found in Auth system. Cannot create profile.");
+    }
+
+    const userMeta = authData.user.user_metadata || {};
+
+    // Merge Auth data with the User's requested updates
+    const newProfile = {
+      id: userId,
+      email: authData.user.email,
+      role: userMeta.role || 'tourist',
+      created_at: new Date().toISOString(),
+      ...updates // Spread the updates (name, address, etc.) on top
+    };
+
+    // Insert the new profile
+    const { data: insertData, error: insertError } = await supabaseAdmin
+      .from('profiles')
+      .insert([newProfile])
+      .select('*');
+
+    if (insertError) {
+      console.error("❌ Failed to create missing profile during update:", insertError);
+      throw insertError;
+    }
+
+    if (!insertData || insertData.length === 0) {
+      throw new Error("Insert succeeded but returned no data.");
+    }
+
+    console.log("✅ Created and updated profile simultaneously.");
+    res.status(200).json(insertData[0]);
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("🔥 EXCEPTION in PUT /api/users/me:", error);
+    // Ensure we send a proper JSON error so the frontend alerts it clearly
+    res.status(500).json({ error: error.message || "Server Error" });
   }
 });
 // ... existing code ...
@@ -699,32 +764,32 @@ app.post('/api/vehicles', authenticateToken, async (req, res) => {
 
 // UPDATE a vehicle
 app.put('/api/vehicles/:id', authenticateToken, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const updates = req.body;
+  try {
+    const { id } = req.params;
+    const updates = req.body;
 
-        // --- CORRECTED LOGIC ---
-        // Always reset status to 'pending' on any update by a host.
-        // This ensures all changes are re-verified by an admin.
-        updates.status = 'pending';
-        updates.is_certified = false;
-        // --- END CORRECTION ---
+    // --- CORRECTED LOGIC ---
+    // Always reset status to 'pending' on any update by a host.
+    // This ensures all changes are re-verified by an admin.
+    updates.status = 'pending';
+    updates.is_certified = false;
+    // --- END CORRECTION ---
 
-        const { data, error } = await supabase
-            .from('vehicles')
-            .update(updates)
-            .eq('id', id)
-            .eq('host_id', req.user.sub) // Ensure only the owner can edit
-            .select()
-            .single();
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(updates)
+      .eq('id', id)
+      .eq('host_id', req.user.sub) // Ensure only the owner can edit
+      .select()
+      .single();
 
-        if (error) throw error;
-        if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to update it.' });
-        
-        res.status(200).json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Vehicle not found or you do not have permission to update it.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 
@@ -788,15 +853,19 @@ app.get('/api/hosts/:id/vehicles', async (req, res) => {
 // CREATE a new booking - UPDATED WITH CORRECT VALIDATION
 app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
   try {
-    const supabase = getUserSupabase(req);
-    // ADDED: dropoff_location to the destructuring
+    // DEBUG: Using supabaseAdmin (Service Role) to bypass RLS for now to isolate the issue.
+    // const supabase = getUserSupabase(req); 
+    const supabaseContext = supabaseAdmin;
+
     const { vehicle_id, start_date, end_date, total_price, dropoff_location } = req.body;
+    console.log("Creating booking for:", { vehicle_id, start_date, end_date, total_price, user_id: req.user.sub });
+
     if (!vehicle_id || !start_date || !end_date || !total_price) {
       return res.status(400).json({ error: 'Missing required booking information.' });
     }
 
-    // --- Overlap check remains the same ---
-    const { data: overlappingBookings, error: overlapError } = await supabase
+    // --- Overlap check ---
+    const { data: overlappingBookings, error: overlapError } = await supabaseContext
       .from('bookings')
       .select('id')
       .eq('vehicle_id', vehicle_id)
@@ -804,66 +873,78 @@ app.post('/api/bookings/create-order', authenticateToken, async (req, res) => {
       .lte('start_date', end_date)
       .gte('end_date', start_date);
 
-    if (overlapError) throw overlapError;
+    if (overlapError) {
+      console.error("Overlap Check Error:", overlapError);
+      throw overlapError;
+    }
 
     if (overlappingBookings && overlappingBookings.length > 0) {
       return res.status(409).json({ error: 'This vehicle is already booked for the selected dates. Please choose a different date range.' });
     }
-    // --- End of new check ---
 
-    //<--------------------------------------- booking start ------------------------------------------>
-
-    //insert booking as pending
-
-    // ADDED: dropoff_location to the insert object
+    // --- Insert Booking ---
     const bookingData = {
-        user_id: req.user.sub,
-        vehicle_id,
-        start_date,
-        end_date,
-        total_price,
-        status: 'pending',
-        dropoff_location: dropoff_location || null // Save location or null if not provided
+      user_id: req.user.sub,
+      vehicle_id,
+      start_date,
+      end_date,
+      total_price,
+      status: 'pending',
+      // dropoff_location: dropoff_location || null 
     };
 
-    const { data: booking, error: bookingError } = await supabase
+    console.log("Inserting booking data:", bookingData);
+    const { data: booking, error: bookingError } = await supabaseContext
       .from('bookings')
       .insert([bookingData])
       .select()
       .single();
 
-        if (bookingError) throw bookingError;
+    if (bookingError) {
+      console.error("Booking Insert Error:", bookingError);
+      throw bookingError;
+    }
+    console.log("Booking created:", booking.id);
 
     // 2 Create Razorpay order
+    console.log("Creating Razorpay order...");
     const order = await razorpay.orders.create({
       amount: Math.round(total_price * 100), // INR in paise
       currency: "INR",
       receipt: booking.id,
     });
+    console.log("Razorpay order created:", order.id);
 
     // 3 Insert payment record (pending)
-   const { error: paymentError } = await supabase
-  .from("payments")
-  .insert(
-    {
-      booking_id: booking.id,
-      amount: total_price,
-      currency: "INR",
-      status: "pending",
-      payment_gateway: "razorpay",
-      razorpay_order_id: order.id,
-      user_id: req.user.sub,
-    },
-    { returning: "minimal" } // ⬅ FIXES THE RLS ERROR
-  );
+    const { error: paymentError } = await supabaseContext
+      .from("payments")
+      .insert(
+        {
+          booking_id: booking.id,
+          amount: total_price,
+          currency: "INR",
+          status: "pending",
+          payment_gateway: "razorpay",
+          razorpay_order_id: order.id,
+          user_id: req.user.sub,
+        },
+        { returning: "minimal" }
+      );
 
-
-      if (paymentError) throw paymentError;
+    if (paymentError) {
+      console.error("Payment Insert Error:", paymentError);
+      throw paymentError;
+    }
 
     res.json({ booking, order });
   } catch (err) {
-    console.error("Error creating booking order:", err);
-    res.status(500).json({ error: "Failed to create booking order" });
+    console.error("CRITICAL Error creating booking order:", err);
+    // Serialize the error to ensure we see it in the frontend alert
+    const errorMsg = err.message || JSON.stringify(err) || "Unknown Error";
+    res.status(500).json({
+      error: `Server Error: ${errorMsg}`,
+      details: err
+    });
   }
 
 });
@@ -947,7 +1028,7 @@ app.post("/api/payments/verify", async (req, res) => {
       .eq("id", bookingId)
       .single();
 
-  //  console.log("📌 Booking data fetched:", JSON.stringify(booking, null, 2));
+    //  console.log("📌 Booking data fetched:", JSON.stringify(booking, null, 2));
 
     if (error) {
       console.error("❌ Supabase error while fetching booking:", error);
@@ -961,22 +1042,22 @@ app.post("/api/payments/verify", async (req, res) => {
     }
 
 
-     const vehicle = booking.vehicles;
+    const vehicle = booking.vehicles;
     const userPhone = booking?.profiles?.phone_primary;
     const hostPhone = booking?.vehicles?.profiles?.phone_primary;
     const userProfile = booking.profiles;
     const hostProfile = booking.vehicles?.profiles;
 
-   // console.log("📌 User phone:", userPhone);
-   // console.log("📌 Host phone:", hostPhone);
+    // console.log("📌 User phone:", userPhone);
+    // console.log("📌 Host phone:", hostPhone);
 
     // ✅ Send WhatsApp confirmation
     // ✅ Send WhatsApp notifications
 
     // ✅ Generate invoice PDF first
     const { invoiceNo, invoicePath } = await generateInvoice(booking, userProfile, hostProfile, vehicle);
-     // ✅ Send WhatsApp notifications
-   await notifyBooking(userProfile, hostProfile, vehicle, { ...booking, invoice_no: invoiceNo }, invoicePath);
+    // ✅ Send WhatsApp notifications
+    await notifyBooking(userProfile, hostProfile, vehicle, { ...booking, invoice_no: invoiceNo }, invoicePath);
 
     return res.json({ success: true, message: "Payment verified + WhatsApp sent" });
   } catch (err) {
@@ -1120,8 +1201,8 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
 
     const refundData = await response.json();
 
-   // Mark as INITIATED
-   await supabase.from("payments").update({
+    // Mark as INITIATED
+    await supabase.from("payments").update({
       refund_status: "initiated",
       refund_amount: refundAmount,
       refund_id: refundData?.id || null,
@@ -1129,8 +1210,8 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
       completed_at: null,
     }).eq("booking_id", id);
 
-  
-    
+
+
     return res.json({
       success: true,
       message: `Booking cancelled, refund of ₹${refundAmount} initiated`,
@@ -1257,7 +1338,7 @@ app.post("/api/webhooks/razorpay", async (req, res) => {
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
   try {
     // 1. Security: Check if the user is an admin
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1276,8 +1357,8 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
 // GET all vehicles pending approval
 app.get('/api/admin/vehicles/pending', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    if (!await checkAdmin(req)) {
+      return res.status(403).json({ error: `Access denied. Admin role required. Debug: ${JSON.stringify(req.adminDebug)}` });
     }
 
     // This query now joins with the profiles table to get the host's name
@@ -1300,7 +1381,7 @@ app.get('/api/admin/vehicles/pending', authenticateToken, async (req, res) => {
 app.get('/api/admin/vehicles/approved', authenticateToken, async (req, res) => {
   try {
     // 1. Security: Check if the user is an admin
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1321,7 +1402,7 @@ app.get('/api/admin/vehicles/approved', authenticateToken, async (req, res) => {
 app.get('/api/admin/vehicles/rejected', authenticateToken, async (req, res) => {
   try {
     // 1. Security: Check if the user is an admin
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1342,7 +1423,7 @@ app.get('/api/admin/vehicles/rejected', authenticateToken, async (req, res) => {
 app.patch('/api/admin/vehicles/:id/status', authenticateToken, async (req, res) => {
   try {
     // 1. Security: Check if the user is an admin
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1375,7 +1456,7 @@ app.patch('/api/admin/vehicles/:id/status', authenticateToken, async (req, res) 
 app.get('/api/admin/bookings', authenticateToken, async (req, res) => {
   try {
     // 1. Security: Check if the user is an admin
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1399,7 +1480,7 @@ app.get('/api/admin/bookings', authenticateToken, async (req, res) => {
 app.delete('/api/admin/reviews/:id', authenticateToken, async (req, res) => {
   try {
     // 1. Security: Check if the user is an admin
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1427,7 +1508,7 @@ app.delete('/api/admin/reviews/:id', authenticateToken, async (req, res) => {
 // NEW: GET all hosts that have submitted a document but are not yet verified
 app.get('/api/admin/hosts/pending', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1448,7 +1529,7 @@ app.get('/api/admin/hosts/pending', authenticateToken, async (req, res) => {
 // NEW: UPDATE a host's profile to set is_verified to true
 app.patch('/api/admin/hosts/:id/verify', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1474,7 +1555,7 @@ app.patch('/api/admin/hosts/:id/verify', authenticateToken, async (req, res) => 
 // NEW: Generate a temporary, secure URL for an admin to view a private document
 app.get('/api/admin/hosts/:hostId/document-url', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
@@ -1492,7 +1573,17 @@ app.get('/api/admin/hosts/:hostId/document-url', authenticateToken, async (req, 
     }
 
     // Extract the file path from the full URL
-    const filePath = new URL(profile.business_document_url).pathname.split('/host-documents/')[1];
+    // Extract the file path from the full URL
+    // Robust extraction: get everything after 'host-documents/'
+    const urlParts = profile.business_document_url.split('/host-documents/');
+    if (urlParts.length < 2) {
+      // If standard split fails, maybe it IS just the filename or different structure (e.g. public URL vs internal)
+      // Let's assume the stored value might actually just be the filename in some iterations, OR full URL.
+      // Fallback: try to just use the end of the string.
+      console.log('Warning: Unexpected URL structure:', profile.business_document_url);
+      return res.status(400).json({ error: 'Invalid document path structure.' });
+    }
+    const filePath = decodeURIComponent(urlParts[1]); // Ensure proper decoding of spaces/special chars
 
     // Create a signed URL that is valid for 5 minutes (300 seconds)
     const { data, error: urlError } = await supabase.storage
@@ -1510,7 +1601,7 @@ app.get('/api/admin/hosts/:hostId/document-url', authenticateToken, async (req, 
 // NEW: Generate a temporary, secure URL for a vehicle certification
 app.get('/api/admin/vehicles/:vehicleId/certification-url', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
@@ -1527,7 +1618,7 @@ app.get('/api/admin/vehicles/:vehicleId/certification-url', authenticateToken, a
     }
 
     const filePath = new URL(vehicle.certification_url).pathname.split('/vehicle-certifications/')[1];
-    
+
     // Create a signed URL valid for 5 minutes
     const { data, error: urlError } = await supabase.storage
       .from('vehicle-certifications')
@@ -1544,7 +1635,7 @@ app.get('/api/admin/vehicles/:vehicleId/certification-url', authenticateToken, a
 // NEW: Mark a vehicle as certified
 app.patch('/api/admin/vehicles/:id/certify', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
     const { id } = req.params;
@@ -1557,7 +1648,7 @@ app.patch('/api/admin/vehicles/:id/certify', authenticateToken, async (req, res)
 
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Vehicle not found.' });
-    
+
     res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1566,56 +1657,56 @@ app.patch('/api/admin/vehicles/:id/certify', authenticateToken, async (req, res)
 
 // GET secure URL for a vehicle document (RC or Insurance)
 app.get('/api/admin/vehicles/:vehicleId/document-url', authenticateToken, async (req, res) => {
-    try {
-        if (req.user.user_metadata.role !== 'admin') {
-            return res.status(403).json({ error: 'Access denied.' });
-        }
-        const { vehicleId } = req.params;
-        const { type } = req.query; // Expecting ?type=rc or ?type=insurance
-
-        if (!type || (type !== 'rc' && type !== 'insurance')) {
-            return res.status(400).json({ error: 'A document type of "rc" or "insurance" is required.' });
-        }
-
-        const documentColumn = type === 'rc' ? 'rc_document_url' : 'insurance_document_url';
-
-        const { data: vehicle, error: vehicleError } = await supabase
-            .from('vehicles')
-            .select(documentColumn)
-            .eq('id', vehicleId)
-            .single();
-
-        if (vehicleError || !vehicle || !vehicle[documentColumn]) {
-            return res.status(404).json({ error: `${type.toUpperCase()} document not found for this vehicle.` });
-        }
-
-        const filePath = new URL(vehicle[documentColumn]).pathname.split('/vehicle-certifications/')[1];
-        
-        const { data, error } = await supabase.storage
-            .from('vehicle-certifications')
-            .createSignedUrl(filePath, 300); // Valid for 5 minutes
-
-        if (error) throw error;
-        res.status(200).json({ signedUrl: data.signedUrl });
-
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  try {
+    if (!await checkAdmin(req)) {
+      return res.status(403).json({ error: 'Access denied.' });
     }
+    const { vehicleId } = req.params;
+    const { type } = req.query; // Expecting ?type=rc or ?type=insurance
+
+    if (!type || (type !== 'rc' && type !== 'insurance')) {
+      return res.status(400).json({ error: 'A document type of "rc" or "insurance" is required.' });
+    }
+
+    const documentColumn = type === 'rc' ? 'rc_document_url' : 'insurance_document_url';
+
+    const { data: vehicle, error: vehicleError } = await supabase
+      .from('vehicles')
+      .select(documentColumn)
+      .eq('id', vehicleId)
+      .single();
+
+    if (vehicleError || !vehicle || !vehicle[documentColumn]) {
+      return res.status(404).json({ error: `${type.toUpperCase()} document not found for this vehicle.` });
+    }
+
+    const filePath = new URL(vehicle[documentColumn]).pathname.split('/vehicle-certifications/')[1];
+
+    const { data, error } = await supabase.storage
+      .from('vehicle-certifications')
+      .createSignedUrl(filePath, 300); // Valid for 5 minutes
+
+    if (error) throw error;
+    res.status(200).json({ signedUrl: data.signedUrl });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // NEW: GET all tourists that have submitted a license but are not yet verified
 app.get('/api/admin/tourists/pending-license', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('role', 'tourist')
+      // Removed strict role check so Hosts can also be verified for licenses
       .eq('is_license_verified', false)
-      .not('license_document_url', 'is', null); // Only get tourists who have uploaded a license
+      .not('license_document_url', 'is', null); // Only get users who have uploaded a license
 
     if (error) throw error;
     res.status(200).json(data);
@@ -1627,7 +1718,7 @@ app.get('/api/admin/tourists/pending-license', authenticateToken, async (req, re
 // NEW: UPDATE a tourist's profile to set is_license_verified to true
 app.patch('/api/admin/tourists/:id/verify-license', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -1648,11 +1739,38 @@ app.patch('/api/admin/tourists/:id/verify-license', authenticateToken, async (re
   }
 });
 
+// NEW: REJECT a tourist's license (clears the document URL)
+app.patch('/api/admin/tourists/:id/reject-license', authenticateToken, async (req, res) => {
+  try {
+    if (!await checkAdmin(req)) {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        is_license_verified: false,
+        license_document_url: null // Clear the document so it disappears from the queue
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Tourist not found.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // NEW: Generate a temporary, secure URL for an admin to view a tourist's license
 app.get('/api/admin/tourists/:touristId/license-url', authenticateToken, async (req, res) => {
   try {
-    if (req.user.user_metadata.role !== 'admin') {
+    if (!await checkAdmin(req)) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
@@ -1669,7 +1787,7 @@ app.get('/api/admin/tourists/:touristId/license-url', authenticateToken, async (
     }
 
     const filePath = new URL(profile.license_document_url).pathname.split('/tourist-licenses/')[1];
-    
+
     const { data, error: urlError } = await supabase.storage
       .from('tourist-licenses')
       .createSignedUrl(filePath, 300); // URL is valid for 5 minutes
@@ -1759,7 +1877,7 @@ app.get('/api/hosts/my-vehicles/:vehicleId/certification-url', authenticateToken
     // 1. Role check is good, but can be combined with the vehicle ownership check.
     const { vehicleId } = req.params;
     const hostId = req.user.sub;
-    
+
     // 2. GET THE DOCUMENT TYPE FROM THE QUERY STRING
     const { type } = req.query; // This is the new line that reads "?type=rc" or "?type=insurance"
 
@@ -1773,28 +1891,28 @@ app.get('/api/hosts/my-vehicles/:vehicleId/certification-url', authenticateToken
 
     // 5. SECURITY CHECK & DYNAMICALLY SELECT THE CORRECT COLUMN
     const { data: vehicle, error: vehicleError } = await supabase
-        .from('vehicles')
-        .select(`${documentColumn}, host_id`) // <-- CHANGED: Selects the correct column dynamically
-        .eq('id', vehicleId)
-        .eq('host_id', hostId) // <-- CHANGED: More efficient security check
-        .single();
+      .from('vehicles')
+      .select(`${documentColumn}, host_id`) // <-- CHANGED: Selects the correct column dynamically
+      .eq('id', vehicleId)
+      .eq('host_id', hostId) // <-- CHANGED: More efficient security check
+      .single();
 
     if (vehicleError || !vehicle) {
-        return res.status(404).json({ error: 'Vehicle not found or you do not have permission.' });
+      return res.status(404).json({ error: 'Vehicle not found or you do not have permission.' });
     }
-    
+
     // 6. GET THE URL FROM THE CORRECT PROPERTY
     const documentUrl = vehicle[documentColumn]; // <-- CHANGED: Accesses the correct property
 
     if (!documentUrl) {
-        return res.status(404).json({ error: 'Document not found for this vehicle.' });
+      return res.status(404).json({ error: 'Document not found for this vehicle.' });
     }
 
     // 7. Generate the signed URL (this part is the same and correct)
     const filePath = new URL(documentUrl).pathname.split('/vehicle-certifications/')[1];
     const { data, error: urlError } = await supabase.storage
-        .from('vehicle-certifications')
-        .createSignedUrl(filePath, 300);
+      .from('vehicle-certifications')
+      .createSignedUrl(filePath, 300);
 
     if (urlError) throw urlError;
 

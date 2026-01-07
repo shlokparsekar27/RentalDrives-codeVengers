@@ -1,3 +1,4 @@
+// src/pages/BookingSummary.jsx
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
@@ -5,7 +6,7 @@ import { createBooking, openRazorpayCheckout } from '../api/bookings';
 import Button from '../Components/ui/Button';
 import Card from '../Components/ui/Card';
 import Badge from '../Components/ui/Badge';
-import { FaLock, FaCalendarAlt, FaCarSide, FaMapMarkerAlt, FaShieldAlt } from 'react-icons/fa';
+import { FaLock, FaCalendarAlt, FaCarSide, FaShieldAlt, FaCcVisa, FaCcMastercard, FaCcAmex, FaCreditCard } from 'react-icons/fa';
 
 const BookingSummary = () => {
     const { state } = useLocation();
@@ -20,21 +21,20 @@ const BookingSummary = () => {
     }
 
     const { vehicle, startDate, endDate, totalPrice } = state;
+    const days = totalPrice / vehicle.price_per_day;
+    const totalCost = totalPrice; // Alias for consistent usage in UI snippet
     const platformFee = totalPrice * 0.02;
     const finalTotal = totalPrice + platformFee;
 
     const bookingMutation = useMutation({
         mutationFn: createBooking,
-        onSuccess: async (booking) => {
-            // Payment Flow
-            await openRazorpayCheckout(booking, user, {
-                onSuccess: () => {
-                    queryClient.invalidateQueries(['bookings']);
-                    navigate('/profile'); // Or success page
-                },
-                onError: (err) => {
-                    alert('Payment Failed: ' + err.message);
-                }
+        onSuccess: async (data) => {
+            // Payment Flow - passing correct arguments to matching api/bookings.js signature
+            await openRazorpayCheckout({
+                data,
+                vehicle,
+                user,
+                navigate
             });
         },
         onError: (error) => {
@@ -44,7 +44,8 @@ const BookingSummary = () => {
 
     const handleConfirmBooking = () => {
         bookingMutation.mutate({
-            vehicleId: vehicle.id,
+            vehicle, // Pass full object
+            user,
             startDate,
             endDate,
             totalPrice: finalTotal
@@ -81,7 +82,6 @@ const BookingSummary = () => {
                                     </div>
                                     <div>
                                         <h4 className="text-lg font-bold text-foreground mb-1">{vehicle.make} {vehicle.model}</h4>
-                                        <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-3">Vehicle ID: {vehicle.id.slice(0, 8)}</p>
                                         <div className="flex flex-wrap gap-2">
                                             <Badge variant="secondary">{vehicle.is_certified ? 'Verified Partner' : 'Standard Partner'}</Badge>
                                             <Badge variant="secondary">{vehicle.transmission}</Badge>
@@ -102,11 +102,10 @@ const BookingSummary = () => {
                             </div>
                         </Card>
 
-                        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-100 dark:border-blue-900/20 flex gap-3 text-sm text-blue-800 dark:text-blue-300">
-                            <FaShieldAlt className="mt-0.5 shrink-0" />
+                        <div className="bg-secondary/20 p-4 rounded-lg border border-border flex gap-3 text-sm text-muted-foreground">
+                            <FaShieldAlt className="mt-0.5 shrink-0 text-emerald-500" />
                             <p>
-                                <strong>Free Cancellation</strong> up to 24 hours before pickup.
-                                This booking includes basic insurance coverage. Secure your ride now.
+                                <strong>Secure Booking.</strong> This booking includes basic insurance coverage.
                             </p>
                         </div>
                     </div>
@@ -120,17 +119,22 @@ const BookingSummary = () => {
                             </div>
 
                             <div className="p-6 space-y-4">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-muted-foreground">Base Rate (₹{vehicle.price_per_day} x Days)</span>
-                                    <span className="font-mono-numbers text-foreground">₹{totalPrice.toLocaleString()}</span>
+                                <div className="bg-secondary/20 rounded-xl p-4 border border-border/50 space-y-3 animate-fade-in-up">
+                                    <div className="flex justify-between text-sm text-muted-foreground">
+                                        <span className="font-medium">₹{vehicle.price_per_day} x {days} days</span>
+                                        <span className="font-mono-numbers">₹{totalCost.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm text-muted-foreground">
+                                        <span className="font-medium">Platform Fee (2%)</span>
+                                        <span className="font-mono-numbers">₹{(totalCost * 0.02).toFixed(0)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-lg font-bold text-foreground pt-3 border-t border-border border-dashed">
+                                        <span>Total</span>
+                                        <span className="font-mono-numbers text-primary">₹{(totalCost * 1.02).toLocaleString()}</span>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-muted-foreground">Platform Fee & Taxes</span>
-                                    <span className="font-mono-numbers text-foreground">₹{platformFee.toFixed(0)}</span>
-                                </div>
-                                <div className="border-t border-border mt-4 pt-4 flex justify-between items-center">
-                                    <span className="font-bold text-lg text-foreground">Total Payable</span>
-                                    <span className="font-bold text-2xl text-primary font-mono-numbers">₹{finalTotal.toLocaleString()}</span>
+                                <div className="text-xs text-center text-muted-foreground pt-2">
+                                    Secure SSL Encrypted Transaction
                                 </div>
 
                                 <Button
@@ -144,11 +148,12 @@ const BookingSummary = () => {
                                     {bookingMutation.isPending ? 'Processing Securely...' : 'Pay & Confirm'}
                                 </Button>
 
-                                <div className="mt-4 flex justify-center gap-3 opacity-60 grayscale hover:grayscale-0 transition-all">
-                                    {/* Placeholder Payment Icons */}
-                                    <div className="h-6 w-10 bg-slate-300 rounded dark:bg-slate-700"></div>
-                                    <div className="h-6 w-10 bg-slate-300 rounded dark:bg-slate-700"></div>
-                                    <div className="h-6 w-10 bg-slate-300 rounded dark:bg-slate-700"></div>
+                                <div className="mt-4 flex justify-center gap-4 text-muted-foreground/60">
+                                    {/* Real Payment Icons */}
+                                    <FaCcVisa className="text-2xl hover:text-[#1A1F71] transition-colors" />
+                                    <FaCcMastercard className="text-2xl hover:text-[#EB001B] transition-colors" />
+                                    <FaCcAmex className="text-2xl hover:text-[#006FCF] transition-colors" />
+                                    <FaCreditCard className="text-2xl hover:text-foreground transition-colors" />
                                 </div>
                                 <p className="text-[10px] text-center text-muted-foreground uppercase tracking-wider mt-2">
                                     Powered by Razorpay
@@ -158,8 +163,8 @@ const BookingSummary = () => {
                     </div>
 
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

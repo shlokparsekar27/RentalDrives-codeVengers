@@ -2,27 +2,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { FaStar, FaRegStar, FaUserCircle } from 'react-icons/fa';
+import { FaStar, FaRegStar, FaUser, FaArrowLeft, FaQuoteLeft } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 // --- API Functions ---
-// Fetches just the vehicle's name for the page header
 const fetchVehicleInfo = async (vehicleId) => {
     const { data, error } = await supabase
         .from('vehicles')
-        .select('make, model')
+        .select('make, model, image_urls')
         .eq('id', vehicleId)
         .single();
     if (error) throw new Error(error.message);
     return data;
 };
 
-// Fetches all reviews for a specific vehicle
 const fetchReviewsForVehicle = async (vehicleId) => {
     const { data, error } = await supabase
         .from('reviews')
         .select(`*, profiles ( full_name )`)
         .eq('vehicle_id', vehicleId)
-        .order('created_at', { ascending: false }); // Show newest first
+        .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data;
 };
@@ -39,60 +40,88 @@ function VehicleReviews() {
         queryKey: ['reviewsForVehicle', id],
         queryFn: () => fetchReviewsForVehicle(id),
     });
-    
-    const isLoading = isLoadingVehicle || isLoadingReviews;
 
-    if (isLoading) {
-        return <div className="text-center p-10 font-bold text-xl">Loading Reviews...</div>;
+    if (isLoadingVehicle || isLoadingReviews) {
+        return <div className="min-h-screen pt-24 text-center font-mono animate-pulse text-muted-foreground">LOADING REVIEWS...</div>;
     }
 
-    return (
-        <div className="bg-gray-50 min-h-screen">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="max-w-3xl mx-auto">
-                    {/* --- NEW: Improved Responsive Header --- */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-                        {/* The title section */}
-                        <div className="text-center sm:text-left">
-                            <h1 className="text-3xl font-extrabold text-gray-900">
-                                Reviews for {vehicle?.make} {vehicle?.model}
-                            </h1>
-                            <p className="mt-2 text-gray-600">See what other renters have to say.</p>
-                        </div>
+    const averageRating = reviews?.length
+        ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
+        : 0;
 
-                        {/* The back button */}
-                        <Link 
-                            to={`/vehicle/${id}`} 
-                            className="w-full sm:w-auto flex-shrink-0 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg border-2 border-blue-600  hover:bg-blue-700 transition-all text-center"
-                        >
-                            &larr; Back to Details
-                        </Link>
+    return (
+        <div className="bg-background min-h-screen pt-24 pb-20 font-sans">
+            <div className="container mx-auto px-4 max-w-4xl">
+
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 border-b border-border pb-8">
+                    <div className="flex items-center gap-6">
+                        {vehicle?.image_urls?.[0] && (
+                            <img src={vehicle.image_urls[0]} alt="Vehicle" className="w-24 h-24 object-cover rounded-xl border border-border shadow-sm hidden sm:block" />
+                        )}
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                                    {vehicle?.make} {vehicle?.model}
+                                </h1>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span className="flex items-center text-yellow-500 font-bold">
+                                    <FaStar className="mr-1" /> {averageRating}
+                                </span>
+                                <span>•</span>
+                                <span>{reviews?.length || 0} Reviews</span>
+                            </div>
+                        </div>
                     </div>
 
-                    {reviews && reviews.length > 0 ? (
-                        <div className="space-y-6">
-                            {reviews.map(review => (
-                                <div key={review.id} className="bg-white p-6 rounded-xl shadow-md">
-                                    <div className="flex items-center mb-4">
-                                        <FaUserCircle size={40} className="text-gray-400 mr-4" />
-                                        <div>
-                                            <p className="font-bold text-gray-800">{review.profiles?.full_name || 'Anonymous'}</p>
-                                            <div className="flex items-center text-sm text-yellow-500">
-                                                {[...Array(5)].map((_, i) => i < review.rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}
-                                                <span className="ml-2 text-gray-600 font-semibold">{review.rating}/5</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {review.comment && <p className="text-gray-700 italic">"{review.comment}"</p>}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="bg-white p-8 rounded-xl shadow-sm text-center">
-                            <p className="text-gray-600">No reviews yet for this vehicle.</p>
-                        </div>
-                    )}
+                    <Button to={`/vehicle/${id}`} variant="outline" className="gap-2">
+                        <FaArrowLeft /> Back to Vehicle
+                    </Button>
                 </div>
+
+                {/* Reviews List */}
+                {reviews && reviews.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-6">
+                        {reviews.map(review => (
+                            <Card key={review.id} className="p-6 md:p-8 animate-fade-in-up hover:border-primary/30 transition-colors">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center text-muted-foreground shrink-0 border border-border">
+                                        <FaUser />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <h4 className="font-bold text-foreground">{review.profiles?.full_name || 'Verified User'}</h4>
+                                                <div className="flex text-yellow-400 text-sm mt-1">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <span key={i}>{i < review.rating ? <FaStar /> : <FaRegStar className="text-muted-foreground/30" />}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <span className="text-xs text-muted-foreground font-mono">
+                                                {new Date(review.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+
+                                        {review.comment && (
+                                            <div className="relative mt-4 bg-secondary/20 p-4 rounded-xl">
+                                                <FaQuoteLeft className="absolute top-2 left-2 text-primary/10 text-2xl" />
+                                                <p className="text-muted-foreground italic relative z-10 pl-2">"{review.comment}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-20 bg-secondary/10 rounded-2xl border border-dashed border-border text-muted-foreground">
+                        <FaRegStar className="mx-auto text-4xl mb-4 opacity-20" />
+                        <p>No reviews yet. Be the first to rent and review!</p>
+                    </div>
+                )}
+
             </div>
         </div>
     );

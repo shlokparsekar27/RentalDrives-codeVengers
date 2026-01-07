@@ -38,7 +38,10 @@
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
 
-  --animate-fade-in-up: fadeInSlideUp 0.8s ease-out forwards;
+  /* Global Animations */
+  --animate-fade-in-up: fadeInSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fadeIn 0.5s ease-out forwards;
+  --animate-pulse-slow: pulseSlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 
   @keyframes accordion-down {
     from {
@@ -63,7 +66,7 @@
   @keyframes fadeInSlideUp {
     from {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(24px);
     }
 
     to {
@@ -71,12 +74,35 @@
       transform: translateY(0);
     }
   }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulseSlow {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.5;
+    }
+  }
 }
 
 :root {
   /* Theme: Zurich Day (Light) */
-  --background: hsl(240 5% 98%);
-  --foreground: hsl(240 10% 6%);
+  --background: hsl(240 5% 99%);
+  /* Slightly brighter for crispness */
+  --foreground: hsl(240 10% 4%);
 
   --card: hsl(0 0% 100%);
   --card-foreground: hsl(240 10% 6%);
@@ -85,7 +111,7 @@
   --popover-foreground: hsl(240 10% 6%);
 
   --primary: hsl(221 83% 53%);
-  --primary-foreground: hsl(210 40% 98%);
+  --primary-foreground: hsl(0 0% 100%);
 
   --secondary: hsl(240 5% 96%);
   --secondary-foreground: hsl(240 6% 10%);
@@ -97,73 +123,93 @@
   --accent-foreground: hsl(240 6% 10%);
 
   --destructive: hsl(0 84% 60%);
-  --destructive-foreground: hsl(210 40% 98%);
+  --destructive-foreground: hsl(0 0% 98%);
 
   --border: hsl(240 6% 90%);
   --input: hsl(240 6% 90%);
   --ring: hsl(221 83% 53%);
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
+  /* More rounded premium feel */
 }
 
 .dark {
   /* Theme: Midnight Terminal (Dark) */
-  --background: hsl(240 10% 4%);
-  --foreground: hsl(0 0% 98%);
+  --background: hsl(224 14% 5%);
+  --foreground: hsl(210 20% 98%);
 
-  --card: hsl(240 10% 6%);
-  --card-foreground: hsl(0 0% 98%);
+  --card: hsl(224 14% 8%);
+  --card-foreground: hsl(210 20% 98%);
 
-  --popover: hsl(240 10% 4%);
-  --popover-foreground: hsl(0 0% 98%);
+  --popover: hsl(224 14% 6%);
+  --popover-foreground: hsl(210 20% 98%);
 
   --primary: hsl(217 91% 60%);
   --primary-foreground: hsl(222 47% 11%);
 
-  --secondary: hsl(240 4% 16%);
-  --secondary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(223 15% 12%);
+  --secondary-foreground: hsl(210 20% 98%);
 
-  --muted: hsl(240 4% 16%);
-  --muted-foreground: hsl(240 5% 65%);
+  --muted: hsl(223 15% 12%);
+  --muted-foreground: hsl(215 14% 60%);
 
-  --accent: hsl(240 4% 16%);
-  --accent-foreground: hsl(0 0% 98%);
+  --accent: hsl(223 15% 12%);
+  --accent-foreground: hsl(210 20% 98%);
 
   --destructive: hsl(0 63% 31%);
-  --destructive-foreground: hsl(0 0% 98%);
+  --destructive-foreground: hsl(210 20% 98%);
 
-  --border: hsl(240 4% 16%);
-  --input: hsl(240 4% 16%);
+  --border: hsl(223 15% 14%);
+  --input: hsl(223 15% 14%);
   --ring: hsl(217 91% 60%);
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+    /* Remove iOS grey tap box */
+  }
+
   * {
     border-color: var(--border);
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary;
+    text-rendering: optimizeLegibility;
   }
 
+  /* Improved Typography */
   h1 {
-    @apply text-4xl font-bold tracking-tight;
+    @apply text-4xl md:text-5xl font-bold tracking-tight;
   }
 
   h2 {
-    @apply text-3xl font-semibold tracking-tight;
+    @apply text-3xl font-bold tracking-tight;
   }
 
   h3 {
-    @apply text-2xl font-semibold tracking-tight;
+    @apply text-2xl font-bold tracking-tight;
   }
 
   h4 {
-    @apply text-xl font-medium tracking-tight;
+    @apply text-xl font-bold tracking-tight;
   }
 
   p {
-    @apply leading-7;
+    @apply leading-relaxed;
+  }
+
+  /* Mobile Input Zoom Fix */
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    @apply text-base;
+    /* Prevents auto-zoom on iOS */
   }
 
   .font-mono-numbers {
@@ -172,23 +218,15 @@
   }
 }
 
-/* 3D and Glass Effects */
-.perspective {
-  perspective: 1000px;
-}
+@layer utilities {
 
-.transform-style-3d {
-  transform-style: preserve-3d;
-}
+  /* Safe Area Spacing for Mobile */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 
-.inner-glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-}
-
-.safe-area-pb {
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Better Touch Targets */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
 }

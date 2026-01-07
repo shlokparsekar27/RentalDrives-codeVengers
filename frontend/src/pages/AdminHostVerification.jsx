@@ -2,7 +2,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
-import { FaCheck, FaTimes, FaExternalLinkAlt } from 'react-icons/fa';
+import { FaCheck, FaExternalLinkAlt, FaBriefcase, FaArrowLeft } from 'react-icons/fa';
+import Button from '../Components/ui/Button';
+import Card from '../Components/ui/Card';
+import Badge from '../Components/ui/Badge';
 
 // --- API Functions for Admin Verification ---
 const fetchPendingHosts = async () => {
@@ -24,7 +27,6 @@ const verifyHost = async (hostId) => {
     return response.json();
 };
 
-// NEW: Function to get the secure, temporary URL for a document
 const getDocumentUrl = async (hostId) => {
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/hosts/${hostId}/document-url`, {
@@ -38,7 +40,6 @@ const getDocumentUrl = async (hostId) => {
     return data.signedUrl;
 };
 
-
 function AdminHostVerification() {
     const queryClient = useQueryClient();
 
@@ -50,80 +51,87 @@ function AdminHostVerification() {
     const verifyMutation = useMutation({
         mutationFn: verifyHost,
         onSuccess: () => {
-            alert('Host has been verified successfully.');
             queryClient.invalidateQueries({ queryKey: ['pendingHosts'] });
         },
         onError: (error) => alert(`Error: ${error.message}`),
     });
 
-    // NEW: Handler for viewing the document
-    const handleViewDocument = async (hostId) => {
-        try {
-            const url = await getDocumentUrl(hostId);
-            window.open(url, '_blank');
-        } catch (error) {
-            alert(`Error: ${error.message}`);
+    const handleViewDocument = (host) => {
+        if (!host.business_document_url) {
+            alert("No document URL found for this host.");
+            return;
         }
+        window.open(host.business_document_url, '_blank');
     };
 
-    if (isLoading) {
-        return <div className="text-center p-10 font-bold text-xl">Loading Pending Verifications...</div>;
-    }
-
-    if (isError) {
-        return <div className="text-center p-10 text-red-600"><h2>Error fetching data. Ensure you have admin privileges.</h2></div>;
-    }
+    if (isLoading) return <div className="min-h-screen pt-24 text-center font-mono animate-pulse text-muted-foreground">SCANNING HOST APPLICATIONS...</div>;
+    if (isError) return <div className="min-h-screen pt-24 text-center text-destructive">UNABLE TO CONNECT TO ADMIN SERVER.</div>;
 
     return (
-        <div className="bg-gray-100 min-h-screen">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
+        <div className="bg-background min-h-screen pt-24 pb-20 font-sans">
+            <div className="container mx-auto px-4 max-w-5xl">
+
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-10">
                     <div>
-                        <h2 className="text-4xl font-extrabold text-gray-900">Host Verification</h2>
-                        <p className="mt-1 text-gray-600">Review and approve new host document submissions.</p>
+                        <Badge variant="outline" className="mb-2">Admin Console</Badge>
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Host Verification</h1>
+                        <p className="mt-1 text-muted-foreground">Review business documents for new fleet partners.</p>
                     </div>
-                    <Link to="/admin/dashboard" className="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all text-center">
-                        &larr; Back to Dashboard
-                    </Link>
+                    <Button to="/admin/dashboard" variant="outline" size="sm" className="gap-2">
+                        <FaArrowLeft /> Back to Dashboard
+                    </Button>
                 </div>
-                
+
                 {pendingHosts && pendingHosts.length > 0 ? (
-                    <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                        <ul className="divide-y divide-gray-200">
-                            {pendingHosts.map((host) => (
-                                <li key={host.id} className="p-6">
-                                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                                        <div className="flex-grow text-center sm:text-left">
-                                            <p className="font-bold text-lg text-gray-900">{host.full_name}</p>
-                                            <p className="text-sm text-gray-600 mt-1">{host.email}</p>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            {/* UPDATED: This is now a button with an onClick handler */}
-                                            <button 
-                                                onClick={() => handleViewDocument(host.id)}
-                                                className="flex items-center gap-2 bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-                                            >
-                                                <FaExternalLinkAlt />
-                                                View Document
-                                            </button>
-                                            <button 
-                                                onClick={() => verifyMutation.mutate(host.id)}
-                                                disabled={verifyMutation.isPending}
-                                                className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-all disabled:bg-gray-400"
-                                            >
-                                                <FaCheck />
-                                                Approve
-                                            </button>
-                                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {pendingHosts.map((host) => (
+                            <Card key={host.id} className="p-6 flex flex-col hover:border-primary/50 transition-colors animate-fade-in-up">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center text-xl font-bold text-muted-foreground">
+                                        {host.full_name?.charAt(0)}
                                     </div>
-                                </li>
-                            ))}
-                        </ul>
+                                    <Badge variant="warning">Action Required</Badge>
+                                </div>
+
+                                <h3 className="font-bold text-lg text-foreground">{host.full_name}</h3>
+                                <p className="text-sm text-muted-foreground mb-4 truncate">{host.email}</p>
+
+                                {/* DEBUG INFO - Remove after fixing */}
+                                <div className="mb-4 p-2 bg-secondary/50 rounded text-[10px] font-mono break-all text-muted-foreground">
+                                    Pending Doc: {host.business_document_url || 'NULL'}
+                                </div>
+
+                                <div className="mt-auto space-y-3">
+                                    <Button
+                                        variant="secondary"
+                                        fullWidth
+                                        onClick={() => handleViewDocument(host)}
+                                        className="gap-2 border border-border"
+                                    >
+                                        <FaExternalLinkAlt /> Business Docs
+                                    </Button>
+                                    <Button
+                                        variant="primary"
+                                        fullWidth
+                                        onClick={() => verifyMutation.mutate(host.id)}
+                                        disabled={verifyMutation.isPending}
+                                        className="gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20 text-white"
+                                    >
+                                        {verifyMutation.isPending ? 'Verifying...' : <><FaCheck /> Approve Partner</>}
+                                    </Button>
+                                </div>
+                            </Card>
+                        ))}
                     </div>
                 ) : (
-                    <div className="text-center bg-white p-12 rounded-xl shadow-md">
-                        <h3 className="text-xl font-semibold text-gray-800">All Clear!</h3>
-                        <p className="mt-2 text-gray-500">There are no hosts pending verification.</p>
+                    <div className="bg-secondary/10 border border-border border-dashed rounded-xl p-16 text-center flex flex-col items-center max-w-lg mx-auto">
+                        <div className="w-16 h-16 bg-secondary text-muted-foreground rounded-full flex items-center justify-center mb-6">
+                            <FaBriefcase size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold text-foreground">Queue Empty</h3>
+                        <p className="mt-2 text-muted-foreground">All host applications have been processed.</p>
+                        <Button to="/admin/dashboard" variant="outline" className="mt-8">Return to Dashboard</Button>
                     </div>
                 )}
             </div>
@@ -132,4 +140,3 @@ function AdminHostVerification() {
 }
 
 export default AdminHostVerification;
-
