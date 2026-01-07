@@ -77,101 +77,131 @@ function AdminLicenseVerification() {
         }
     };
 
-    if (isLoading) return <div className="min-h-screen pt-24 text-center font-mono animate-pulse text-muted-foreground">SCANNING PENDING LICENSES...</div>;
-    if (isError) return <div className="min-h-screen pt-24 text-center text-destructive">UNABLE TO CONNECT TO VERIFICATION SERVER.</div>;
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-background pt-24 flex flex-col items-center justify-center">
+                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-primary font-mono animate-pulse">FETCHING PENDING LICENSES...</p>
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="min-h-screen bg-background pt-24 flex flex-col items-center justify-center text-center px-4">
+                <div className="text-destructive text-6xl mb-4"><FaIdCard /></div>
+                <h2 className="text-2xl font-bold text-foreground">Connection Failed</h2>
+                <p className="text-muted-foreground mt-2">Unable to retrieve license applications.</p>
+                <Button onClick={() => window.location.reload()} variant="outline" className="mt-6">Retry Connection</Button>
+            </div>
+        );
+    }
 
     return (
-        <div className="bg-background min-h-screen pt-24 pb-20 font-sans">
-            <div className="container mx-auto px-4 max-w-6xl">
+        <div className="bg-background min-h-screen pt-24 pb-20 font-sans transition-colors duration-300">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
 
-                {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">Admin Console</Badge>
-                            <Badge variant="secondary" className="flex items-center gap-1"><FaShieldAlt size={10} /> Security Level 1</Badge>
+                {/* --- Header Section --- */}
+                <div className="relative mb-12">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5 uppercase tracking-widest text-[10px]">Admin Console</Badge>
+                                <span className="text-muted-foreground text-xs font-mono">•</span>
+                                <Badge variant="secondary" className="flex items-center gap-1 text-[10px]"><FaShieldAlt size={10} /> Security Check</Badge>
+                            </div>
+                            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                                License Verification
+                                <Badge variant="primary" className="text-sm py-1 px-2 h-auto rounded-full">{pendingTourists?.length || 0}</Badge>
+                            </h1>
+                            <p className="mt-2 text-muted-foreground max-w-2xl text-lg">
+                                Validate government-issued driving licenses for tourists and users.
+                            </p>
                         </div>
-                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">License Verification</h1>
-                        <p className="mt-2 text-muted-foreground text-lg">Review and validate government-issued driving licenses.</p>
+                        <Button to="/admin/dashboard" variant="ghost" className="shrink-0 gap-2 hover:bg-secondary/80">
+                            <FaArrowLeft className="text-sm" /> Dashboard
+                        </Button>
                     </div>
-                    <Button to="/admin/dashboard" variant="outline" size="sm" className="gap-2 shrink-0">
-                        <FaArrowLeft /> Dashboard
-                    </Button>
                 </div>
 
-                {/* Content Grid */}
+                {/* --- Content Grid --- */}
                 {pendingTourists && pendingTourists.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {pendingTourists.map((tourist) => (
-                            <Card key={tourist.id} className="group relative flex flex-col overflow-hidden border-border bg-card hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
-
+                            <Card
+                                key={tourist.id}
+                                noPadding
+                                className="group relative overflow-hidden bg-card border-border hover:border-primary/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-primary/5 flex flex-col h-full"
+                            >
                                 {/* Status Indicator */}
-                                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-400 to-amber-600 group-hover:w-1.5 transition-all"></div>
 
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="w-14 h-14 bg-secondary rounded-2xl flex items-center justify-center text-2xl font-bold text-foreground border border-border shadow-sm">
-                                            {tourist.full_name?.charAt(0).toUpperCase()}
+                                <div className="p-6 pb-4">
+                                    <div className="flex justify-between items-start mb-4 pl-2">
+                                        <div className="relative">
+                                            <div className="w-14 h-14 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl flex items-center justify-center text-xl font-bold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 shadow-sm">
+                                                {tourist.full_name?.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-card rounded-full flex items-center justify-center border border-border shadow-sm text-[10px] text-muted-foreground">
+                                                <FaUserCheck />
+                                            </div>
                                         </div>
-                                        <Badge variant="warning" className="shadow-sm animate-pulse">Pending Review</Badge>
+                                        <Badge variant="warning" className="shadow-sm animate-pulse bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-900/50">
+                                            Pending
+                                        </Badge>
                                     </div>
 
-                                    <div className="mb-6">
-                                        <h3 className="font-bold text-xl text-foreground mb-1">{tourist.full_name}</h3>
-                                        <p className="text-sm font-mono text-muted-foreground truncate" title={tourist.email}>{tourist.email}</p>
-                                        <div className="mt-3 flex gap-2">
-                                            <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">{tourist.role}</Badge>
-                                            <Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground">ID: {tourist.id.slice(0, 6)}</Badge>
-                                        </div>
+                                    <div className="pl-2 mb-2">
+                                        <h3 className="font-bold text-xl text-foreground mb-1 truncate leading-tight" title={tourist.full_name}>{tourist.full_name}</h3>
+                                        <p className="text-xs font-mono text-muted-foreground truncate opacity-80" title={tourist.email}>{tourist.email}</p>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => handleViewDocument(tourist)}
-                                            className="w-full text-xs font-semibold h-10 border border-border hover:bg-secondary/80"
-                                        >
-                                            <FaExternalLinkAlt className="mr-2 opacity-70" /> View ID
-                                        </Button>
-                                        <div className="text-xs text-muted-foreground flex items-center justify-center italic">
-                                            Check valid dates
-                                        </div>
-                                    </div>
+                                    <Badge variant="secondary" className="text-[10px] uppercase tracking-wider h-5 px-1.5">{tourist.role}</Badge>
                                 </div>
 
-                                {/* Action Footer */}
-                                <div className="mt-auto p-4 bg-secondary/30 border-t border-border flex gap-3">
+                                {/* Actions Area */}
+                                <div className="mt-auto bg-secondary/10 border-t border-border p-4 space-y-3">
                                     <Button
-                                        onClick={() => handleReject(tourist.id)}
-                                        disabled={verifyMutation.isPending || rejectMutation.isPending}
-                                        variant="outline"
-                                        className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10 h-11"
+                                        variant="secondary"
+                                        onClick={() => handleViewDocument(tourist)}
+                                        className="w-full text-xs font-semibold h-9 border border-border/50 hover:bg-background shadow-sm"
                                     >
-                                        <FaTimes className="mr-2" /> Reject
+                                        <FaExternalLinkAlt className="mr-2 opacity-70" /> View License ID
                                     </Button>
-                                    <Button
-                                        onClick={() => verifyMutation.mutate(tourist.id)}
-                                        disabled={verifyMutation.isPending || rejectMutation.isPending}
-                                        variant="primary"
-                                        className="flex-[2] bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 text-white h-11 border-none"
-                                    >
-                                        <FaCheck className="mr-2" /> Approve
-                                    </Button>
+
+                                    <div className="flex gap-2">
+                                        <Button
+                                            onClick={() => handleReject(tourist.id)}
+                                            disabled={verifyMutation.isPending || rejectMutation.isPending}
+                                            variant="outline"
+                                            className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10 h-10 hover:border-destructive/50"
+                                        >
+                                            <FaTimes />
+                                        </Button>
+                                        <Button
+                                            onClick={() => verifyMutation.mutate(tourist.id)}
+                                            disabled={verifyMutation.isPending || rejectMutation.isPending}
+                                            variant="primary"
+                                            className="flex-[3] bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 text-white h-10 border-none font-bold tracking-wide"
+                                        >
+                                            <FaCheck className="mr-2" /> Approve
+                                        </Button>
+                                    </div>
                                 </div>
                             </Card>
                         ))}
                     </div>
                 ) : (
-                    <div className="bg-secondary/5 border-2 border-dashed border-border rounded-2xl p-16 md:p-24 text-center flex flex-col items-center max-w-xl mx-auto animate-fade-in-up">
-                        <div className="w-24 h-24 bg-primary/5 rounded-full flex items-center justify-center mb-6 text-primary ring-8 ring-primary/5">
+                    <div className="flex flex-col items-center justify-center py-20 animate-fade-in-up px-4 text-center">
+                        <div className="w-24 h-24 bg-primary/5 rounded-full flex items-center justify-center mb-6 ring-8 ring-primary/5 text-primary relative">
                             <FaIdCard size={40} />
+                            <div className="absolute top-0 right-0 w-6 h-6 bg-emerald-500 rounded-full border-4 border-background"></div>
                         </div>
-                        <h3 className="text-2xl font-bold text-foreground">All Clear</h3>
-                        <p className="mt-3 text-muted-foreground text-lg">
-                            The verification queue is currently empty.
+                        <h3 className="text-2xl font-bold text-foreground">Queue Empty</h3>
+                        <p className="mt-3 text-muted-foreground text-lg max-w-md">
+                            There are no license verifications pending at this time.
                         </p>
-                        <p className="text-sm text-muted-foreground/60 mt-1">Great job keeping up with the requests!</p>
-                        <Button to="/admin/dashboard" variant="outline" className="mt-8 border-primary/20 hover:bg-primary/5">Return to Command Center</Button>
                     </div>
                 )}
             </div>

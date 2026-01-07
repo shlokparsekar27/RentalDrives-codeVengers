@@ -136,6 +136,9 @@ function Profile() {
     const [docFile, setDocFile] = useState(null);
     const [licenseFile, setLicenseFile] = useState(null);
 
+    const [isUpdatingLicense, setIsUpdatingLicense] = useState(false);
+    const [isUpdatingHostDoc, setIsUpdatingHostDoc] = useState(false);
+
     // Queries
     const { data: profile, isLoading } = useQuery({
         enabled: !!user?.id,
@@ -224,7 +227,7 @@ function Profile() {
                     {/* Action Buttons - Stacked on Mobile */}
                     <div className="flex gap-2 w-full md:w-auto">
                         {profile?.role === 'host' && <Button to="/host/dashboard" variant="primary" size="sm" className="flex-1 md:flex-none">Host Dashboard</Button>}
-                        {profile?.role === 'admin' && <Button to="/admin/dashboard" variant="primary" size="sm" className="flex-1 md:flex-none">Admin Console</Button>}
+                        {profile?.role === 'admin' && <Button to="/admin/dashboard" variant="primary" size="sm" className="flex-1 md:flex-none">Admin Dashboard</Button>}
                         <Button onClick={handleSignOut} variant="outline" size="sm" className="border-destructive/30 text-destructive hover:bg-destructive/10 flex-1 md:flex-none">
                             <FaSignOutAlt className="md:hidden mr-1" />
                             Sign Out
@@ -267,21 +270,7 @@ function Profile() {
                             </div>
                         </Card>
 
-                        <Card className="p-6 bg-gradient-to-br from-card to-secondary/30">
-                            <h3 className="font-bold flex items-center gap-2 mb-6"><FaCheckCircle className="text-emerald-500" /> Account Status</h3>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center bg-background p-4 rounded-lg border border-border">
-                                    <span className="text-sm font-medium">Identity Verified</span>
-                                    <Badge variant={profile?.identity_verified ? 'success' : 'neutral'}>
-                                        {profile?.identity_verified ? 'Verified' : 'Pending'}
-                                    </Badge>
-                                </div>
-                                <div className="flex justify-between items-center bg-background p-4 rounded-lg border border-border">
-                                    <span className="text-sm font-medium">Total Trips</span>
-                                    <span className="font-mono font-bold text-lg">{bookings?.length || 0}</span>
-                                </div>
-                            </div>
-                        </Card>
+
                     </div>
                 )}
 
@@ -305,15 +294,14 @@ function Profile() {
                                                 <div className="flex items-center justify-between mb-2">
                                                     <div className="flex items-center gap-2">
                                                         <StatusBadge status={booking.status} />
-                                                        <span className="text-xs font-mono text-muted-foreground hidden sm:inline">#{booking.id.slice(0, 8)}</span>
                                                     </div>
                                                     <div className="font-mono-numbers font-bold text-lg md:text-xl">₹{booking.total_price.toLocaleString()}</div>
                                                 </div>
                                                 <h3 className="font-bold text-lg">{booking.vehicles.make} {booking.vehicles.model}</h3>
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground">
-                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {booking.start_date}</span>
+                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {new Date(booking.start_date).toLocaleDateString()}</span>
                                                     <span className="hidden sm:inline">→</span>
-                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {booking.end_date}</span>
+                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {new Date(booking.end_date).toLocaleDateString()}</span>
                                                 </div>
                                             </div>
 
@@ -345,12 +333,21 @@ function Profile() {
                         <Card className="p-6">
                             <h3 className="font-bold flex items-center gap-2 mb-4"><FaIdCard className="text-primary" /> Tourist License</h3>
                             <p className="text-sm text-muted-foreground mb-6">Upload your government issued driving license.</p>
-                            {profile?.license_document_url ? (
-                                <div className="bg-emerald-500/10 text-emerald-600 p-4 rounded-lg flex items-center gap-3"><FaCheckCircle /> Uploaded</div>
+                            {profile?.license_document_url && !isUpdatingLicense ? (
+                                <div className="bg-emerald-500/10 text-emerald-600 p-4 rounded-lg flex items-center justify-between">
+                                    <span className="flex items-center gap-2"><FaCheckCircle /> Uploaded</span>
+                                    <Button size="sm" variant="outline" onClick={() => setIsUpdatingLicense(true)} className="h-8 border-foreground/20 text-foreground hover:bg-foreground/10 dark:text-yellow-500 dark:border-white/20">Update</Button>
+                                </div>
                             ) : (
                                 <div className="flex flex-col gap-3">
                                     <input type="file" className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" onChange={e => setLicenseFile(e.target.files[0])} />
-                                    <Button size="sm" onClick={() => docUploadMutation.mutate({ file: licenseFile, userId: user.id, bucket: 'tourist-licenses', profileKey: 'license_document_url' })} disabled={!licenseFile} fullWidth>Upload License</Button>
+                                    <div className="flex gap-2">
+                                        <Button size="sm" onClick={() => {
+                                            docUploadMutation.mutate({ file: licenseFile, userId: user.id, bucket: 'tourist-licenses', profileKey: 'license_document_url' });
+                                            setIsUpdatingLicense(false);
+                                        }} disabled={!licenseFile} className="flex-1">Upload License</Button>
+                                        {isUpdatingLicense && <Button size="sm" variant="ghost" onClick={() => setIsUpdatingLicense(false)}>Cancel</Button>}
+                                    </div>
                                 </div>
                             )}
                         </Card>
@@ -358,12 +355,21 @@ function Profile() {
                             <Card className="p-6 border-primary/20 bg-primary/5">
                                 <h3 className="font-bold flex items-center gap-2 mb-4"><FaCar className="text-primary" /> Host Business Doc</h3>
                                 <p className="text-sm text-muted-foreground mb-6">Required to list vehicles.</p>
-                                {profile?.business_document_url ? (
-                                    <div className="bg-emerald-500/10 text-emerald-600 p-4 rounded-lg flex items-center gap-3"><FaCheckCircle /> Verified</div>
+                                {profile?.business_document_url && !isUpdatingHostDoc ? (
+                                    <div className="bg-emerald-500/10 text-emerald-600 p-4 rounded-lg flex items-center justify-between">
+                                        <span className="flex items-center gap-2"><FaCheckCircle /> Uploaded</span>
+                                        <Button size="sm" variant="outline" onClick={() => setIsUpdatingHostDoc(true)} className="h-8 border-foreground/20 text-black hover:bg-foreground/10 dark:text-yellow-500 dark:border-white/20">Update</Button>
+                                    </div>
                                 ) : (
                                     <div className="flex flex-col gap-3">
                                         <input type="file" className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" onChange={e => setDocFile(e.target.files[0])} />
-                                        <Button size="sm" onClick={() => docUploadMutation.mutate({ file: docFile, userId: user.id, bucket: 'host-documents', profileKey: 'business_document_url' })} disabled={!docFile} fullWidth>Upload Document</Button>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" onClick={() => {
+                                                docUploadMutation.mutate({ file: docFile, userId: user.id, bucket: 'host-documents', profileKey: 'business_document_url' });
+                                                setIsUpdatingHostDoc(false);
+                                            }} disabled={!docFile} className="flex-1">Upload Document</Button>
+                                            {isUpdatingHostDoc && <Button size="sm" variant="ghost" onClick={() => setIsUpdatingHostDoc(false)}>Cancel</Button>}
+                                        </div>
                                     </div>
                                 )}
                             </Card>

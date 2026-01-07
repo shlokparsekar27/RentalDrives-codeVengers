@@ -10,13 +10,8 @@ const PrivacyPolicy = () => {
 
                 {/* Header */}
                 <div className="text-center mb-12 animate-fade-in-up">
-                    <Badge variant="primary" className="mb-4">Legal & Trust</Badge>
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-600">
-                        Privacy Policy
-                    </h1>
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                        Your privacy is our priority. We are transparent about how we collect, use, and protect your data.
-                    </p>
+                    <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur-sm border-primary/20 text-primary">Legal & Trust</Badge>
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Privacy Policy</h1>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-8">

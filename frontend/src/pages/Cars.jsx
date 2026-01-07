@@ -17,21 +17,7 @@ const fetchVehicles = async () => {
   return data.filter(vehicle => vehicle.vehicle_type === 'Car' && vehicle.status === 'approved');
 };
 
-const FuelBadge = ({ fuelType }) => {
-  let variant = 'neutral';
-  let icon = <FaGasPump className="mr-1" />;
-  if (fuelType === 'Electric') {
-    variant = 'success';
-    icon = <FaBolt className="mr-1" />;
-  } else if (fuelType === 'Diesel') {
-    variant = 'destructive';
-  }
-  return (
-    <Badge variant={variant} className="flex items-center px-2 py-0.5 text-[10px] uppercase tracking-wider backdrop-blur-sm bg-opacity-80">
-      {icon} {fuelType}
-    </Badge>
-  );
-};
+// FuelBadge component removed in favor of inline styling in the specs grid
 
 function Cars() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,7 +53,7 @@ function Cars() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header - Compact on mobile */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4 animate-fade-in-up">
+        <div className="flex flex-col md:flex-row justify-between mb-8 gap-4 animate-fade-in-up">
           <div>
             <Badge variant="outline" className="mb-2 border-primary/20 text-primary bg-primary/5">Premium Fleet</Badge>
             <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
@@ -138,46 +124,50 @@ function Cars() {
                   <Card hover noPadding className="h-full flex flex-col overflow-hidden border-border/60 transition-all duration-500 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 bg-card">
 
                     {/* Image */}
-                    <div className="relative h-56 md:h-64 overflow-hidden bg-secondary">
+                    <div className="relative h-48 md:h-56 overflow-hidden bg-secondary">
                       <img
                         src={vehicle.image_urls?.[0]}
                         alt={`${vehicle.make} ${vehicle.model}`}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 will-change-transform"
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 transition-opacity"></div>
-
-                      <div className="absolute bottom-5 left-5 text-white z-10 w-full pr-10">
-                        <h3 className="text-2xl font-bold tracking-tight leading-none shadow-black drop-shadow-md">{vehicle.make} {vehicle.model}</h3>
-                        <div className="flex items-center gap-2 text-xs font-medium text-white/90 mt-2">
-                          <FaUserCircle className="text-primary" />
-                          <span>Hosted by {vehicle.profiles?.full_name?.split(' ')[0] || 'Verified Host'}</span>
-                        </div>
-                      </div>
-
-                      <div className="absolute top-4 right-4 bg-white/90 dark:bg-black/80 backdrop-blur-md text-foreground px-3 py-1.5 rounded-lg text-sm font-mono font-bold shadow-lg border border-white/20">
-                        ₹{vehicle.price_per_day}<span className="text-[10px] font-sans font-normal opacity-70">/day</span>
-                      </div>
-
-                      <div className="absolute top-4 left-4">
-                        <FuelBadge fuelType={vehicle.fuel_type} />
-                      </div>
                     </div>
 
                     {/* Specs */}
                     <div className="p-5 flex-grow bg-card flex flex-col justify-between">
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex flex-col items-center justify-center p-2 bg-secondary/30 rounded-lg min-w-[60px]">
-                          <GiGearStickPattern className="text-muted-foreground mb-1" />
-                          <span className="text-[10px] font-bold uppercase text-foreground">{vehicle.transmission.slice(0, 4)}</span>
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="text-xl font-bold tracking-tight text-foreground leading-tight">{vehicle.make} {vehicle.model}</h3>
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mt-1">
+                              <FaUserCircle className="text-primary/70" />
+                              <span>{vehicle.profiles?.full_name?.split(' ')[0] || 'Verified Host'}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-baseline justify-end gap-1">
+                              <span className="text-lg font-mono font-bold text-foreground">₹{vehicle.price_per_day}</span>
+                              <span className="text-[10px] text-muted-foreground tracking-wide"> / day</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-center justify-center p-2 bg-secondary/30 rounded-lg min-w-[60px]">
-                          <FaUsers className="text-muted-foreground mb-1" />
-                          <span className="text-[10px] font-bold uppercase text-foreground">{vehicle.seating_capacity} Seats</span>
-                        </div>
-                        <div className="flex flex-col items-center justify-center p-2 bg-secondary/30 rounded-lg min-w-[60px]">
-                          <FaGasPump className="text-muted-foreground mb-1" />
-                          <span className="text-[10px] font-bold uppercase text-foreground">{vehicle.fuel_type}</span>
+
+                        <div className="grid grid-cols-3 gap-2 mb-6 mt-4">
+                          <div className="flex flex-col items-center justify-center p-2 bg-secondary/30 rounded-lg">
+                            <GiGearStickPattern className="text-muted-foreground mb-1" />
+                            <span className="text-[10px] font-bold uppercase text-foreground">{vehicle.transmission.slice(0, 4)}</span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center p-2 bg-secondary/30 rounded-lg">
+                            <FaUsers className="text-muted-foreground mb-1" />
+                            <span className="text-[10px] font-bold uppercase text-foreground">{vehicle.seating_capacity} Seats</span>
+                          </div>
+                          <div className={`flex flex-col items-center justify-center p-2 bg-secondary/30 rounded-lg ${vehicle.fuel_type === 'Petrol' ? 'text-yellow-500' :
+                            vehicle.fuel_type === 'Diesel' ? 'text-red-500' :
+                              vehicle.fuel_type === 'Electric' ? 'text-green-500' : 'text-foreground'
+                            }`}>
+                            {vehicle.fuel_type === 'Electric' ? <FaBolt className="mb-1" /> : <FaGasPump className="mb-1" />}
+                            <span className="text-[10px] font-bold uppercase">{vehicle.fuel_type}</span>
+                          </div>
                         </div>
                       </div>
 

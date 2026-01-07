@@ -604,14 +604,23 @@ app.get("/api/users/me", authenticateToken, async (req, res) => {
 app.put('/api/users/me', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.sub;
-    const { full_name, address, phone_primary, phone_secondary, license_document_url } = req.body;
+    const { full_name, address, phone_primary, phone_secondary, license_document_url, business_document_url } = req.body;
 
     const updates = {};
     if (full_name !== undefined) updates.full_name = full_name;
     if (address !== undefined) updates.address = address;
     if (phone_primary !== undefined) updates.phone_primary = phone_primary;
     if (phone_secondary !== undefined) updates.phone_secondary = phone_secondary;
-    if (license_document_url !== undefined) updates.license_document_url = license_document_url;
+    if (license_document_url !== undefined) {
+      updates.license_document_url = license_document_url;
+      // Reset license verification status when a new document is uploaded
+      updates.is_license_verified = false;
+    }
+    if (business_document_url !== undefined) {
+      updates.business_document_url = business_document_url;
+      // Reset host verification status when a new document is uploaded
+      updates.is_verified = false;
+    }
 
     // Add missing timestamp for updates
     updates.updated_at = new Date().toISOString();
@@ -1516,7 +1525,7 @@ app.get('/api/admin/hosts/pending', authenticateToken, async (req, res) => {
       .from('profiles')
       .select('*')
       .eq('role', 'host')
-      .eq('is_verified', false)
+      .or('is_verified.eq.false,is_verified.is.null')
       .not('business_document_url', 'is', null); // Only get hosts who have uploaded something
 
     if (error) throw error;
@@ -1537,6 +1546,33 @@ app.patch('/api/admin/hosts/:id/verify', authenticateToken, async (req, res) => 
     const { data, error } = await supabase
       .from('profiles')
       .update({ is_verified: true })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Host not found.' });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: REJECT a host's verification (clears the document URL)
+app.patch('/api/admin/hosts/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    if (!await checkAdmin(req)) {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        is_verified: false,
+        business_document_url: null // Clear the document so it disappears from the queue
+      })
       .eq('id', id)
       .select()
       .single();
@@ -1705,7 +1741,7 @@ app.get('/api/admin/tourists/pending-license', authenticateToken, async (req, re
       .from('profiles')
       .select('*')
       // Removed strict role check so Hosts can also be verified for licenses
-      .eq('is_license_verified', false)
+      .or('is_license_verified.eq.false,is_license_verified.is.null')
       .not('license_document_url', 'is', null); // Only get users who have uploaded a license
 
     if (error) throw error;
@@ -1918,6 +1954,23 @@ app.get('/api/hosts/my-vehicles/:vehicleId/certification-url', authenticateToken
 
     res.status(200).json({ signedUrl: data.signedUrl });
 
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// NEW: GET confirm bookings for a specific vehicle (for availability check)
+app.get('/api/vehicles/:vehicleId/bookings', async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('start_date, end_date')
+      .eq('vehicle_id', vehicleId)
+      .eq('status', 'confirmed'); // Only fetch confirmed bookings
+
+    if (error) throw error;
+    res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

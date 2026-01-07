@@ -15,6 +15,12 @@ const fetchVehicle = async (id) => {
   return response.json();
 };
 
+const fetchVehicleBookings = async (id) => {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${id}/bookings`);
+  if (!response.ok) throw new Error('Failed to fetch bookings');
+  return response.json();
+};
+
 const VehicleDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -28,6 +34,12 @@ const VehicleDetail = () => {
   const { data: vehicle, isLoading, isError } = useQuery({
     queryKey: ['vehicle', id],
     queryFn: () => fetchVehicle(id),
+  });
+
+  const { data: existingBookings } = useQuery({
+    queryKey: ['vehicleBookings', id],
+    queryFn: () => fetchVehicleBookings(id),
+    enabled: !!id,
   });
 
   if (isLoading) return <div className="min-h-[100dvh] pt-32 text-center font-mono animate-pulse text-muted-foreground flex items-center justify-center">INITIALIZING ASSET DATA...</div>;
@@ -45,6 +57,25 @@ const VehicleDetail = () => {
 
   const totalCost = calculateTotal();
   const days = totalCost / vehicle.price_per_day;
+
+  // --- Availability Logic ---
+  const checkAvailability = () => {
+    if (!startDate || !endDate || !existingBookings) return true;
+    const userStart = new Date(startDate);
+    const userEnd = new Date(endDate);
+
+    // Check if start date is before end date
+    if (userStart > userEnd) return false;
+
+    return !existingBookings.some(booking => {
+      const bookingStart = new Date(booking.start_date);
+      const bookingEnd = new Date(booking.end_date);
+      return (userStart <= bookingEnd && userEnd >= bookingStart);
+    });
+  };
+
+  const isAvailable = checkAvailability();
+  const dateError = startDate && endDate && new Date(startDate) > new Date(endDate); // Basic validation
 
   // --- Ratings & Trips Calculation ---
   const reviews = vehicle.reviews || [];
@@ -131,7 +162,7 @@ const VehicleDetail = () => {
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Pricing</p>
-                <p className="text-3xl font-bold font-mono-numbers text-primary">₹{vehicle.price_per_day}<span className="text-lg text-muted-foreground font-sans font-medium">/day</span></p>
+                <p className="text-3xl font-bold font-mono-numbers text-primary">₹{vehicle.price_per_day}<span className="text-lg text-muted-foreground font-sans font-medium"> / day</span></p>
               </div>
             </div>
 
@@ -263,11 +294,15 @@ const VehicleDetail = () => {
                     variant="primary"
                     fullWidth
                     size="lg"
-                    disabled={!startDate || !endDate || totalCost <= 0}
+                    disabled={!startDate || !endDate || totalCost <= 0 || !isAvailable || dateError}
                     onClick={handleBookingHelper}
-                    className="shadow-xl shadow-primary/20 font-bold h-12 text-base transition-transform active:scale-[0.98]"
+                    className={`shadow-xl shadow-primary/20 font-bold h-12 text-base transition-transform active:scale-[0.98] ${!isAvailable ? 'opacity-50 cursor-not-allowed bg-destructive hover:bg-destructive' : ''}`}
                   >
-                    {!startDate ? 'Check Availability' : 'Proceed to Book'}
+                    {!startDate
+                      ? 'Check Availability'
+                      : !isAvailable
+                        ? 'Vehicle Not Available'
+                        : 'Review Booking'}
                   </Button>
 
                   <div className="flex flex-col gap-2 pt-2">
@@ -303,7 +338,13 @@ const VehicleDetail = () => {
 
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            {totalCost > 0 && <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 animate-pulse">Available</p>}
+            {totalCost > 0 && (
+              isAvailable ? (
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 animate-pulse">Available</p>
+              ) : (
+                <p className="text-[10px] font-bold text-destructive uppercase tracking-wider mb-0.5">Not Available</p>
+              )
+            )}
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-bold font-mono-numbers text-foreground truncate">
                 {totalCost > 0 ? `₹${(totalCost * 1.02).toLocaleString()}` : `₹${vehicle.price_per_day}`}
@@ -314,13 +355,15 @@ const VehicleDetail = () => {
             </div>
           </div>
           <Button
-            onClick={totalCost > 0 ? handleBookingHelper : () => { }}
+            onClick={totalCost > 0 && isAvailable ? handleBookingHelper : () => { }}
             variant="primary"
             size="lg"
-            className="px-6 shadow-xl shadow-primary/25 flex-1 h-12 text-base font-bold"
-            disabled={!startDate || !endDate}
+            className={`px-6 shadow-xl shadow-primary/25 flex-1 h-12 text-base font-bold ${!isAvailable ? 'opacity-50 cursor-not-allowed bg-destructive hover:bg-destructive' : ''}`}
+            disabled={!startDate || !endDate || !isAvailable || dateError}
           >
-            {totalCost > 0 ? 'Book Now' : 'Select Dates'}
+            {totalCost > 0
+              ? (!isAvailable ? 'Not Available' : 'Book Now')
+              : 'Select Dates'}
           </Button>
         </div>
       </div>

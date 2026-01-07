@@ -17,7 +17,7 @@ const Home = () => {
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10"></div>
         </div>
 
-        <div className="container mx-auto px-4 z-10 text-center flex flex-col items-center">
+        <div className="container mx-auto px-4 py-12 z-10 text-center flex flex-col items-center">
           <Badge variant="outline" className="mb-8 backdrop-blur-md bg-background/50 border-primary/20 text-primary animate-fade-in-up">
             Goa's #1 Premium Fleet
           </Badge>
@@ -28,7 +28,7 @@ const Home = () => {
           </h1>
 
           <p className="text-lg md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed animate-fade-in-up px-4 delay-100">
-            Experience freedom with our calibrated fleet of high-performance cars and bikes. Zero deposits. Instant confirmation.
+            Experience freedom with our calibrated fleet of high-performance cars and bikes with instant confirmation.
           </p>
 
           <div className="flex flex-row items-center justify-center gap-3 w-full max-w-md mx-auto sm:w-auto animate-fade-in-up delay-200 px-4">
@@ -114,7 +114,6 @@ const Home = () => {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
             <div className="max-w-xl">
               <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Our Fleet</h2>
-              <p className="text-muted-foreground text-lg">From agile scooters for market runs to SUVs for family excursions.</p>
             </div>
           </div>
 
@@ -128,9 +127,9 @@ const Home = () => {
                 </div>
                 <div className="p-8 flex-grow flex flex-col bg-card">
                   <h3 className="text-2xl font-bold text-foreground mb-2">Cars & SUVs</h3>
-                  <p className="text-muted-foreground mb-6 flex-grow">Thar, Creta, Baleno, and more. Air-conditioned comfort for the whole crew.</p>
+                  <p className="text-muted-foreground mb-6 flex-grow">Thar, Creta, Baleno and much more.</p>
                   <span className="flex items-center text-primary font-bold group-hover:translate-x-2 transition-transform mt-auto">
-                    Browse Fleet <FaArrowRight className="ml-2 text-xs" />
+                    View Cars <FaArrowRight className="ml-2 text-xs" />
                   </span>
                 </div>
               </Card>
@@ -145,7 +144,7 @@ const Home = () => {
                 </div>
                 <div className="p-8 flex-grow flex flex-col bg-card">
                   <h3 className="text-2xl font-bold text-foreground mb-2">Motorcycles</h3>
-                  <p className="text-muted-foreground mb-6 flex-grow">Royal Enfield, KTM, BMW. Feel the coastal breeze on a premium cruiser.</p>
+                  <p className="text-muted-foreground mb-6 flex-grow">Royal Enfield, Java and much more.</p>
                   <span className="flex items-center text-orange-600 font-bold group-hover:translate-x-2 transition-transform mt-auto">
                     View Bikes <FaArrowRight className="ml-2 text-xs" />
                   </span>
@@ -162,9 +161,9 @@ const Home = () => {
                 </div>
                 <div className="p-8 flex-grow flex flex-col bg-card">
                   <h3 className="text-2xl font-bold text-foreground mb-2">Scooters</h3>
-                  <p className="text-muted-foreground mb-6 flex-grow">Activa, Jupiter, Vespa. The smartest way to navigate narrow lanes.</p>
+                  <p className="text-muted-foreground mb-6 flex-grow">Activa, Jupiter, Vespa and much more.</p>
                   <span className="flex items-center text-emerald-600 font-bold group-hover:translate-x-2 transition-transform mt-auto">
-                    Find Scooters <FaArrowRight className="ml-2 text-xs" />
+                    View Scooters <FaArrowRight className="ml-2 text-xs" />
                   </span>
                 </div>
               </Card>
