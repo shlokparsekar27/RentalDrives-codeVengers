@@ -9,10 +9,28 @@ import {
   FaMotorcycle, FaBicycle, FaChevronRight
 } from 'react-icons/fa';
 
+import { useQuery } from '@tanstack/react-query';
+
 function Navbar() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, session } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/me`, {
+        headers: { 'Authorization': `Bearer ${session?.access_token}` }
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user && !!session,
+    staleTime: 1000 * 60 * 5 // 5 mins
+  });
+
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email;
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -51,19 +69,43 @@ function Navbar() {
     <>
       <nav
         className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${scrolled || isOpen
-          ? 'bg-background/95 backdrop-blur-xl border-b border-border shadow-sm py-2'
+          ? 'md:bg-background/95 md:backdrop-blur-xl bg-background border-b border-border shadow-sm py-2'
           : 'bg-transparent border-b border-transparent py-4'
           }`}
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-12 md:h-14">
 
-            {/* Logo - Always visible and full text */}
+            {/* Logo Section */}
             <Link to="/" className="flex items-center gap-2 group z-50">
+
+              {/* IMAGE LOGOS */}
+              {/* INSTRUCTION: Please create a folder named 'public' in your 'frontend' directory if it doesn't exist. */}
+              {/* Place your two logo images inside 'frontend/public/' so they can be accessed at '/ImageName.png'. */}
+
+              {/* Light Mode Logo (Shows when NOT dark) */}
+              <img
+                src="/RentalDrives-Light Theme.png"
+                className="h-8 w-auto dark:hidden block object-contain"
+                alt="RentalDrives"
+              />
+
+              {/* Dark Mode Logo (Shows ONLY when dark) */}
+              <img
+                src="/RentalDrives-Dark Theme.png"
+                className="h-8 w-auto hidden dark:block object-contain"
+                alt="RentalDrives"
+              />
+
+              {/* 
+                 -- OLD ICON LOGO (Commented Out) --
               <div className={`p-1.5 rounded-lg transition-colors ${scrolled || isOpen ? 'bg-primary text-primary-foreground' : 'bg-foreground text-background '}`}>
                 <FaCar className="text-xl" />
               </div>
-              <span className={`text-lg font-bold tracking-tight transition-colors ${scrolled || isOpen ? 'text-foreground' : 'text-primary-foreground md:text-foreground mix-blend-exclusion'}`}>
+              */}
+
+              {/* Text Logo - Consistent across Mobile and Desktop (Always Foreground) */}
+              <span className={`text-lg font-bold tracking-tight transition-colors text-foreground`}>
                 Rental<span className="text-primary">Drives</span>
               </span>
             </Link>
@@ -153,11 +195,11 @@ function Navbar() {
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Signed in as</p>
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl uppercase">
-                      {(user.user_metadata?.full_name || user.email)?.charAt(0).toUpperCase()}
+                      {displayName?.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-bold text-foreground capitalize">{user.user_metadata?.full_name || user.email}</p>
-                      <span className="text-xs bg-background border border-border px-2 py-0.5 rounded-full text-muted-foreground capitalize">{user.role}</span>
+                      <p className="font-bold text-foreground capitalize">{displayName}</p>
+                      <span className="text-xs bg-background border border-border px-2 py-0.5 rounded-full text-muted-foreground capitalize">{profile?.role || user?.role || 'User'}</span>
                     </div>
                   </div>
                 </div>

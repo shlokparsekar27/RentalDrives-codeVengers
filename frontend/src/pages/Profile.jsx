@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { FaUser, FaEnvelope, FaStar, FaRegStar, FaEdit, FaCheckCircle, FaIdCard, FaCar, FaCalendarAlt, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaStar, FaRegStar, FaEdit, FaCheckCircle, FaIdCard, FaCar, FaCalendarAlt, FaCog, FaSignOutAlt, FaInfoCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import Button from '../Components/ui/Button';
 import Card from '../Components/ui/Card';
 import Badge from '../Components/ui/Badge';
+import BookingDetailsModal from '../Components/BookingDetailsModal';
 
 // --- API Functions ---
 const fetchUserProfile = async (userId) => {
@@ -59,6 +60,8 @@ const cancelBooking = async (bookingId) => {
     if (!response.ok) throw new Error('Cancellation failed');
     return response.json();
 };
+
+
 
 const createReview = async ({ booking, rating, comment }) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -139,6 +142,19 @@ function Profile() {
     const [isUpdatingLicense, setIsUpdatingLicense] = useState(false);
     const [isUpdatingHostDoc, setIsUpdatingHostDoc] = useState(false);
 
+    // Booking Modal State
+    const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+    const [selectedBookingId, setSelectedBookingId] = useState(null);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+
+    // Filter State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterFuel, setFilterFuel] = useState('all');
+    const [filterGear, setFilterGear] = useState('all');
+
     // Queries
     const { data: profile, isLoading } = useQuery({
         enabled: !!user?.id,
@@ -187,11 +203,13 @@ function Profile() {
         if (confirm("Cancel this booking?")) cancelMutation.mutate(id);
     }
 
-    const handleSignOut = async () => {
-        if (window.confirm("Are you sure you want to sign out?")) {
-            await signOut();
-            navigate('/login');
-        }
+    const performLogout = async () => {
+        await signOut();
+        navigate('/login');
+    };
+
+    const handleSignOut = () => {
+        setShowLogoutConfirm(true);
     };
 
     if (isLoading) return <div className="min-h-[100dvh] pt-24 text-center font-mono animate-pulse text-muted-foreground">SYNCING PROFILE...</div>;
@@ -248,81 +266,151 @@ function Profile() {
 
                 {/* TAB: OVERVIEW */}
                 {activeTab === 'overview' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
-                        <Card className="p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold flex items-center gap-2"><FaUser className="text-primary" /> Personal Details</h3>
+                    <div className="grid grid-cols-1 gap-6 animate-fade-in-up">
+                        <Card className="p-0 overflow-hidden border border-border/60 shadow-sm">
+                            <div className="p-6 border-b border-border/60 bg-secondary/20 flex justify-between items-center">
+                                <h3 className="font-bold text-lg flex items-center gap-2"><FaUser className="text-primary" /> Personal Details</h3>
                                 <Button variant="ghost" size="sm" onClick={() => navigate('/edit-profile')}><FaEdit /> Edit</Button>
                             </div>
-                            <div className="space-y-4 text-sm">
-                                <div className="grid grid-cols-1 md:grid-cols-3 py-2 border-b border-border border-dashed gap-1 md:gap-0">
-                                    <span className="text-muted-foreground">Name</span>
-                                    <span className="md:col-span-2 font-medium md:text-right">{profile?.full_name || '-'}</span>
+
+                            <div className="p-0 divide-y divide-border/60">
+                                <div className="grid grid-cols-1 md:grid-cols-3 p-6 gap-4 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Full Name</span>
+                                    <span className="md:col-span-2 font-medium text-base text-foreground">{profile?.full_name || '-'}</span>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 py-2 border-b border-border border-dashed gap-1 md:gap-0">
-                                    <span className="text-muted-foreground">Phone</span>
-                                    <span className="md:col-span-2 font-medium md:text-right font-mono">{profile?.phone_primary || '-'}</span>
+                                <div className="grid grid-cols-1 md:grid-cols-3 p-6 gap-4 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Primary Phone</span>
+                                    <span className="md:col-span-2 font-medium text-base text-foreground font-mono">{profile?.phone_primary || '-'}</span>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 py-2 border-b border-border border-dashed gap-1 md:gap-0">
-                                    <span className="text-muted-foreground">Address</span>
-                                    <span className="md:col-span-2 font-medium md:text-right truncate">{profile?.address || '-'}</span>
+                                <div className="grid grid-cols-1 md:grid-cols-3 p-6 gap-4 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Secondary Phone</span>
+                                    <span className="md:col-span-2 font-medium text-base text-foreground font-mono">{profile?.phone_secondary || '-'}</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 p-6 gap-4 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Address</span>
+                                    <span className="md:col-span-2 font-medium text-base text-foreground">{profile?.address || '-'}</span>
                                 </div>
                             </div>
                         </Card>
-
-
                     </div>
                 )}
 
                 {/* TAB: BOOKINGS */}
                 {activeTab === 'bookings' && (
-                    <div className="space-y-4 animate-fade-in-up">
-                        {bookings?.length === 0 ? (
+                    <div className="space-y-6 animate-fade-in-up">
+                        {/* Filter Toolbar */}
+                        <Card className="p-4 bg-secondary/10 border-border/60">
+                            <div className="flex flex-col gap-4">
+                                {/* Search */}
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search by vehicle name..."
+                                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                    />
+                                    <span className="absolute left-3 top-2.5 text-muted-foreground"><FaCar /></span>
+                                </div>
+
+                                {/* Filters Row */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <select className="px-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                        value={filterType} onChange={e => setFilterType(e.target.value)}>
+                                        <option value="all">All Types</option>
+                                        <option value="Car">Cars</option>
+                                        <option value="Bike">Bikes</option>
+                                        <option value="Scooter">Scooters</option>
+                                    </select>
+                                    <select className="px-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                        value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                                        <option value="all">All Status</option>
+                                        <option value="confirmed">Confirmed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="rejected">Rejected</option>
+                                    </select>
+                                    <select className="px-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                        value={filterGear} onChange={e => setFilterGear(e.target.value)}>
+                                        <option value="all">All Transmissions</option>
+                                        <option value="Automatic">Automatic</option>
+                                        <option value="Manual">Manual</option>
+                                    </select>
+                                    <select className="px-3 py-2 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                        value={filterFuel} onChange={e => setFilterFuel(e.target.value)}>
+                                        <option value="all">All Fuel</option>
+                                        <option value="Petrol">Petrol</option>
+                                        <option value="Diesel">Diesel</option>
+                                        <option value="Electric">Electric</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* List */}
+                        {bookings?.filter(b => {
+                            const v = b.vehicles || {};
+                            const s = searchTerm.toLowerCase();
+                            const matchesSearch = (v.make + ' ' + v.model).toLowerCase().includes(s);
+                            const matchesType = filterType === 'all' || v.vehicle_type === filterType;
+                            const matchesStatus = filterStatus === 'all' || b.status === filterStatus;
+                            const matchesFuel = filterFuel === 'all' || v.fuel_type === filterFuel;
+                            const matchesGear = filterGear === 'all' || v.transmission === filterGear;
+                            return matchesSearch && matchesType && matchesStatus && matchesFuel && matchesGear && b.status !== 'pending';
+                        }).length === 0 ? (
                             <div className="text-center py-12 border-2 border-dashed border-border rounded-xl">
-                                <p className="mb-4 text-muted-foreground">You haven't booked any trips yet.</p>
+                                <p className="mb-4 text-muted-foreground">No bookings found matching filters.</p>
                                 <Button to="/cars" variant="primary">Find a Ride</Button>
                             </div>
                         ) : (
-                            bookings?.map(booking => (
-                                <Card key={booking.id} className="p-0 overflow-hidden hover:border-primary/40 transition-colors">
-                                    <div className="flex flex-col md:flex-row">
-                                        <div className="w-full md:w-48 bg-secondary h-48 md:h-auto">
-                                            <img src={booking.vehicles.image_urls?.[0]} className="w-full h-full object-cover" alt="Vehicle" />
-                                        </div>
-                                        <div className="p-6 flex-grow flex flex-col justify-between gap-6">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <StatusBadge status={booking.status} />
+                            bookings?.filter(b => {
+                                const v = b.vehicles || {};
+                                const s = searchTerm.toLowerCase();
+                                const matchesSearch = (v.make + ' ' + v.model).toLowerCase().includes(s);
+                                const matchesType = filterType === 'all' || v.vehicle_type === filterType;
+                                const matchesStatus = filterStatus === 'all' || b.status === filterStatus;
+                                const matchesFuel = filterFuel === 'all' || v.fuel_type === filterFuel;
+                                const matchesGear = filterGear === 'all' || v.transmission === filterGear;
+                                return matchesSearch && matchesType && matchesStatus && matchesFuel && matchesGear && b.status !== 'pending';
+                            }).map(booking => {
+                                const vehicle = booking.vehicles || {};
+                                return (
+                                    <Card key={booking.id} className="p-0 overflow-hidden hover:border-primary/40 transition-colors">
+                                        <div className="flex flex-col md:flex-row">
+                                            <div className="w-full md:w-48 bg-secondary h-48 md:h-auto">
+                                                <img src={vehicle.image_urls?.[0] || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=1000'} className="w-full h-full object-cover" alt="Vehicle" />
+                                            </div>
+                                            <div className="p-6 flex-grow flex flex-col justify-between gap-6">
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <StatusBadge status={booking.status} />
+                                                        </div>
+                                                        <div className="font-mono-numbers font-bold text-lg md:text-xl">₹{(booking.total_price || 0).toLocaleString()}</div>
                                                     </div>
-                                                    <div className="font-mono-numbers font-bold text-lg md:text-xl">₹{booking.total_price.toLocaleString()}</div>
+                                                    <h3 className="font-bold text-lg">{vehicle.make || 'Vehicle'} {vehicle.model}</h3>
+                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground">
+                                                        <span className="flex items-center gap-1"><FaCalendarAlt /> {booking.start_date ? new Date(booking.start_date).toLocaleDateString() : 'N/A'}</span>
+                                                        <span className="hidden sm:inline">→</span>
+                                                        <span className="flex items-center gap-1"><FaCalendarAlt /> {booking.end_date ? new Date(booking.end_date).toLocaleDateString() : 'N/A'}</span>
+                                                    </div>
                                                 </div>
-                                                <h3 className="font-bold text-lg">{booking.vehicles.make} {booking.vehicles.model}</h3>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground">
-                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {new Date(booking.start_date).toLocaleDateString()}</span>
-                                                    <span className="hidden sm:inline">→</span>
-                                                    <span className="flex items-center gap-1"><FaCalendarAlt /> {new Date(booking.end_date).toLocaleDateString()}</span>
-                                                </div>
-                                            </div>
 
-                                            <div className="flex flex-wrap gap-2 justify-end pt-4 border-t border-border border-dashed">
-                                                {booking.status === 'confirmed' && (
-                                                    <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)}
-                                                        className="text-destructive border-destructive/30 hover:bg-destructive/10 w-full sm:w-auto">
-                                                        Cancel Booking
+                                                <div className="flex flex-wrap gap-2 justify-end pt-4 border-t border-border border-dashed">
+
+                                                    <Button variant="secondary" size="sm" to={`/vehicle/${booking.vehicle_id}/reviews?booking_id=${booking.id}`} className="w-full sm:w-auto">
+                                                        <FaStar className="mr-1" /> Review
                                                     </Button>
-                                                )}
-                                                {booking.status === 'completed' && !booking.reviews?.[0] && (
-                                                    <Button variant="secondary" size="sm" onClick={() => { setCurrentReviewData({ booking }); setReviewModalOpen(true); }} className="w-full sm:w-auto">
-                                                        <FaStar className="mr-1" /> Write Review
+                                                    <Button variant="ghost" size="sm" onClick={() => { setSelectedBookingId(booking.id); setIsBookingModalOpen(true); }} className="w-full sm:w-auto">
+                                                        <FaInfoCircle className="mr-1" /> Details
                                                     </Button>
-                                                )}
-                                                <Button variant="ghost" size="sm" to={`/vehicle/${booking.vehicle_id}`} className="w-full sm:w-auto">View Vehicle</Button>
+                                                    <Button variant="ghost" size="sm" to={booking.vehicle_id ? `/vehicle/${booking.vehicle_id}` : '#'} className="w-full sm:w-auto">View Vehicle</Button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </Card>
-                            ))
+                                    </Card>
+                                )
+                            })
                         )}
                     </div>
                 )}
@@ -380,6 +468,37 @@ function Profile() {
 
 
             {isReviewModalOpen && <ReviewModal booking={currentReviewData.booking} review={currentReviewData.review} onClose={() => setReviewModalOpen(false)} onSubmit={handleReviewSubmit} />}
+
+            {selectedBookingId && (
+                <BookingDetailsModal
+                    bookingId={selectedBookingId}
+                    isOpen={isBookingModalOpen}
+                    onClose={() => { setIsBookingModalOpen(false); setSelectedBookingId(null); }}
+                />
+            )}
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-[200] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <Card className="w-full max-w-sm p-6 text-center shadow-2xl border-destructive/20 bg-background">
+                        <div className="mb-4 mx-auto w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
+                            <FaSignOutAlt size={20} />
+                        </div>
+                        <h4 className="text-xl font-bold mb-2 text-foreground">Sign Out?</h4>
+                        <p className="text-muted-foreground mb-6">
+                            Are you sure you want to log out of your account?
+                        </p>
+                        <div className="flex gap-3">
+                            <Button variant="outline" onClick={() => setShowLogoutConfirm(false)} className="flex-1">
+                                Cancel
+                            </Button>
+                            <Button variant="destructive" onClick={performLogout} className="flex-1">
+                                Yes, Sign Out
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

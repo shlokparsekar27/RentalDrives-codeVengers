@@ -20,9 +20,24 @@ function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-5 lg:col-span-5">
             <Link to="/" className="flex items-center gap-2 mb-6 group w-fit">
+              {/* Image Logos matching Navbar */}
+              <img
+                src="/RentalDrives-Light Theme.png"
+                className="h-10 w-auto dark:hidden block object-contain"
+                alt="RentalDrives"
+              />
+              <img
+                src="/RentalDrives-Dark Theme.png"
+                className="h-10 w-auto hidden dark:block object-contain"
+                alt="RentalDrives"
+              />
+
+              {/* OLD ICON LOGO (Commented Out)
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-2xl shadow-lg shadow-primary/25 group-hover:scale-110 transition-transform">
                 R
               </div>
+              */}
+
               <span className="font-bold text-2xl tracking-tight text-foreground">Rental<span className="text-primary">Drives</span></span>
             </Link>
             <p className="text-muted-foreground leading-relaxed max-w-sm mb-8">

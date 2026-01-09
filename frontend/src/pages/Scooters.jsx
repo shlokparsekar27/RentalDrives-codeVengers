@@ -124,7 +124,7 @@ function Scooters() {
                             <h3 className="text-xl font-bold tracking-tight text-foreground leading-tight">{vehicle.make} {vehicle.model}</h3>
                             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mt-1">
                               <FaUserCircle className="text-primary/70" />
-                              <span>{vehicle.profiles?.full_name?.split(' ')[0] || 'Verified Host'}</span>
+                              <span>{vehicle.profiles?.full_name || 'Verified Host'}</span>
                             </div>
                           </div>
                           <div className="text-right">

@@ -102,7 +102,7 @@ const EditProfile = () => {
                         {/* Full Name */}
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                                <FaUser className="text-primary" /> Full Name
+                                <FaUser className="text-primary" /> Full Name <span className="text-destructive">*</span>
                             </label>
                             <input
                                 name="full_name"
@@ -133,7 +133,7 @@ const EditProfile = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                                    <FaPhone className="text-primary" /> Primary Phone
+                                    <FaPhone className="text-primary" /> Primary Phone <span className="text-destructive">*</span>
                                 </label>
                                 <input
                                     name="phone_primary"
@@ -141,6 +141,7 @@ const EditProfile = () => {
                                     onChange={handleChange}
                                     placeholder="+91..."
                                     className="w-full p-3 bg-secondary/50 border border-transparent rounded-xl focus:bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
+                                    required
                                 />
                             </div>
                             <div className="space-y-2">

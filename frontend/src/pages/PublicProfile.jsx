@@ -23,67 +23,77 @@ const PublicProfile = () => {
     if (isLoading) return <div className="min-h-[60vh] flex items-center justify-center text-muted-foreground animate-pulse">LOADING PROFILE...</div>;
     if (isError) return <div className="min-h-[60vh] flex items-center justify-center text-destructive">User not found.</div>;
 
-    return (
-        <div className="bg-background min-h-screen pt-24 pb-20 font-sans">
-            <div className="container mx-auto px-4 max-w-4xl">
+    const StatusBadge = ({ isVerified }) => (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isVerified ? 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/20' : 'bg-secondary text-muted-foreground border border-border'}`}>
+            {isVerified ? <><FaCheckCircle size={10} /> Verified</> : 'Unverified'}
+        </span>
+    );
 
-                <Button variant="ghost" className="mb-8 pl-0 gap-2" onClick={() => navigate(-1)}>
+    return (
+        <div className="bg-background min-h-[100dvh] pt-20 md:pt-24 pb-20 font-sans">
+            <div className="container mx-auto px-4 lg:px-8 max-w-4xl">
+
+                <Button variant="ghost" className="mb-6 pl-0 gap-2 hover:bg-transparent hover:text-primary" onClick={() => navigate(-1)}>
                     &larr; Back
                 </Button>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Sidebar Profile Card */}
-                    <div className="col-span-1">
-                        <Card className="p-6 flex flex-col items-center text-center sticky top-24">
-                            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary text-4xl font-bold mb-4 border-4 border-background shadow-lg">
-                                {profile.full_name?.charAt(0) || <FaUser />}
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between mb-6 md:mb-8 animate-fade-in-up">
+                    <div className="flex items-center gap-5 w-full md:w-auto">
+                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-4xl border border-primary/20 flex-shrink-0 shadow-xl shadow-primary/5 uppercase">
+                            {profile.full_name?.charAt(0) || <FaUser />}
+                        </div>
+                        <div className="flex-grow space-y-2">
+                            <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">{profile.full_name}</h1>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span className="font-mono uppercase text-xs font-bold border border-border px-2 py-0.5 rounded bg-secondary/50 text-muted-foreground">{profile.role || 'Member'}</span>
+                                <StatusBadge isVerified={profile.is_verified} />
                             </div>
-                            <h1 className="text-2xl font-bold">{profile.full_name}</h1>
-                            <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider mt-1 mb-4 flex items-center gap-1 justify-center">
-                                {profile.role || 'Member'}
-                                {profile.is_verified && <FaCheckCircle className="text-blue-500" />}
-                            </p>
+                        </div>
+                    </div>
+                </div>
 
-                            <div className="w-full border-t border-border pt-4 mt-2 space-y-3">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Rating</span>
-                                    <span className="font-bold flex items-center gap-1"><FaStar className="text-amber-400" /> 4.9</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Verified</span>
-                                    <span className="font-bold text-success">Identity Verified</span>
-                                </div>
+                {/* Main Content: Overview Grid */}
+                <div className="grid grid-cols-1 gap-6 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+                    <Card className="p-0 overflow-hidden border border-border/60 shadow-sm">
+                        <div className="p-4 md:p-6 border-b border-border/60 bg-secondary/20">
+                            <h3 className="font-bold text-lg flex items-center gap-2"><FaShieldAlt className="text-primary" /> Public Profile</h3>
+                        </div>
+
+                        <div className="p-0 divide-y divide-border/60">
+                            <div className="grid grid-cols-1 md:grid-cols-3 p-4 md:p-6 gap-2 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Full Name</span>
+                                <span className="md:col-span-2 font-medium text-base text-foreground break-words">{profile.full_name}</span>
                             </div>
-                        </Card>
-                    </div>
 
-                    {/* Main Content */}
-                    <div className="col-span-1 md:col-span-2 space-y-6">
-                        <Card className="p-6">
-                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                <FaShieldAlt className="text-primary" /> About {profile.full_name}
-                            </h2>
-                            <p className="text-muted-foreground leading-relaxed">
-                                {profile.full_name} is a verified member of the RentalDrives community.
-                                They have passed all required identity verification checks to ensure a safe and secure rental experience.
-                            </p>
-                        </Card>
+                            <div className="grid grid-cols-1 md:grid-cols-3 p-4 md:p-6 gap-2 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Account Role</span>
+                                <span className="md:col-span-2 font-medium text-base text-foreground capitalize">{profile.role || 'User'}</span>
+                            </div>
 
-                        {/* Placeholder for future host vehicles list */}
-                        {profile.role === 'host' && (
-                            <Card className="p-6 opacity-80 decoration-dashed">
-                                <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                    <FaCar className="text-primary" /> Host Listings
-                                </h2>
-                                <p className="text-sm text-muted-foreground">
-                                    View all vehicles listed by this host in the main fleet search.
-                                </p>
-                                <Button to={`/cars?host=${id}`} variant="outline" size="sm" className="mt-4">
-                                    Search their vehicles
-                                </Button>
-                            </Card>
-                        )}
-                    </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 p-4 md:p-6 gap-2 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Verification Status</span>
+                                <span className="md:col-span-2 flex items-center">
+                                    <StatusBadge isVerified={profile.is_verified} />
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 p-4 md:p-6 gap-2 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Primary Phone</span>
+                                <span className="md:col-span-2 font-medium text-base text-foreground font-mono">{profile.phone_primary || '-'}</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 p-4 md:p-6 gap-2 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Secondary Phone</span>
+                                <span className="md:col-span-2 font-medium text-base text-foreground font-mono">{profile.phone_secondary || '-'}</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 p-4 md:p-6 gap-2 md:gap-0 hover:bg-secondary/10 transition-colors">
+                                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Address</span>
+                                <span className="md:col-span-2 font-medium text-base text-foreground break-words">{profile.address || '-'}</span>
+                            </div>
+                        </div>
+                    </Card>
                 </div>
             </div>
         </div>

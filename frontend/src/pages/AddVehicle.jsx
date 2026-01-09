@@ -40,6 +40,11 @@ const createVehicle = async ({ formData, imageFile, rcFile, insuranceFile }) => 
     // 4. API Packet
     const vehicleData = {
         ...formData,
+        price_per_day: Number(formData.price_per_day) || 0,
+        seating_capacity: Number(formData.seating_capacity) || 0,
+        pickup_charge: Number(formData.pickup_charge) || 0,
+        dropoff_charge: Number(formData.dropoff_charge) || 0,
+        year: Number(formData.year) || new Date().getFullYear(),
         image_urls: [imageUrlData.publicUrl],
         rc_document_url: rcUrlData.publicUrl,
         insurance_document_url: insuranceUrlData.publicUrl,
@@ -86,7 +91,19 @@ function AddVehicle() {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        let newValue = type === 'checkbox' ? checked : value;
+
+        if (['price_per_day', 'seating_capacity', 'pickup_charge', 'dropoff_charge'].includes(name)) {
+            if (newValue === '') {
+                // Allow empty string to let user clear the input
+            } else {
+                if (newValue < 0) newValue = 0;
+                // Enforce integer
+                newValue = Math.floor(Number(newValue));
+            }
+        }
+
+        setFormData(prev => ({ ...prev, [name]: newValue }));
     };
 
     const handleFileChange = (e, setter, previewSetter) => {
@@ -152,7 +169,6 @@ function AddVehicle() {
 
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold mb-2">List New Vehicle</h1>
-                    <p className="text-muted-foreground">Monetize your premium vehicle.</p>
                 </div>
 
                 {renderStepper()}
@@ -215,7 +231,7 @@ function AddVehicle() {
                                 </div>
                                 <div className="space-y-1 md:col-span-2">
                                     <label className="text-xs font-bold uppercase text-muted-foreground">Seating Capacity *</label>
-                                    <input type="number" name="seating_capacity" value={formData.seating_capacity} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" placeholder="e.g. 5" required />
+                                    <input type="number" min="0" name="seating_capacity" value={formData.seating_capacity} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" placeholder="e.g. 5" required />
                                 </div>
                             </div>
 
@@ -230,7 +246,7 @@ function AddVehicle() {
 
                             <div className="mb-6 space-y-1">
                                 <label className="text-xs font-bold uppercase text-muted-foreground">Daily Rate (₹) *</label>
-                                <input type="number" name="price_per_day" value={formData.price_per_day} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xl font-mono" placeholder="2500" required />
+                                <input type="number" min="0" name="price_per_day" value={formData.price_per_day} onChange={handleChange} className="w-full p-3 bg-secondary rounded-lg border border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xl font-mono" placeholder="2500" required />
                             </div>
 
                             <div className="space-y-4 border-t border-border pt-6">
@@ -239,7 +255,7 @@ function AddVehicle() {
                                     <input type="checkbox" name="pickup_available" checked={formData.pickup_available} onChange={handleChange} className="w-5 h-5 accent-primary" />
                                 </div>
                                 {formData.pickup_available && (
-                                    <input type="number" name="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className="w-full p-2 bg-secondary/50 rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge Amount" />
+                                    <input type="number" min="0" name="pickup_charge" value={formData.pickup_charge} onChange={handleChange} className="w-full p-2 bg-secondary/50 rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge Amount" />
                                 )}
                             </div>
 
@@ -249,7 +265,7 @@ function AddVehicle() {
                                     <input type="checkbox" name="dropoff_available" checked={formData.dropoff_available} onChange={handleChange} className="w-5 h-5 accent-primary" />
                                 </div>
                                 {formData.dropoff_available && (
-                                    <input type="number" name="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className="w-full p-2 bg-secondary/50 rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge Amount" />
+                                    <input type="number" min="0" name="dropoff_charge" value={formData.dropoff_charge} onChange={handleChange} className="w-full p-2 bg-secondary/50 rounded text-sm outline-none border border-border focus:border-primary" placeholder="Charge Amount" />
                                 )}
                             </div>
 

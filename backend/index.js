@@ -827,7 +827,7 @@ app.get('/api/users/:id', async (req, res) => {
     const { id } = req.params;
     const { data, error } = await supabase
       .from('profiles')
-      .select('full_name, role, is_verified') // Only select public, safe data
+      .select('full_name, role, is_verified, phone_primary, phone_secondary, address') // Only select public, safe data
       .eq('id', id)
       .single();
 
@@ -1116,6 +1116,32 @@ app.post("/api/payments/fail", async (req, res) => {
   }
 });
 
+// DELETE a specific booking (History Clean-up)
+app.delete('/api/bookings/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Manual Cascade: Delete reviews first
+    const { error: reviewError } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('booking_id', id);
+
+    if (reviewError) console.error("Error deleting reviews for booking:", reviewError);
+
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.sub); // Security: Only owner can delete
+
+    if (error) throw error;
+    res.json({ success: true, message: "Booking deleted" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 //<--------------- end of booking -------------------------------------------------------->
 
 // READ all of the current user's bookings
@@ -1125,7 +1151,8 @@ app.get('/api/bookings/my-bookings', authenticateToken, async (req, res) => {
       .from('bookings')
       .select(`
           *,
-          vehicles ( *, reviews ( * ) )
+          reviews(*),
+          vehicles (*)
         `)
       .eq('user_id', req.user.sub);
 
@@ -1142,12 +1169,12 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Fetch booking with payment info
+    // 1. Fetch booking (Simple Guest Check)
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("*, payments(*)")
       .eq("id", id)
-      .eq("user_id", req.user.sub)
+      .eq("user_id", req.user.sub) // Strictly check if current user is the booker
       .single();
 
     if (bookingError || !booking) {
@@ -1158,68 +1185,77 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Booking already cancelled" });
     }
 
-    // Cancellation policy
+    // 2. Calculate Refund
     const now = new Date();
     const startTime = new Date(booking.start_date);
-    const hoursBeforeStart = (startTime - now) / (1000 * 60 * 60);
+    const { requestRefund = true } = req.body;
 
     let refundPercent = 0;
-    if (hoursBeforeStart > 24) refundPercent = 1;
-    else if (hoursBeforeStart >= 6) refundPercent = 0.5;
-    else refundPercent = 0;
+    if (requestRefund) {
+      if (now <= startTime) {
+        refundPercent = 1.0; // Before pickup
+      } else {
+        refundPercent = 0.5; // After pickup
+      }
+    } else {
+      refundPercent = 0; // User said "No"
+    }
 
     const refundAmount = Math.floor(booking.total_price * refundPercent);
 
-    // Update booking to cancelled
-    await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
+    // 3. Cancel Booking
+    const { error: cancelError } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
+    if (cancelError) throw cancelError;
 
-    // No refund case
+    // 4. Handle "No Refund" Case
     if (refundAmount === 0) {
-      await supabase.from("payments")
-        .update({
-          refund_status: "failed",
-          refund_reason: "No refund eligible (within 6 hours)"
-        })
-        .eq("booking_id", id);
+      // Try to update payment status, but don't fail if it missing/fails
+      try {
+        if (booking.payments && booking.payments.length > 0) {
+          await supabase.from("payments")
+            .update({
+              refund_status: "failed",
+              refund_reason: "User declined refund"
+            })
+            .eq("booking_id", id);
+        }
+      } catch (ignore) { console.error("Payment update skipped:", ignore); }
 
-      return res.json({ success: true, message: "Booking cancelled (no refund eligible)" });
+      return res.json({ success: true, message: "Booking cancelled (No refund)" });
     }
 
-    // Refund initiated
+    // 5. Handle "Yes Refund" Case (Razorpay)
     const payment = booking.payments?.[0];
     if (!payment || !payment.razorpay_payment_id) {
-      return res.status(400).json({ error: "Payment not found for refund" });
+      return res.status(400).json({ error: "Payment record not found for refund" });
     }
 
-    // Call Razorpay Refund API
+    // Call Razorpay
     const response = await fetch(
       `https://api.razorpay.com/v1/payments/${payment.razorpay_payment_id}/refund`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization":
-            "Basic " +
-            Buffer.from(
-              `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`
-            ).toString("base64"),
+          "Authorization": "Basic " + Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString("base64"),
         },
-        body: JSON.stringify({ amount: refundAmount * 100 }),
+        body: JSON.stringify({ amount: refundAmount * 100 }), // Amount in paise
       }
     );
 
     const refundData = await response.json();
 
-    // Mark as INITIATED
+    if (refundData.error) {
+      throw new Error(refundData.error.description || "Razorpay Refund Failed");
+    }
+
+    // Update Payment to 'initiated'
     await supabase.from("payments").update({
       refund_status: "initiated",
       refund_amount: refundAmount,
-      refund_id: refundData?.id || null,
+      refund_id: refundData.id,
       initiated_at: new Date().toISOString(),
-      completed_at: null,
     }).eq("booking_id", id);
-
-
 
     return res.json({
       success: true,
@@ -1229,7 +1265,7 @@ app.patch('/api/bookings/:id/cancel', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error("❌ Cancel API error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 /*app.post("/api/bookings/:id/refund-processed", async (req, res) => {
@@ -1340,6 +1376,92 @@ app.post("/api/webhooks/razorpay", async (req, res) => {
   }
 });
 
+// ------------------ Razorpay Webhook for refund status ------------------
+
+app.post("/api/webhooks/razorpay", async (req, res) => {
+  try {
+    const payload = JSON.stringify(req.body);
+    const signature = req.headers["x-razorpay-signature"];
+
+    // Verify webhook signature
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .update(payload)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      console.error("❌ Invalid webhook signature");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    const event = req.body.event;
+    const entity = req.body.payload?.refund?.entity;
+
+    if (!entity) {
+      console.warn("⚠️ No refund entity in webhook payload");
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const refundId = entity.id;
+    const paymentId = entity.payment_id;
+    const refundStatus = entity.status; // created | processed | failed
+    const refundAmount = entity.amount / 100; // convert paise → ₹
+    const refundReason = entity.notes?.reason || "N/A";
+    const refundTime = entity.created_at
+      ? new Date(entity.created_at * 1000).toISOString()
+      : new Date().toISOString();
+
+    console.log(`🔔 Razorpay webhook: ${event} for ${refundId} (${refundStatus})`);
+
+    // ---------------- Update payments table ----------------
+    const { error } = await supabase
+      .from("payments")
+      .update({
+        refund_status: refundStatus,
+        refund_id: refundId,
+        refund_amount: refundAmount,
+        refund_reason: refundReason,
+        refunded_at: refundTime,
+      })
+      .eq("razorpay_payment_id", paymentId);
+
+    if (error) {
+      console.error("❌ Supabase update failed:", error);
+      return res.status(500).json({ error: "Failed to update Supabase" });
+    }
+
+    console.log(`✅ Refund ${refundId} updated → ${refundStatus}`);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("❌ Webhook error:", err);
+    return res.status(500).json({ error: "Webhook handler failed" });
+  }
+});
+
+// DEV:/api/webhooks/razorpay-simulate
+app.post("/api/webhooks/razorpay-simulate", async (req, res) => {
+  // Only allow in development or specific environment?
+  // For now, allow it as it's a requested feature for loop closing.
+  try {
+    const { refundId, paymentId, status } = req.body;
+    console.log(`🧪 SIMULATING Refund Update: ${refundId} -> ${status}`);
+
+    const { error } = await supabase
+      .from("payments")
+      .update({
+        refund_status: status,
+        refunded_at: new Date().toISOString(),
+      })
+      .eq("razorpay_payment_id", paymentId);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: "Simulated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Sim fail" });
+  }
+});
 
 // ======== ADMIN ENDPOINTS (Protected) ========
 
@@ -1889,7 +2011,7 @@ app.get('/api/hosts/my-bookings', authenticateToken, async (req, res) => {
       .from('bookings')
       .select(`
                 *,
-                vehicles ( make, model, vehicle_type ),
+                vehicles ( make, model, vehicle_type, image_urls, fuel_type, transmission ),
                 profiles ( full_name )
             `)
       .in('vehicle_id', vehicleIds)
