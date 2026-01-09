@@ -27,15 +27,21 @@ import FAQ from "./pages/FAQ";
 import TermsOfService from "./pages/TermsofService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import BookingDetails from "./pages/BookingDetails";
+import Invoice from "./pages/Invoice";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./Components/ScrollToTop";
 
-function App() {
+import { useLocation } from "react-router-dom";
+
+function AppContent() {
+  const location = useLocation();
+  const isInvoicePage = location.pathname.startsWith('/invoice/');
+
   return (
-    <Router>
+    <>
       <ScrollToTop />
-      <Navbar />
-      <main style={{ paddingBottom: '5rem' }}>
+      {!isInvoicePage && <Navbar />}
+      <main style={isInvoicePage ? {} : { paddingBottom: '5rem' }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/cars" element={<Cars />} />
@@ -69,12 +75,21 @@ function App() {
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/booking/:id" element={<BookingDetails />} />
+          <Route path="/invoice/:id" element={<Invoice />} />
 
           {/* Catch-all Route for 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <Footer />
+      {!isInvoicePage && <Footer />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

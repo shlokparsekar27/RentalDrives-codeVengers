@@ -20,9 +20,24 @@ function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-5 lg:col-span-5">
             <Link to="/" className="flex items-center gap-2 mb-6 group w-fit">
+              {/* Image Logos matching Navbar */}
+              <img
+                src="/RentalDrives-Light Theme.png"
+                className="h-10 w-auto dark:hidden block object-contain"
+                alt="RentalDrives"
+              />
+              <img
+                src="/RentalDrives-Dark Theme.png"
+                className="h-10 w-auto hidden dark:block object-contain"
+                alt="RentalDrives"
+              />
+
+              {/* OLD ICON LOGO (Commented Out)
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-2xl shadow-lg shadow-primary/25 group-hover:scale-110 transition-transform">
                 R
               </div>
+              */}
+
               <span className="font-bold text-2xl tracking-tight text-foreground">Rental<span className="text-primary">Drives</span></span>
             </Link>
             <p className="text-muted-foreground leading-relaxed max-w-sm mb-8">
@@ -52,10 +67,12 @@ function Footer() {
             </div>
           </div>
 
+
           {/* Links Column 1 */}
           <div className="col-span-1 md:col-span-3 lg:col-span-2">
             <h4 className="font-bold text-foreground mb-6 uppercase text-xs tracking-widest text-primary/80">Explore</h4>
             <ul className="space-y-4 text-sm text-muted-foreground font-medium">
+              <li><Link to="/" className="hover:text-primary hover:translate-x-1 transition-all inline-block">Home</Link></li>
               <li><Link to="/cars" className="hover:text-primary hover:translate-x-1 transition-all inline-block">Cars</Link></li>
               <li><Link to="/bikes" className="hover:text-primary hover:translate-x-1 transition-all inline-block">Motorcycles</Link></li>
               <li><Link to="/scooters" className="hover:text-primary hover:translate-x-1 transition-all inline-block">Scooters</Link></li>
@@ -69,6 +86,7 @@ function Footer() {
             <ul className="space-y-4 text-sm text-muted-foreground font-medium">
               <li><Link to="/about" className="hover:text-primary hover:translate-x-1 transition-all inline-block">About Us</Link></li>
               <li><Link to="/contact" className="hover:text-primary hover:translate-x-1 transition-all inline-block">Help Center</Link></li>
+              <li><Link to="/faq" className="hover:text-primary hover:translate-x-1 transition-all inline-block">FAQs</Link></li>
               <li><Link to="/terms" className="hover:text-primary hover:translate-x-1 transition-all inline-block">Terms of Service</Link></li>
               <li><Link to="/privacy" className="hover:text-primary hover:translate-x-1 transition-all inline-block">Privacy Policy</Link></li>
             </ul>
@@ -102,8 +120,8 @@ function Footer() {
           <div className="flex flex-wrap justify-center gap-4 md:gap-8">
             <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms</Link>
             <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>
-            <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Cookies</Link>
           </div>
+
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
             <FaShieldAlt /> 256-Bit SSL Secured
           </div>

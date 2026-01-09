@@ -5,7 +5,7 @@ import Button from '../Components/ui/Button';
 
 function NotFound() {
     return (
-        <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center animate-fade-in-up">
+        <div className="min-h-[80vh] flex flex-col items-center justify-center px-6 py-64 text-center animate-fade-in-up">
             <div className="w-24 h-24 bg-secondary rounded-full flex items-center justify-center mb-6 shadow-inner">
                 <FaCompass className="text-4xl text-muted-foreground animate-pulse" />
             </div>

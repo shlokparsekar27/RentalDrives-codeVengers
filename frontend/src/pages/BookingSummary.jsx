@@ -20,11 +20,21 @@ const BookingSummary = () => {
         return null;
     }
 
-    const { vehicle, startDate, endDate, totalPrice } = state;
-    const days = totalPrice / vehicle.price_per_day;
-    const totalCost = totalPrice; // Alias for consistent usage in UI snippet
-    const platformFee = totalPrice * 0.02;
-    const finalTotal = totalPrice + platformFee;
+    const { vehicle, startDate, endDate, totalPrice, addPickup, addDropoff } = state;
+
+    // Recalculate breakdown to ensure accuracy
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const rentalCost = days * vehicle.price_per_day;
+    const pickupCost = (addPickup && vehicle.pickup_available) ? Number(vehicle.pickup_charge) : 0;
+    const dropoffCost = (addDropoff && vehicle.dropoff_available) ? Number(vehicle.dropoff_charge) : 0;
+
+    const subtotal = rentalCost + pickupCost + dropoffCost;
+    const platformFee = subtotal * 0.02;
+    const finalTotal = subtotal + platformFee;
 
     const bookingMutation = useMutation({
         mutationFn: createBooking,
@@ -121,16 +131,31 @@ const BookingSummary = () => {
                             <div className="p-6 space-y-4">
                                 <div className="bg-secondary/20 rounded-xl p-4 border border-border/50 space-y-3 animate-fade-in-up">
                                     <div className="flex justify-between text-sm text-muted-foreground">
-                                        <span className="font-medium">₹{vehicle.price_per_day} x {days} days</span>
-                                        <span className="font-mono-numbers">₹{totalCost.toLocaleString()}</span>
+                                        <span className="font-medium">Rental (₹{vehicle.price_per_day} x {days} days)</span>
+                                        <span className="font-mono-numbers">₹{rentalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
+
+                                    {pickupCost > 0 && (
+                                        <div className="flex justify-between text-sm text-muted-foreground animate-fade-in">
+                                            <span className="font-medium">Pickup Fee</span>
+                                            <span className="font-mono-numbers">₹{pickupCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+
+                                    {dropoffCost > 0 && (
+                                        <div className="flex justify-between text-sm text-muted-foreground animate-fade-in">
+                                            <span className="font-medium">Drop-off Fee</span>
+                                            <span className="font-mono-numbers">₹{dropoffCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-between text-sm text-muted-foreground">
                                         <span className="font-medium">Platform Fee (2%)</span>
-                                        <span className="font-mono-numbers">₹{(totalCost * 0.02).toFixed(0)}</span>
+                                        <span className="font-mono-numbers">₹{platformFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="flex justify-between text-lg font-bold text-foreground pt-3 border-t border-border border-dashed">
                                         <span>Total</span>
-                                        <span className="font-mono-numbers text-primary">₹{(totalCost * 1.02).toLocaleString()}</span>
+                                        <span className="font-mono-numbers text-primary">₹{finalTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
                                 </div>
                                 <div className="text-xs text-center text-muted-foreground pt-2">

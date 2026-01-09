@@ -15,6 +15,12 @@ const fetchVehicle = async (id) => {
   return response.json();
 };
 
+const fetchVehicleBookings = async (id) => {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/vehicles/${id}/bookings`);
+  if (!response.ok) throw new Error('Failed to fetch bookings');
+  return response.json();
+};
+
 const VehicleDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -23,6 +29,8 @@ const VehicleDetail = () => {
   // Booking State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [addPickup, setAddPickup] = useState(false);
+  const [addDropoff, setAddDropoff] = useState(false);
 
   // Query
   const { data: vehicle, isLoading, isError } = useQuery({
@@ -30,21 +38,55 @@ const VehicleDetail = () => {
     queryFn: () => fetchVehicle(id),
   });
 
+  const { data: existingBookings } = useQuery({
+    queryKey: ['vehicleBookings', id],
+    queryFn: () => fetchVehicleBookings(id),
+    enabled: !!id,
+  });
+
   if (isLoading) return <div className="min-h-[100dvh] pt-32 text-center font-mono animate-pulse text-muted-foreground flex items-center justify-center">INITIALIZING ASSET DATA...</div>;
   if (isError) return <div className="min-h-[100dvh] pt-32 text-center text-destructive flex items-center justify-center">Asset unavailable or has been delisted.</div>;
 
   // --- Financial Logic ---
-  const calculateTotal = () => {
+  // --- Financial Logic ---
+  const days = (() => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays * vehicle.price_per_day : 0;
+    // Ensure we count at least 1 day if start/end are same?? No, existing logic was > 0.
+    // If user picks same day, it acts as 0. Usually rentals are 24h min.
+    // Let's stick to simple diff calculation. 
+    // Usually start != end for a valid booking.
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  })();
+
+  const totalCost = (() => {
+    if (days <= 0) return 0;
+    let total = days * vehicle.price_per_day;
+    if (addPickup && vehicle.pickup_available) total += (Number(vehicle.pickup_charge) || 0);
+    if (addDropoff && vehicle.dropoff_available) total += (Number(vehicle.dropoff_charge) || 0);
+    return total;
+  })();
+
+  // --- Availability Logic ---
+  const checkAvailability = () => {
+    if (!startDate || !endDate || !existingBookings) return true;
+    const userStart = new Date(startDate);
+    const userEnd = new Date(endDate);
+
+    // Check if start date is before end date
+    if (userStart > userEnd) return false;
+
+    return !existingBookings.some(booking => {
+      const bookingStart = new Date(booking.start_date);
+      const bookingEnd = new Date(booking.end_date);
+      return (userStart <= bookingEnd && userEnd >= bookingStart);
+    });
   };
 
-  const totalCost = calculateTotal();
-  const days = totalCost / vehicle.price_per_day;
+  const isAvailable = checkAvailability();
+  const dateError = startDate && endDate && new Date(startDate) > new Date(endDate); // Basic validation
 
   // --- Ratings & Trips Calculation ---
   const reviews = vehicle.reviews || [];
@@ -62,7 +104,9 @@ const VehicleDetail = () => {
         vehicle,
         startDate,
         endDate,
-        totalPrice: totalCost
+        totalPrice: totalCost,
+        addPickup,
+        addDropoff
       }
     });
   };
@@ -100,11 +144,6 @@ const VehicleDetail = () => {
 
               {/* Badges */}
               <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
-                {vehicle.is_certified && (
-                  <Badge variant="success" className="bg-emerald-500/90 text-white border-0 backdrop-blur-md shadow-lg flex items-center gap-1.5 px-3 py-1.5">
-                    <FaCheckCircle className="text-white" /> Verified Listing
-                  </Badge>
-                )}
                 {vehicle.fuel_type === 'Electric' && (
                   <Badge variant="success" className="bg-blue-500/90 text-white border-0 backdrop-blur-md shadow-lg flex items-center gap-1.5 px-3 py-1.5">
                     <FaLeaf /> Zero Emissions
@@ -115,7 +154,14 @@ const VehicleDetail = () => {
               {/* Mobile Title Overlay (Only visible on smallest screens inside image) */}
               <div className="absolute bottom-5 left-5 right-5 text-white lg:hidden">
                 <h1 className="text-3xl font-bold leading-none shadow-black drop-shadow-md">{vehicle.make} {vehicle.model}</h1>
-                <p className="text-white/80 font-mono text-sm mt-1">{vehicle.year} Edition</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-white/80 font-mono text-sm">{vehicle.year} Edition</p>
+                  {vehicle.is_certified && (
+                    <span className="flex items-center gap-1 text-emerald-300 font-bold text-[10px] bg-emerald-950/60 px-2 py-0.5 rounded backdrop-blur-md border border-emerald-500/30">
+                      <FaCheckCircle size={10} /> Verified
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -127,11 +173,19 @@ const VehicleDetail = () => {
                   <span className="flex items-center gap-1.5 text-sm bg-secondary/50 px-2 py-0.5 rounded text-foreground font-medium"><FaCarSide size={12} /> {vehicle.year}</span>
                   <span className="text-xs">•</span>
                   <span className="flex items-center gap-1.5 text-sm bg-secondary/50 px-2 py-0.5 rounded text-foreground font-medium"><FaRoad size={12} /> Unlimited KMs</span>
+                  {vehicle.is_certified && (
+                    <>
+                      <span className="text-xs">•</span>
+                      <span className="flex items-center gap-1.5 text-sm bg-emerald-100 dark:bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-700 dark:text-emerald-400 font-bold">
+                        <FaCheckCircle size={12} /> Verified
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Pricing</p>
-                <p className="text-3xl font-bold font-mono-numbers text-primary">₹{vehicle.price_per_day}<span className="text-lg text-muted-foreground font-sans font-medium">/day</span></p>
+                <p className="text-3xl font-bold font-mono-numbers text-primary">₹{vehicle.price_per_day}<span className="text-lg text-muted-foreground font-sans font-medium"> / day</span></p>
               </div>
             </div>
 
@@ -168,13 +222,15 @@ const VehicleDetail = () => {
                   <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Vehicle Hosted By</p>
                   <h4 className="font-bold text-lg text-foreground">{vehicle.profiles?.full_name || 'Verified Partner'}</h4>
                   {avgRating ? (
-                    <p className="text-xs text-emerald-600 font-bold flex items-center gap-1 mt-0.5"><FaStar className="mb-0.5" /> {avgRating} Host Rating ({reviews.length} reviews)</p>
+                    <Link to={`/vehicle/${id}/reviews`} className="text-xs text-emerald-600 font-bold flex items-center gap-1 mt-0.5 hover:underline">
+                      <FaStar className="mb-0.5" /> {avgRating} Host Rating ({reviews.length} reviews)
+                    </Link>
                   ) : (
                     <p className="text-xs text-emerald-600 font-bold flex items-center gap-1 mt-0.5"><FaCheckCircle className="mb-0.5" /> Verified Host</p>
                   )}
                 </div>
               </div>
-              <Button to={`/users/${vehicle.profiles?.id}`} variant="outline" size="sm" className="hidden sm:flex">View Profile</Button>
+              <Button to={`/users/${vehicle.host_id}`} variant="outline" size="sm" className="shrink-0">View Profile</Button>
             </div>
 
           </div>
@@ -189,7 +245,7 @@ const VehicleDetail = () => {
                     <div>
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Rate</p>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-bold text-foreground font-mono-numbers tracking-tight">₹{vehicle.price_per_day}</span>
+                        <span className="text-4xl font-bold text-foreground font-mono-numbers tracking-tight">₹{Number(vehicle.price_per_day).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                         <span className="text-sm text-muted-foreground font-medium">/ day</span>
                       </div>
                     </div>
@@ -204,7 +260,9 @@ const VehicleDetail = () => {
                         </div>
                       )}
 
-                      <span className="text-[10px] text-muted-foreground underline decoration-dotted">{tripsCount > 0 ? `${tripsCount} Trips` : 'No trips yet'}</span>
+                      <Link to={`/vehicle/${id}/reviews`} className="text-[10px] text-muted-foreground underline decoration-dotted hover:text-primary transition-colors cursor-pointer">
+                        {reviews.length} Review{reviews.length !== 1 ? 's' : ''}
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -220,7 +278,11 @@ const VehicleDetail = () => {
                           type="date"
                           className="w-full px-4 py-3 bg-background border border-input rounded-xl text-sm font-medium focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all dark:[color-scheme:dark] cursor-pointer"
                           value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setStartDate(val);
+                            if (endDate && val > endDate) setEndDate('');
+                          }}
                           min={new Date().toISOString().split('T')[0]}
                         />
                       </div>
@@ -237,20 +299,71 @@ const VehicleDetail = () => {
                     </div>
                   </div>
 
+                  {/* Extra Services Selector */}
+                  {(vehicle.pickup_available || vehicle.dropoff_available) && (
+                    <div className="space-y-3 p-4 rounded-xl border border-border/50 bg-secondary/10">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Extra Services</p>
+
+                      {vehicle.pickup_available && (
+                        <label className="flex items-center justify-between cursor-pointer group p-2 hover:bg-secondary/30 rounded-lg transition-colors">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={addPickup}
+                              onChange={() => setAddPickup(!addPickup)}
+                              className="w-4 h-4 rounded border-input text-primary focus:ring-primary/20"
+                            />
+                            <span className="text-sm font-medium">Pickup Service</span>
+                          </div>
+                          <span className="text-xs font-bold font-mono-numbers text-primary">+₹{vehicle.pickup_charge}</span>
+                        </label>
+                      )}
+
+                      {vehicle.dropoff_available && (
+                        <label className="flex items-center justify-between cursor-pointer group p-2 hover:bg-secondary/30 rounded-lg transition-colors">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={addDropoff}
+                              onChange={() => setAddDropoff(!addDropoff)}
+                              className="w-4 h-4 rounded border-input text-primary focus:ring-primary/20"
+                            />
+                            <span className="text-sm font-medium">Drop-off Service</span>
+                          </div>
+                          <span className="text-xs font-bold font-mono-numbers text-primary">+₹{vehicle.dropoff_charge}</span>
+                        </label>
+                      )}
+                    </div>
+                  )}
+
                   {/* Summary Accordion */}
                   {totalCost > 0 ? (
                     <div className="bg-secondary/20 rounded-xl p-4 border border-border/50 space-y-3 animate-fade-in-up">
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span className="font-medium">₹{vehicle.price_per_day} x {days} days</span>
-                        <span className="font-mono-numbers">₹{totalCost.toLocaleString()}</span>
+                        <span className="font-mono-numbers">₹{(days * vehicle.price_per_day).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                       </div>
+
+                      {addPickup && vehicle.pickup_available && (
+                        <div className="flex justify-between text-sm text-muted-foreground animate-fade-in">
+                          <span className="font-medium">Pickup Fee</span>
+                          <span className="font-mono-numbers">₹{Number(vehicle.pickup_charge).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                        </div>
+                      )}
+
+                      {addDropoff && vehicle.dropoff_available && (
+                        <div className="flex justify-between text-sm text-muted-foreground animate-fade-in">
+                          <span className="font-medium">Drop-off Fee</span>
+                          <span className="font-mono-numbers">₹{Number(vehicle.dropoff_charge).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span className="font-medium">Platform Fee (2%)</span>
-                        <span className="font-mono-numbers">₹{(totalCost * 0.02).toFixed(0)}</span>
+                        <span className="font-mono-numbers">₹{(totalCost * 0.02).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex justify-between text-lg font-bold text-foreground pt-3 border-t border-border border-dashed">
                         <span>Total</span>
-                        <span className="font-mono-numbers text-primary">₹{(totalCost * 1.02).toLocaleString()}</span>
+                        <span className="font-mono-numbers text-primary">₹{(totalCost * 1.02).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </div>
                   ) : (
@@ -263,11 +376,15 @@ const VehicleDetail = () => {
                     variant="primary"
                     fullWidth
                     size="lg"
-                    disabled={!startDate || !endDate || totalCost <= 0}
+                    disabled={!startDate || !endDate || totalCost <= 0 || !isAvailable || dateError}
                     onClick={handleBookingHelper}
-                    className="shadow-xl shadow-primary/20 font-bold h-12 text-base transition-transform active:scale-[0.98]"
+                    className={`shadow-xl shadow-primary/20 font-bold h-12 text-base transition-transform active:scale-[0.98] ${!isAvailable ? 'opacity-50 cursor-not-allowed bg-destructive hover:bg-destructive' : ''}`}
                   >
-                    {!startDate ? 'Check Availability' : 'Proceed to Book'}
+                    {!startDate
+                      ? 'Check Availability'
+                      : !isAvailable
+                        ? 'Vehicle Not Available'
+                        : 'Review Booking'}
                   </Button>
 
                   <div className="flex flex-col gap-2 pt-2">
@@ -293,7 +410,11 @@ const VehicleDetail = () => {
         <div className="grid grid-cols-2 gap-3 mb-3 animate-fade-in">
           <div className="relative group cursor-pointer" onClick={(e) => e.currentTarget.querySelector('input').showPicker()}>
             <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 ml-1 pointer-events-none">Pickup Date</p>
-            <input type="date" className="w-full p-2.5 bg-secondary rounded-xl text-xs font-bold border-none focus:ring-1 focus:ring-primary dark:[color-scheme:dark] cursor-pointer" value={startDate} onChange={e => setStartDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+            <input type="date" className="w-full p-2.5 bg-secondary rounded-xl text-xs font-bold border-none focus:ring-1 focus:ring-primary dark:[color-scheme:dark] cursor-pointer" value={startDate} onChange={e => {
+              const val = e.target.value;
+              setStartDate(val);
+              if (endDate && val > endDate) setEndDate('');
+            }} min={new Date().toISOString().split('T')[0]} />
           </div>
           <div className="relative group cursor-pointer" onClick={(e) => e.currentTarget.querySelector('input').showPicker()}>
             <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1 ml-1 pointer-events-none">Drop-off Date</p>
@@ -301,12 +422,52 @@ const VehicleDetail = () => {
           </div>
         </div>
 
+        {/* Mobile Extra Services */}
+        {(vehicle.pickup_available || vehicle.dropoff_available) && (
+          <div className="grid grid-cols-2 gap-3 mb-3 animate-fade-in">
+            {vehicle.pickup_available && (
+              <label className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${addPickup ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary border-transparent text-muted-foreground'}`}>
+                <div className="flex flex-col leading-none">
+                  <span className="text-[10px] font-bold uppercase tracking-wide">Pickup Service</span>
+                  <span className="text-[10px] opacity-80 font-mono-numbers">+₹{vehicle.pickup_charge}</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={addPickup}
+                  onChange={() => setAddPickup(!addPickup)}
+                  className="w-3.5 h-3.5 rounded-sm border-primary/20 text-primary focus:ring-offset-0 focus:ring-primary/20 accent-primary cursor-pointer shrink-0"
+                />
+              </label>
+            )}
+            {vehicle.dropoff_available && (
+              <label className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${addDropoff ? 'bg-primary/10 border-primary text-primary' : 'bg-secondary border-transparent text-muted-foreground'}`}>
+                <div className="flex flex-col leading-none">
+                  <span className="text-[10px] font-bold uppercase tracking-wide">Dropoff Service</span>
+                  <span className="text-[10px] opacity-80 font-mono-numbers">+₹{vehicle.dropoff_charge}</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={addDropoff}
+                  onChange={() => setAddDropoff(!addDropoff)}
+                  className="w-3.5 h-3.5 rounded-sm border-primary/20 text-primary focus:ring-offset-0 focus:ring-primary/20 accent-primary cursor-pointer shrink-0"
+                />
+              </label>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            {totalCost > 0 && <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 animate-pulse">Available</p>}
+            {totalCost > 0 && (
+              isAvailable ? (
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5 animate-pulse">Available</p>
+              ) : (
+                <p className="text-[10px] font-bold text-destructive uppercase tracking-wider mb-0.5">Not Available</p>
+              )
+            )}
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-bold font-mono-numbers text-foreground truncate">
-                {totalCost > 0 ? `₹${(totalCost * 1.02).toLocaleString()}` : `₹${vehicle.price_per_day}`}
+                {totalCost > 0 ? `₹${(totalCost * 1.02).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `₹${Number(vehicle.price_per_day).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
               </span>
               <span className="text-xs text-muted-foreground font-medium truncate">
                 {totalCost > 0 ? 'total' : '/ day'}
@@ -314,13 +475,15 @@ const VehicleDetail = () => {
             </div>
           </div>
           <Button
-            onClick={totalCost > 0 ? handleBookingHelper : () => { }}
+            onClick={totalCost > 0 && isAvailable ? handleBookingHelper : () => { }}
             variant="primary"
             size="lg"
-            className="px-6 shadow-xl shadow-primary/25 flex-1 h-12 text-base font-bold"
-            disabled={!startDate || !endDate}
+            className={`px-6 shadow-xl shadow-primary/25 flex-1 h-12 text-base font-bold ${!isAvailable ? 'opacity-50 cursor-not-allowed bg-destructive hover:bg-destructive' : ''}`}
+            disabled={!startDate || !endDate || !isAvailable || dateError}
           >
-            {totalCost > 0 ? 'Book Now' : 'Select Dates'}
+            {totalCost > 0
+              ? (!isAvailable ? 'Not Available' : 'Book Now')
+              : 'Select Dates'}
           </Button>
         </div>
       </div>

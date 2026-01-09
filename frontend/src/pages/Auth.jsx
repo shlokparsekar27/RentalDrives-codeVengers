@@ -142,7 +142,7 @@ const Auth = () => {
                                     >
                                         <FaWalking size={20} />
                                         <span className="text-xs font-bold uppercase">Tourist</span>
-                                        {formData.role === 'tourist' && <FaCheck className="absolute top-2 right-2 text-xs" />}
+
                                     </div>
                                     <div
                                         onClick={() => setFormData({ ...formData, role: 'host' })}

@@ -15,9 +15,6 @@ function TermsOfService() {
                 <div className="text-center mb-16">
                     <Badge variant="outline" className="mb-4">Legal Agreement</Badge>
                     <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Terms of Service</h1>
-                    <p className="text-muted-foreground text-lg">
-                        Please review the contract governing your use of the RentalDrives marketplace.
-                    </p>
                     <p className="text-xs font-mono text-muted-foreground mt-4 uppercase tracking-wider">
                         Last Modified: {LastUpdated}
                     </p>

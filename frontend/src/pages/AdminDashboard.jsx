@@ -309,7 +309,7 @@ function AdminDashboard() {
                             </div>
                             <h3 className="text-2xl font-bold text-foreground">All Clear</h3>
                             <p className="mt-2 text-muted-foreground max-w-sm text-lg">
-                                Zero pending approvals. The system is up to date.
+                                Zero pending approvals.
                             </p>
                         </div>
                     )}

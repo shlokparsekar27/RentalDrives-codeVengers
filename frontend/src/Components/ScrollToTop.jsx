@@ -5,7 +5,12 @@ export default function ScrollToTop() {
     const { pathname } = useLocation();
 
     useEffect(() => {
-        // Instant, no smooth scroll, for precise "new page" feel
+        // Disable browser's default scroll restoration to prevent "jumping" to footer/middle on Back
+        // This gives us full control to always start at the top
+        if ('scrollRestoration' in window.history) {
+            window.history.scrollRestoration = 'manual';
+        }
+
         window.scrollTo(0, 0);
     }, [pathname]);
 
