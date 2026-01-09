@@ -15,10 +15,11 @@ import invoiceRoutes from "./routes/invoice.js";
 
 
 
+// app declared once
 const app = express();
-app.use(cors());
+app.use(cors({ origin: 'http://localhost:5173' })); // Secure CORS
 app.use(express.json());
-app.use("/api/invoice", invoiceRoutes);
+// Invoice route moved down after middleware definition
 
 
 const razorpay = new Razorpay({
@@ -55,6 +56,9 @@ const authenticateToken = (req, res, next) => {
     res.status(403).json({ error: 'Invalid token' });
   }
 };
+
+// Route Mounting (Must be after middleware definition)
+app.use("/api/invoice", authenticateToken, invoiceRoutes); // Secure Invoice Route
 //<---new code for rls error >
 function getUserSupabase(req) {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
@@ -70,15 +74,10 @@ async function checkAdmin(req) {
   const userId = req.user?.sub;
   const metaRole = req.user?.user_metadata?.role;
   console.log(`🔒 Checking Admin Access for ${userId}`);
-  console.log(`   - Metadata Role: ${metaRole}`);
 
-  // 1. Fast check: Metadata
-  if (metaRole === 'admin') {
-    console.log("   - ✅ Approved via Metadata");
-    return true;
-  }
+  // Removed Metadata Fast Check for Security - Always verify DB
 
-  // 2. Database check (Source of Truth)
+  // Database check (Source of Truth)
   try {
     const { data, error } = await supabase
       .from('profiles')

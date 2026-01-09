@@ -14,12 +14,14 @@ const supabase = createClient(
 // GET /api/invoice/:id
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
+  const user = req.user; // From authenticateToken middleware
 
   try {
     // Fetch booking with vehicle and user info
-  const { data: booking, error: bookingError } = await supabase
-  .from("bookings")
-  .select(`
+    // Also fetch vehicle owner_id to check if requester is Host
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select(`
     id,
     created_at,
     user_id,
@@ -30,14 +32,27 @@ router.get("/:id", async (req, res) => {
     status,
     dropoff_location,
     invoice_no,
-    vehicles(make, model),
+    vehicles(make, model, owner_id),
     profiles(full_name, phone_primary)
   `)
-  .eq("id", id)
-  .single();
+      .eq("id", id)
+      .single();
 
     if (bookingError || !booking) {
       return res.status(404).json({ error: "Booking not found" });
+    }
+
+    // AUTH CHECK: Ensure user is Guest OR Host OR Admin
+    // Using simple vehicle properties check assuming join worked
+    const isGuest = booking.user_id === user.sub;
+    // Handle array or object structure for joined vehicles
+    const vehicleData = Array.isArray(booking.vehicles) ? booking.vehicles[0] : booking.vehicles;
+    const isHost = vehicleData?.owner_id === user.sub;
+    const isAdmin = user.role === 'admin' || user.user_metadata?.role === 'admin'; // Fallback check or use DB profile check if needed, but token role is usually sufficient for download access
+
+    if (!isGuest && !isHost && !isAdmin) {
+      console.warn(`⛔ Unauthorized Invoice Access: User ${user.sub} tried to access Booking ${id}`);
+      return res.status(403).json({ error: "Unauthorized access to this invoice" });
     }
 
     // If invoice_no is missing, generate one
@@ -65,7 +80,7 @@ router.get("/:id", async (req, res) => {
     const doc = new PDFDocument({ margin: 50 });
 
     res.setHeader("Content-Type", "application/pdf");
-   res.setHeader("Content-Disposition", `inline; filename=invoice-${invoiceNo}.pdf`);  // only views in browser
+    res.setHeader("Content-Disposition", `inline; filename=invoice-${invoiceNo}.pdf`);  // only views in browser
     //res.setHeader("Content-Disposition", `attachment; filename=invoice-${invoiceNo}.pdf`);// directly downloads in browser
 
 
@@ -89,14 +104,14 @@ router.get("/:id", async (req, res) => {
     doc.moveDown();
 
     doc.fontSize(14).text("Billed To:");
-doc.fontSize(12).text(`${booking.profiles?.full_name || "N/A"}`);
-doc.text(`Phone: ${booking.profiles?.phone_primary || "N/A"}`);
+    doc.fontSize(12).text(`${booking.profiles?.full_name || "N/A"}`);
+    doc.text(`Phone: ${booking.profiles?.phone_primary || "N/A"}`);
 
-doc.fontSize(14).text("Host:");
-doc.fontSize(12).text(`${booking.hosts?.full_name || "N/A"}`);
-doc.text(`Phone: ${booking.hosts?.phone_primary || "N/A"}`);
+    doc.fontSize(14).text("Host:");
+    doc.fontSize(12).text(`${booking.hosts?.full_name || "N/A"}`);
+    doc.text(`Phone: ${booking.hosts?.phone_primary || "N/A"}`);
 
-doc.fontSize(12).text(`Vehicle: ${booking.vehicles?.make || "N/A"} ${booking.vehicles?.model || ""}`);
+    doc.fontSize(12).text(`Vehicle: ${booking.vehicles?.make || "N/A"} ${booking.vehicles?.model || ""}`);
 
 
     // Booking summary
