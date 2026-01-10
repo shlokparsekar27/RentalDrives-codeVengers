@@ -16,7 +16,6 @@ RentalDrives is a community-driven marketplace that connects travelers with a ne
     * **React + JavaScript** : Main UI framework for building the user interface.
     * **Tailwind CSS** : Fast, responsive, utility-first styling.
     * **React Query (TanStack Query)** : Data fetching & caching with real-time updates from Supabase.
-    * **Leaflet.js / Mapbox** : Location-based search & map display (Mapbox free tier: 50K map loads/month).
     * **Vite** : Next-generation frontend tooling for fast development.
 
 * **Backend:**
@@ -50,10 +49,6 @@ The complete blueprint for our backend is documented in the API Contract. It det
 Additionally, the running backend server provides interactive Swagger UI documentation.
 
 ## Live Demo & API
-
-The frontend for this project is deployed and live on Vercel.
-
-* **Base URL:** [`https://frontend-iota-steel-72.vercel.app`](https://frontend-iota-steel-72.vercel.app)
 
 The backend for this project is deployed and live on Render.
 
