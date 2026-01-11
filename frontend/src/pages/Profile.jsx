@@ -419,7 +419,7 @@ function Profile() {
                 {activeTab === 'identity' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
                         <Card className="p-6">
-                            <h3 className="font-bold flex items-center gap-2 mb-4"><FaIdCard className="text-primary" /> Tourist License</h3>
+                            <h3 className="font-bold flex items-center gap-2 mb-4"><FaIdCard className="text-primary" /> Driver License</h3>
                             <p className="text-sm text-muted-foreground mb-6">Upload your government issued driving license.</p>
                             {profile?.license_document_url && !isUpdatingLicense ? (
                                 <div className="bg-emerald-500/10 text-emerald-600 p-4 rounded-lg flex items-center justify-between">
