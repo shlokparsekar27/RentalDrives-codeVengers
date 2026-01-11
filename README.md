@@ -21,7 +21,6 @@ RentalDrives is a community-driven marketplace that connects travelers with a ne
 * **Backend:**
   * **Node.js + Express** : Handles:
     * Razorpay payment integration.
-    * WhatsApp Cloud API for booking notifications.
     * Any extra business logic not handled directly in Supabase.
   * **Supabase Edge Functions** : Optional serverless functions for quick, secure logic without leaving Supabase.
 
@@ -34,9 +33,8 @@ RentalDrives is a community-driven marketplace that connects travelers with a ne
   * **Supabase Storage** : Vehicle images, driver license docs (50MB free tier).
   * **Supabase Realtime** : Live booking status updates.
 
-* **Payment & Messaging:**
+* **Payment:**
   * **Razorpay API** : Secure online payments (pay-per-transaction, no monthly fee).
-  * **WhatsApp Cloud API** : Automated booking & payment notifications (1,000 free business messages/month).
 
  ---
  
