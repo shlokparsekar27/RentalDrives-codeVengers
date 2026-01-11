@@ -57,7 +57,7 @@ function Cars() {
           <div>
             <Badge variant="outline" className="mb-2 border-primary/20 text-primary bg-primary/5">Premium Fleet</Badge>
             <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
-              Select Your Class
+              Select Your Car
             </h1>
           </div>
           {/* Mobile Filter Toggle */}
