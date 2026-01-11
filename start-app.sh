@@ -22,7 +22,7 @@ echo "🚀 Starting RentalDrives System..."
 # Start Backend
 echo "   --> Launching Backend (Port 3001)..."
 cd backend
-npm start &
+npm run dev &
 BACKEND_PID=$!
 
 # Wait a moment for backend to initialize
